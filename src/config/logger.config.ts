@@ -46,3 +46,7 @@ export const winstonConfig = {
         }),
     ],
 };
+
+// Re-export the audit logger so callers have one canonical import path.
+// Source of truth lives in src/common/audit/audit.logger.ts (Phase 2 Plan 01).
+export { auditLogger } from '../common/audit/audit.logger';
