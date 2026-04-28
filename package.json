@@ -21,7 +21,10 @@
         "prisma:migrate:resolve": "node scripts/forbid-migrate.cjs",
         "prisma:migrate:status": "node scripts/forbid-migrate.cjs",
         "ci:prisma-drift": "bash scripts/ci-prisma-drift.sh",
-        "ci:forbid-migrations-dir": "bash scripts/ci-forbid-migrations-dir.sh"
+        "ci:forbid-migrations-dir": "bash scripts/ci-forbid-migrations-dir.sh",
+        "ci:audit-required": "node scripts/ci-audit-decorator-check.cjs",
+        "ci:audit-required:self-test:fail": "node -e \"const {spawnSync}=require('child_process');const r=spawnSync(process.execPath,['scripts/ci-audit-decorator-check.cjs','scripts/__fixtures__/audit-violation.controller.ts'],{stdio:'inherit'});process.exit(r.status===1?0:1);\"",
+        "ci:audit-required:self-test:pass": "node scripts/ci-audit-decorator-check.cjs scripts/__fixtures__/audit-passing.controller.ts"
     },
     "dependencies": {
         "@nestjs-modules/ioredis": "^2.0.2",
