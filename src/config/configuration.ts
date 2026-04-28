@@ -11,6 +11,9 @@ export const configuration = () => ({
         adminSecret: process.env.JWT_ADMIN_SECRET ?? '',
         accessTtl: process.env.JWT_ADMIN_ACCESS_TTL ?? '15m',
         refreshTtl: process.env.JWT_ADMIN_REFRESH_TTL ?? '7d',
+        // Numeric seconds parallel to refreshTtl ('7d' string). ioredis SET EX requires a number.
+        // env.validation.ts rejects boot when this is missing/non-numeric; the default below is a safety net.
+        refreshTtlSeconds: parseInt(process.env.JWT_ADMIN_REFRESH_TTL_SECONDS ?? '604800', 10),
     },
     redis: {
         host: process.env.REDIS_HOST ?? '',

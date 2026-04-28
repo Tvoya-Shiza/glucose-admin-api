@@ -1,4 +1,4 @@
-import { plainToInstance } from 'class-transformer';
+import { plainToInstance, Type } from 'class-transformer';
 import { IsNumber, IsOptional, IsString, MinLength, validateSync } from 'class-validator';
 
 class EnvironmentVariables {
@@ -25,6 +25,13 @@ class EnvironmentVariables {
     @IsOptional()
     @IsString()
     JWT_ADMIN_REFRESH_TTL?: string;
+
+    // Numeric seconds — must match JWT_ADMIN_REFRESH_TTL ('7d' = 604800).
+    // Used by RefreshTokenRepo for Redis EX TTL on the jti allowlist key.
+    // @Type(() => Number) is belt-and-suspenders alongside enableImplicitConversion in plainToInstance.
+    @Type(() => Number)
+    @IsNumber()
+    JWT_ADMIN_REFRESH_TTL_SECONDS!: number;
 
     @IsString()
     REDIS_HOST!: string;
