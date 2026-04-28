@@ -1,0 +1,1443 @@
+enum UserStatus {
+  active
+  pending
+  inactive
+}
+
+enum RegionType {
+  country
+  province
+  city
+  district
+  place_of_study
+}
+
+enum QuizStatus {
+  active
+  inactive
+}
+
+enum QuizQuestionType {
+  single
+  multiple
+  descriptive
+  identificative
+}
+
+enum QuizResultStatus {
+  waiting
+  passed
+  failed
+}
+
+enum PaymentMethod {
+  credit
+  payment_channel
+  subscribe
+  group_access
+}
+
+enum SaleType {
+  webinar
+  quiz
+  quiz_badge
+}
+
+enum WebinarType {
+  webinar
+  course
+  text_lesson
+}
+
+enum VideoDemoSource {
+  upload
+  youtube
+  vimeo
+  external_link
+  secure_host
+}
+
+enum WebinarStatus {
+  active
+  pending
+  is_draft
+  inactive
+}
+
+enum WebinarReviewStatus {
+  pending
+  active
+}
+
+enum WebinarChapterStatus {
+  active
+  inactive
+}
+
+enum WebinarChapterItemType {
+  file
+  quiz
+  assignment
+}
+
+enum FileAccessbility {
+  free
+  paid
+}
+
+enum FileStorage {
+  upload
+  youtube
+  vimeo
+  external_link
+  google_drive
+  dropbox
+  iframe
+  s3
+  upload_archive
+  secure_host
+}
+
+enum FileStatus {
+  active
+  inactive
+}
+
+enum RewardType {
+  account_charge
+  create_classes
+  buy
+  pass_the_quiz
+  certificate
+  comment
+  register
+  review_courses
+  instructor_meeting_reserve
+  student_meeting_reserve
+  newsletters
+  badge
+  referral
+  learning_progress_100
+  charge_wallet
+  buy_store_product
+  pass_assignment
+  send_post_in_topic
+  make_topic
+  create_blog_by_instructor
+  comment_for_instructor_blog
+}
+
+enum RewardStatus {
+  active
+  disabled
+}
+
+enum RewardAccountingStatus {
+  addiction
+  deduction
+}
+
+enum OrderStatus {
+  pending
+  paying
+  paid
+  fail
+}
+
+enum SessionEndType {
+  default
+  by_admin
+  by_user
+}
+
+enum WebinarAssignmentStatus {
+  active
+  inactive
+}
+
+enum WebinarAssignmentHistoryStatus {
+  pending
+  passed
+  not_passed
+  not_submitted
+}
+
+enum BlogStatus {
+  pending
+  publish
+}
+
+enum NotificationSender {
+  system
+  admin
+}
+
+enum NotificationType {
+  single
+  all_users
+  students
+  instructors
+  organizations
+  group
+  course_students
+}
+
+enum GroupStatus {
+  active
+  inactive
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                        Int                      @id @default(autoincrement())
+  full_name                 String?                  @db.VarChar(255)
+  last_activity             DateTime?
+  role_name                 String                   @db.VarChar(64)
+  role_id                   Int
+  referrer_id               Int?
+  mobile                    String?                  @db.VarChar(32)
+  email                     String?                  @db.VarChar(255)
+  password                  String?                  @db.VarChar(255)
+  verified                  Boolean                  @default(false)
+  avatar                    String?                  @db.VarChar(255)
+  about                     String?                  @db.Text
+  country_id                Int?
+  province_id               Int?
+  city_id                   Int?
+  district_id               Int?
+  school_id                 Int?
+  school_subject_id         Int?
+  status                    UserStatus               @default(active)
+  created_at                Int
+  updated_at                Int?
+  deleted_at                Int?
+  country                   Region?                  @relation("CountryUsers", fields: [country_id], references: [id])
+  province                  Region?                  @relation("ProvinceUsers", fields: [province_id], references: [id])
+  city                      Region?                  @relation("CityUsers", fields: [city_id], references: [id])
+  district                  Region?                  @relation("DistrictUsers", fields: [district_id], references: [id])
+  school                    Region?                  @relation("SchoolUsers", fields: [school_id], references: [id])
+
+  role Role @relation("RoleUsers", fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  school_subject SchoolSubject? @relation("SchoolSubjectUsers", fields: [school_subject_id], references: [id])
+
+  quiz_results       QuizResult[]      @relation("QuizResults")
+  quiz_badge_results QuizBadgeResult[] @relation("QuizBadgeResults")
+
+  codes Verification[]
+
+  referral_code UserReferralCode? @relation("UserReferralCode")
+
+  referrer  User?  @relation("UserReferrer", fields: [referrer_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  referrals User[] @relation("UserReferrer")
+
+  webinar_creators Webinar[] @relation("WebinarCreators")
+  webinar_teachers Webinar[] @relation("WebinarTeachers")
+
+  reviews WebinarReviews[] @relation("WebinarReviews")
+
+  rewards RewardAccounting[] @relation("RewardAccounting")
+
+  login_histories UserLoginHistory[] @relation("UserLoginHistories")
+
+  firebase_sessions UserFirebaseSession[] @relation("UserFirebaseSessions")
+
+  instructor_assignment_histories WebinarAssignmentHistory[] @relation("InstructorAssignmentHistory")
+  student_assignment_histories    WebinarAssignmentHistory[] @relation("StudentAssignmentHistory")
+  teacher_chapter_schedules       WebinarChapterSchedule[]   @relation("TeacherChapterSchedule")
+
+  group_users             GroupUser[]          @relation("GroupUsers")
+  created_groups          Group[]              @relation("GroupCreator")
+  supervised_groups       Group[]              @relation("GroupSupervisor")
+  authored_blogs          Blog[]               @relation("BlogAuthor")
+  authored_advertisements Advertisement[]      @relation("AdvertisementAuthor")
+  authored_stories        Story[]              @relation("StoryAuthor")
+  received_notifications  Notification[]       @relation("UserNotifications")
+  sent_notifications      Notification[]       @relation("SentNotifications")
+  notification_statuses   NotificationStatus[] @relation("UserNotificationStatuses")
+  carts                   Cart[]
+
+  orders                  Order[]              @relation("OrderUser")
+  sales_as_seller         Sale[]               @relation("SaleSeller")
+  sales_as_buyer          Sale[]               @relation("SaleBuyer")
+  created_assignments     WebinarAssignment[]  @relation("AssignmentCreator")
+  created_chapters        WebinarChapter[]     @relation("ChapterCreator")
+  created_chapter_items   WebinarChapterItem[] @relation("ChapterItemCreator")
+  created_files           Files[]              @relation("FileCreator")
+  created_attachments     WebinarAssignmentAttachment[] @relation("AttachmentCreator")
+  assignment_messages     WebinarAssignmentHistoryMessage[] @relation("AssignmentMessageSender")
+  created_promocodes      Promocode[]          @relation("PromocodeCreator")
+  promocode_usages        PromocodeUsage[]     @relation("PromocodeUsageUser")
+  course_learnings        CourseLearning[]     @relation("CourseLearningUser")
+
+  push_notification_logs PushNotificationLog[]
+
+  @@map("users")
+}
+
+model Role {
+  id   Int    @id @db.UnsignedInt @default(autoincrement())
+  name	  String	@db.VarChar(64)
+  is_admin	Boolean	@default(false)	
+  created_at	Int	@db.UnsignedInt
+
+  users User[] @relation("RoleUsers")
+
+  @@map("roles")
+}
+
+model Group {
+  id   Int    @id @db.UnsignedInt @default(autoincrement())
+  creator_id	Int @db.UnsignedInt
+  supervisor_id	Int? @db.UnsignedInt
+  name  String @db.VarChar(64)
+  status GroupStatus @default(inactive)
+
+  creator  User @relation("GroupCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  supervisor User? @relation("GroupSupervisor", fields: [supervisor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  members GroupUser[] @relation("GroupMembers")
+  chapter_schedules WebinarChapterSchedule[] @relation("ScheduleGroup")
+  notifications Notification[] @relation("NotificationGroup")
+
+  @@map("groups")
+}
+
+model GroupUser {
+  id         Int @id @default(autoincrement())
+  user_id    Int @db.UnsignedInt
+  group_id   Int @db.UnsignedInt
+  created_at Int
+
+  user  User  @relation("GroupUsers", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group Group @relation("GroupMembers", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("group_users")
+}
+
+model UserReferralCode {
+  id         Int      @id @default(autoincrement())
+  user_id    Int      @unique @db.UnsignedInt
+  code       String   @db.VarChar(6)
+  created_at DateTime @default(now())
+
+  user User @relation("UserReferralCode", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("user_referral_code")
+}
+
+//* Авторизация
+model Verification {
+  id          Int     @id @default(autoincrement())
+  user_id     Int?    @db.UnsignedInt
+  mobile      String? @db.VarChar(16)
+  email       String? @db.VarChar(64)
+  code        String  @db.VarChar(6)
+  verified_at Int?    @db.UnsignedInt
+  expired_at  Int?    @db.UnsignedInt
+  created_at  Int
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("verifications")
+}
+
+model UserLoginHistory {
+  id               Int                      @id @default(autoincrement())
+  user_id          Int                      @db.UnsignedInt
+  browser          String?                  @db.VarChar(255)
+  device           String?                  @db.VarChar(255)
+  os               String?                  @db.VarChar(255)
+  ip               String?                  @db.VarChar(255)
+  country          String?                  @db.VarChar(255)
+  city             String?                  @db.VarChar(255)
+  session_id       String                   @db.Text
+  session_start_at BigInt                   @db.UnsignedBigInt
+  session_end_at   BigInt?                  @db.UnsignedBigInt
+  end_session_type SessionEndType?
+  created_at       BigInt                   @db.UnsignedBigInt
+
+  user User @relation("UserLoginHistories", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("user_login_histories")
+}
+
+model UserFirebaseSession {
+  id         BigInt  @id @default(autoincrement())
+  user_id    Int     @db.UnsignedInt
+  token      String  @db.Text
+  fcm_token  String? @db.Text
+  ip         String  @db.VarChar(255)
+  created_at Int?
+  updated_at Int?
+
+  user User @relation("UserFirebaseSessions", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("user_firebase_sessions")
+}
+
+//* Регион
+model Region {
+  id          Int        @id @default(autoincrement())
+  country_id  Int?
+  province_id Int?
+  city_id     Int?
+  district_id Int?
+  type        RegionType
+  created_at  Int        @db.UnsignedInt
+
+  country  Region? @relation("CountryProvinces", fields: [country_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  province Region? @relation("ProvinceCities", fields: [province_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  city     Region? @relation("CityDistricts", fields: [city_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  district Region? @relation("DistrictPlaces", fields: [district_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  provinces    Region[] @relation("CountryProvinces")
+  cities       Region[] @relation("ProvinceCities")
+  districts    Region[] @relation("CityDistricts")
+  placeStudies Region[] @relation("DistrictPlaces")
+
+  countryUsers  User[] @relation("CountryUsers")
+  provinceUsers User[] @relation("ProvinceUsers")
+  cityUsers     User[] @relation("CityUsers")
+  districtUsers User[] @relation("DistrictUsers")
+  schoolUsers   User[] @relation("SchoolUsers")
+
+  promocodes Promocode[] @relation("PromocodeRegion")
+
+  translations RegionTranslation[]
+
+  @@map("regions")
+}
+
+model RegionTranslation {
+  id        Int    @id @default(autoincrement())
+  region_id Int
+  locale    String @db.VarChar(191)
+  title     String @db.VarChar(255)
+
+  region Region @relation(fields: [region_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([region_id, locale])
+  @@map("region_translations")
+}
+
+//* Предметы
+model SchoolSubject {
+  id         Int @id @default(autoincrement())
+  created_at Int
+  updated_at Int?
+
+  users User[] @relation("SchoolSubjectUsers")
+
+  translations SchoolSubjectTranslation[]
+
+  @@map("school_subjects")
+}
+
+model SchoolSubjectTranslation {
+  id                Int    @id @default(autoincrement())
+  school_subject_id Int
+  locale            String @db.VarChar(191)
+  title             String @db.VarChar(255)
+
+  school_subject SchoolSubject @relation(fields: [school_subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("school_subject_translations")
+}
+
+//* Тесты
+model Quizzes {
+  id                          Int        @id @default(autoincrement())
+  category_id                 Int?
+  subject_id                  Int?
+  price                       Decimal?   @db.Decimal(15, 3)
+  time                        Int?       @default(0)
+  attempt                     Int?
+  pass_mark                   Int
+  certificate                 Boolean
+  status                      QuizStatus @default(active)
+  total_mark                  Int?       @db.UnsignedInt
+  display_questions_randomly  Boolean    @default(false)
+  expiry_days                 Int?       @db.UnsignedInt
+  created_at                  Int
+  updated_at                  Int?
+
+  subject       QuizSubject?   @relation("QuizSubjects", fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz_category QuizCategory?  @relation("QuizCategories", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  questions     QuizQuestion[] @relation("QuizQuestions")
+  results       QuizResult[]   @relation("QuizResults")
+  sales         Sale[]         @relation("QuizSales")
+  carts         Cart[]         @relation(name: "QuizCarts")
+
+  quiz_badge_items QuizBadgeItem[] @relation("QuizBadgeQuizzes")
+
+  translations QuizTranslation[] @relation("QuizTranslations")
+
+  webinar_quizzes  WebinarQuiz[]  @relation("WebinarQuizzes")
+  order_items      OrderItem[]
+
+  @@map("quizzes")
+}
+
+model QuizTranslation {
+  id      Int    @id @default(autoincrement())
+  quiz_id Int    @db.UnsignedInt
+  locale  String @db.VarChar(191)
+  title   String @db.Text
+
+  quiz Quizzes @relation("QuizTranslations", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_translations")
+}
+
+model QuizCategory {
+  id         Int  @id @default(autoincrement())
+  parent_id  Int?
+  subject_id Int?
+  created_at Int?
+  updated_at Int?
+
+  quizzes Quizzes[] @relation("QuizCategories")
+
+  quiz_badges QuizBadge[] @relation("QuizCategoryBadges")
+
+  subject  QuizSubject?   @relation("QuizSubjects", fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  parent   QuizCategory?  @relation("QuizCategoryParent", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  children QuizCategory[] @relation("QuizCategoryParent")
+
+  translations QuizCategoryTranslation[] @relation("QuizCategoryTranslations")
+
+  @@map("quiz_categories")
+}
+
+model QuizCategoryTranslation {
+  id               Int    @id @default(autoincrement())
+  quiz_category_id Int
+  locale           String @db.VarChar(191)
+  title            String @db.VarChar(255)
+
+  quiz_category QuizCategory @relation("QuizCategoryTranslations", fields: [quiz_category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_category_translations")
+}
+
+model QuizSubject {
+  id         Int @id @default(autoincrement())
+  created_at Int?
+  updated_at Int?
+
+  quizzes Quizzes[] @relation("QuizSubjects")
+
+  categories   QuizCategory[]           @relation("QuizSubjects")
+  translations QuizSubjectTranslation[] @relation("QuizSubjectTranslations")
+
+  @@map("quiz_subjects")
+}
+
+model QuizSubjectTranslation {
+  id              Int    @id @default(autoincrement())
+  quiz_subject_id Int
+  locale          String @db.VarChar(191)
+  title           String @db.VarChar(255)
+
+  quiz_subject QuizSubject @relation("QuizSubjectTranslations", fields: [quiz_subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_subject_translations")
+}
+
+model QuizQuestion {
+  id               Int              @id @default(autoincrement())
+  quiz_id          Int              @db.UnsignedInt
+  grade            Int
+  answer_video_url String?          @db.VarChar(255)
+  type             QuizQuestionType @default(single)
+  image            String?          @db.Text
+  video            String?          @db.Text
+  order            Int?             @db.UnsignedInt
+  created_at       Int
+  updated_at       Int?
+
+  quiz    Quizzes              @relation("QuizQuestions", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  answers QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
+
+  translations QuizQuestionTranslation[] @relation("QuizQuestionTranslations")
+
+  @@map("quizzes_questions")
+}
+
+model QuizQuestionTranslation {
+  id                  Int     @id @default(autoincrement())
+  quizzes_question_id Int     @db.UnsignedInt
+  locale              String  @db.Char(255)
+  title               String  @db.Text
+  description         String? @db.Text
+  correct             String? @db.Text
+
+  question QuizQuestion @relation("QuizQuestionTranslations", fields: [quizzes_question_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_question_translations")
+}
+
+model QuizQuestionAnswer {
+  id          Int     @id @default(autoincrement())
+  question_id Int     @db.UnsignedInt
+  parent_id   Int?    @db.UnsignedInt
+  image       String? @db.Text
+  correct     Boolean @default(false)
+  created_at  Int
+  updated_at  Int?
+
+  question QuizQuestion         @relation("QuizQuestionAnswers", fields: [question_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  parent   QuizQuestionAnswer?  @relation("QuizQuestionAnswers", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  children QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
+
+  translations QuizQuestionAnswerTranslation[] @relation("QuizQuestionAnswerTranslations")
+
+  @@map("quizzes_questions_answers")
+}
+
+model QuizQuestionAnswerTranslation {
+  id                          Int    @id @default(autoincrement())
+  quizzes_questions_answer_id Int    @db.UnsignedInt
+  locale                      String @db.VarChar(191)
+  title                       String @db.Text
+
+  quizzes_question_answer QuizQuestionAnswer @relation("QuizQuestionAnswerTranslations", fields: [quizzes_questions_answer_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quizzes_questions_answer_translations")
+}
+
+model QuizResult {
+  id          Int              @id @default(autoincrement())
+  webinar_id  Int?             @db.UnsignedInt
+  quiz_id     Int              @db.UnsignedInt
+  user_id     Int              @db.UnsignedInt
+  results     String?          @db.Text
+  user_grade  Int?             @db.UnsignedInt
+  status      QuizResultStatus @default(waiting)
+  created_at  Int
+
+  quiz     Quizzes   @relation("QuizResults", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user     User      @relation("QuizResults", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([user_id, quiz_id, status], name: "idx_quiz_results_lookup")
+  @@map("quizzes_results")
+}
+
+model QuizBadge {
+  id               Int       @id @default(autoincrement())
+  is_active        Boolean   @default(true)
+  quiz_category_id Int?
+  created_at       DateTime  @default(now()) @db.Timestamp(0)
+  updated_at       DateTime? @db.Timestamp(0)
+
+  quiz_category QuizCategory?     @relation("QuizCategoryBadges", fields: [quiz_category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  items         QuizBadgeItem[]   @relation("QuizBadgeItems")
+  results       QuizBadgeResult[] @relation("QuizBadgeResults")
+
+  sales Sale[] @relation("QuizBadgeSales")
+
+  translations QuizBadgeTranslation[] @relation("QuizBadgeTranslations")
+
+  @@map("quiz_badges")
+}
+
+model QuizBadgeTranslation {
+  id            Int    @id @default(autoincrement())
+  quiz_badge_id Int
+  locale        String @db.VarChar(191)
+  title         String @db.VarChar(255)
+
+  created_at DateTime? @db.Timestamp(0)
+  updated_at DateTime? @db.Timestamp(0)
+
+  quiz_badge QuizBadge @relation("QuizBadgeTranslations", fields: [quiz_badge_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_badge_translations")
+}
+
+model QuizBadgeItem {
+  id            Int       @id @default(autoincrement())
+  quiz_badge_id Int
+  quiz_id       Int       @db.UnsignedInt
+  order         Int?      @db.UnsignedInt
+  created_at    DateTime  @default(now()) @db.Timestamp(0)
+  updated_at    DateTime? @db.Timestamp(0)
+
+  quiz_badge QuizBadge @relation("QuizBadgeItems", fields: [quiz_badge_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz       Quizzes   @relation("QuizBadgeQuizzes", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_badge_items")
+}
+
+model QuizBadgeResult {
+  id            Int              @id @default(autoincrement())
+  user_id       Int              @db.UnsignedInt
+  quiz_badge_id Int              @db.UnsignedInt
+  results       Json
+  user_grade    Int?
+  status        QuizResultStatus @default(waiting)
+  created_at    DateTime         @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?        @db.Timestamp(0)
+
+  user       User      @relation("QuizBadgeResults", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz_badge QuizBadge @relation("QuizBadgeResults", fields: [quiz_badge_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("quiz_badge_results")
+}
+
+//* Покупки
+model Sale {
+  id                       Int            @id @default(autoincrement())
+  seller_id                Int?           @db.UnsignedInt
+  buyer_id                 Int            @db.UnsignedInt
+  order_id                 Int?           @db.UnsignedInt
+  webinar_id               Int?           @db.UnsignedInt
+  quiz_id                  Int?           @db.UnsignedInt
+  quiz_badge_id            Int?           @db.UnsignedInt
+  payment_method           PaymentMethod?
+  type                     SaleType?
+  amount                   Decimal        @db.Decimal(13, 2)
+  tax                      Decimal?       @db.Decimal(13, 2)
+  commission               Decimal?       @db.Decimal(13, 2)
+  discount                 Decimal?       @db.Decimal(13, 2)
+  total_amount             Decimal?       @db.Decimal(13, 2)
+  manual_added             Boolean        @default(false)
+  access_to_purchased_item Boolean        @default(true)
+  created_at               Int            @db.UnsignedInt
+  refund_at                Int?           @db.UnsignedInt
+  access_days              Int?           @db.UnsignedInt
+
+  webinar    Webinar?   @relation("WebinarSales", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz       Quizzes?   @relation("QuizSales", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz_badge QuizBadge? @relation("QuizBadgeSales", fields: [quiz_badge_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  seller     User?      @relation("SaleSeller", fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  buyer      User       @relation("SaleBuyer", fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  order      Order?     @relation("OrderSales", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([buyer_id, webinar_id], name: "idx_sales_buyer_webinar")
+
+  @@map("sales")
+}
+
+model Order {
+  id                   Int            @id @default(autoincrement())
+  user_id              Int
+  status               OrderStatus
+  payment_method       PaymentMethod?
+  amount               Decimal        @db.Decimal(15, 2)
+  bonus_spent          Int?
+  tax                  Decimal?       @db.Decimal(13, 2)
+  total_discount       Decimal?       @db.Decimal(13, 2)
+  total_amount         Decimal?       @db.Decimal(13, 2)
+  product_delivery_fee Decimal?       @db.Decimal(13, 2)
+  receipt              String?        @db.VarChar(500)
+  created_at           Int
+
+  items OrderItem[]
+
+  user             User             @relation("OrderUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sales            Sale[]           @relation("OrderSales")
+  promocode_usages PromocodeUsage[] @relation("OrderPromocodeUsages")
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                      Int      @id @default(autoincrement())
+  order_id                Int
+  webinar_id              Int?
+  quiz_id                 Int?
+  price_id                Int?
+  product_code            String?  @db.VarChar(255)
+  amount                  Decimal? @db.Decimal(15, 2)
+  tax_price               Decimal? @db.Decimal(15, 2)
+  commission_price        Decimal? @db.Decimal(15, 2)
+  discount                Decimal? @db.Decimal(15, 2)
+  total_amount            Decimal? @db.Decimal(15, 2)
+  created_at              Int?
+  order                   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  webinar Webinar? @relation(fields: [webinar_id], references: [id], onDelete: Cascade)
+  quiz    Quizzes? @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  price   WebinarPrices? @relation(fields: [price_id], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model KaspiPayment {
+  id       Int     @id @default(autoincrement())
+  txn_id   BigInt  @db.UnsignedBigInt
+  txn_date Int?    @db.UnsignedInt
+  account  Int     @db.UnsignedInt
+  sum      Decimal @db.Decimal(15, 3)
+  data1    String? @db.Text
+  data2    String? @db.Text
+  data3    String? @db.Text
+  data4    String? @db.Text
+  data5    String? @db.Text
+  data6    String? @db.Text
+  data7    String? @db.Text
+  data8    String? @db.Text
+  data9    String? @db.Text
+  data10   String? @db.Text
+
+  status Int?
+
+  @@map("kaspi_payments")
+}
+
+//* Курсы
+model Webinar {
+  id                   Int              @id @default(autoincrement())
+  teacher_id           Int              @db.UnsignedInt
+  creator_id           Int              @db.UnsignedInt
+  category_id          Int?             @db.UnsignedInt
+  type                 WebinarType      @default(course)
+  slug                 String           @db.VarChar(255)
+  start_date           Int?             @db.UnsignedInt
+  duration             Int?             @db.UnsignedInt
+  thumbnail            String           @db.VarChar(255)
+  image_cover          String           @db.VarChar(255)
+  capacity             Int?             @db.UnsignedInt
+  certificate          Boolean          @default(false)
+  status               WebinarStatus    @default(pending)
+  position             Int?             @db.UnsignedInt
+  created_at           Int
+  updated_at           Int?
+  deleted_at           Int?
+
+  translations WebinarTranslations[] @relation("WebinarTranslations")
+
+  creator  User             @relation("WebinarCreators", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  teacher  User             @relation("WebinarTeachers", fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  category WebinarCategory? @relation("WebinarCategories", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  reviews WebinarReviews[] @relation("WebinarReviews")
+
+  prices WebinarPrices[] @relation("WebinarPrices")
+
+  chapters WebinarChapter[] @relation("WebinarChapters")
+
+  files Files[] @relation("WebinarFiles")
+
+  carts         Cart[]         @relation(name: "WebinarCarts")
+  sales         Sale[]         @relation("WebinarSales")
+
+  quizzes WebinarQuiz[] @relation("WebinarQuizzes")
+
+  assignments   WebinarAssignment[] @relation("WebinarAssignments")
+  notifications Notification[]      @relation("WebinarNotifications")
+  order_items   OrderItem[]
+
+  @@map("webinars")
+}
+
+model WebinarTranslations {
+  id              Int     @id @default(autoincrement())
+  webinar_id      Int     @db.UnsignedInt
+  locale          String  @db.VarChar(255)
+  title           String  @db.VarChar(255)
+  description     String? @db.LongText
+
+  webinar Webinar @relation("WebinarTranslations", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_translations")
+}
+
+model WebinarCategory {
+  id        Int     @id @default(autoincrement())
+  slug      String  @db.VarChar(255)
+  parent_id Int?    @db.UnsignedInt
+  icon      String? @db.VarChar(255)
+  order     Int?    @db.UnsignedInt
+
+  webinars  Webinar[]  @relation("WebinarCategories")
+
+  translations WebinarCategoryTranslation[] @relation("WebinarCategoryTranslations")
+
+  parent   WebinarCategory?  @relation("WebinarCategoryParent", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  children WebinarCategory[] @relation("WebinarCategoryParent")
+
+  @@map("categories")
+}
+
+model WebinarCategoryTranslation {
+  id          Int    @id @default(autoincrement())
+  category_id Int    @db.UnsignedInt
+  locale      String @db.VarChar(255)
+  title       String @db.VarChar(255)
+
+  category WebinarCategory @relation("WebinarCategoryTranslations", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("category_translations")
+}
+
+model WebinarReviews {
+  id                Int                 @id @default(autoincrement())
+  creator_id        Int                 @db.UnsignedInt
+  webinar_id        Int?                @db.UnsignedInt
+  content_quality   Int                 @db.UnsignedInt
+  instructor_skills Int                 @db.UnsignedInt
+  purchase_worth    Int                 @db.UnsignedInt
+  support_quality   Int                 @db.UnsignedInt
+  rates             Decimal             @db.Decimal(3, 2)
+  description       String?             @db.Text
+  created_at        Int
+  status            WebinarReviewStatus @default(pending)
+
+  creator User     @relation("WebinarReviews", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  course  Webinar? @relation("WebinarReviews", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_reviews")
+}
+
+model WebinarPrices {
+  id                 Int      @id @default(autoincrement())
+  webinar_id         Int      @db.UnsignedInt
+  price              Decimal  @db.Decimal(15, 3)
+  access_days        Int      @db.UnsignedInt
+
+  webinar Webinar @relation("WebinarPrices", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  carts   Cart[]  @relation(name: "PriceCarts")
+  order_items OrderItem[]
+
+  @@map("webinar_prices")
+}
+
+model WebinarChapter {
+  id                      Int                  @id @default(autoincrement())
+  user_id                 Int                  @db.UnsignedInt
+  webinar_id              Int                  @db.UnsignedInt
+  order                   Int?                 @db.UnsignedInt
+  check_all_contents_pass Boolean              @default(false)
+  status                  WebinarChapterStatus @default(active)
+  created_at              Int
+  updated_at              Int?
+
+  translations WebinarChapterTranslation[] @relation("WebinarChapterTranslations")
+
+  webinar     Webinar              @relation("WebinarChapters", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator     User                 @relation("ChapterCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  items       WebinarChapterItem[] @relation("WebinarChapterItems")
+  files       Files[]              @relation("WebinarChapterFiles")
+  assignments WebinarAssignment[]  @relation("WebinarAssignments")
+
+  @@map("webinar_chapters")
+}
+
+model WebinarChapterTranslation {
+  id                 Int    @id @default(autoincrement())
+  webinar_chapter_id Int    @db.UnsignedInt
+  locale             String @db.VarChar(255)
+  title              String @db.VarChar(255)
+
+  webinar_chapter WebinarChapter @relation("WebinarChapterTranslations", fields: [webinar_chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_chapter_translations")
+}
+
+model WebinarChapterItem {
+  id         Int                    @id @default(autoincrement())
+  user_id    Int                    @db.UnsignedInt
+  chapter_id Int                    @db.UnsignedInt
+  item_id    Int                    @db.UnsignedInt
+  type       WebinarChapterItemType @default(file)
+  order      Int?                   @db.UnsignedInt
+  created_at Int
+
+  webinar_chapter WebinarChapter           @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator         User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  schedules       WebinarChapterSchedule[] @relation("WebinarChapterSchedule")
+
+  @@map("webinar_chapter_items")
+}
+
+model WebinarQuiz {
+  webinar_id Int @db.UnsignedInt
+  quiz_id    Int @db.UnsignedInt
+  chapter_id Int @db.UnsignedInt
+
+  webinar Webinar @relation("WebinarQuizzes", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz    Quizzes @relation("WebinarQuizzes", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([webinar_id, quiz_id, chapter_id])
+  @@map("webinar_quizzes")
+}
+
+model Files {
+  id                      Int                       @id @default(autoincrement())
+  creator_id              Int                       @db.UnsignedInt
+  webinar_id              Int?                      @db.UnsignedInt
+  chapter_id              Int?                      @db.UnsignedInt
+  accessibility           FileAccessbility          @default(free)
+  downloadable            Boolean                   @default(false)
+  storage                 FileStorage               @default(upload)
+  file                    String                    @db.Text
+  volume                  String                    @db.VarChar(64)
+  file_type               String                    @db.VarChar(64)
+  check_previous_parts    Boolean                   @default(false)
+  access_after_day        Int?                      @db.UnsignedInt
+  order                   Int?                      @db.UnsignedInt
+  status                  FileStatus                @default(active)
+  created_at              Int
+  updated_at              Int?
+  deleted_at              Int?
+
+  webinar  Webinar?        @relation("WebinarFiles", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter  WebinarChapter? @relation("WebinarChapterFiles", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator  User            @relation("FileCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  courseLearnings CourseLearning[] @relation("CourseLearningFiles")
+
+  translations FileTranslations[] @relation("FileTranslations")
+
+  @@map("files")
+}
+
+model FileTranslations {
+  id          Int     @id @default(autoincrement())
+  file_id     Int     @db.UnsignedInt
+  locale      String  @db.VarChar(255)
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+
+  file Files @relation("FileTranslations", fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("file_translations")
+}
+
+model CourseLearning {
+  id      Int @id @default(autoincrement())
+  user_id Int @db.UnsignedInt
+  file_id Int @db.UnsignedInt
+
+  created_at Int
+
+  file Files @relation("CourseLearningFiles", fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User  @relation("CourseLearningUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([user_id, file_id], name: "idx_course_learning_user_file")
+
+  @@map("course_learning")
+}
+
+model Reward {
+  id         Int           @id @default(autoincrement())
+  type       RewardType
+  score      Int           @db.UnsignedInt
+  status     RewardStatus?
+  created_at BigInt
+
+  @@map("rewards")
+}
+
+model RewardAccounting {
+  id         Int                    @id @default(autoincrement())
+  user_id    Int                    @db.UnsignedInt
+  item_id    Int?                   @db.UnsignedInt
+  type       RewardType
+  score      Int                    @db.UnsignedInt
+  status     RewardAccountingStatus
+  created_at BigInt
+
+  user User @relation("RewardAccounting", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("rewards_accounting")
+}
+
+model WebinarAssignment {
+  id                   Int                     @id @default(autoincrement()) @db.UnsignedInt
+  creator_id           Int                     @db.UnsignedInt
+  webinar_id           Int                     @db.UnsignedInt
+  chapter_id           Int                     @db.UnsignedInt
+  grade                Int?                    @db.UnsignedInt
+  pass_grade           Int?                    @db.UnsignedInt
+  deadline             Int?                    @db.UnsignedInt
+  attempts             Int?                    @db.UnsignedInt
+  check_previous_parts Boolean                 @default(false)
+  access_after_day     Int?                    @db.UnsignedInt
+  status               WebinarAssignmentStatus @default(active)
+  created_at           BigInt                  @db.UnsignedBigInt
+
+  translations WebinarAssignmentTranslation[] @relation("WebinarAssignmentTranslations")
+  history      WebinarAssignmentHistory[]     @relation("WebinarAssignmentHistory")
+  attachments  WebinarAssignmentAttachment[]  @relation("WebinarAssignmentAttachments")
+
+  webinar Webinar        @relation("WebinarAssignments", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter WebinarChapter @relation("WebinarAssignments", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User           @relation("AssignmentCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_assignments")
+}
+
+model WebinarAssignmentTranslation {
+  id                    Int    @id @default(autoincrement()) @db.UnsignedInt
+  locale                String @db.VarChar(255)
+  webinar_assignment_id Int    @db.UnsignedInt
+  title                 String @db.Text
+  description           String @db.Text
+
+  webinar_assignment WebinarAssignment @relation("WebinarAssignmentTranslations", fields: [webinar_assignment_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_assignment_translations")
+}
+
+model WebinarAssignmentHistory {
+  id            Int                            @id @default(autoincrement()) @db.UnsignedInt
+  instructor_id Int                            @db.UnsignedInt
+  student_id    Int                            @db.UnsignedInt
+  assignment_id Int                            @db.UnsignedInt
+  grade         Int?
+  status        WebinarAssignmentHistoryStatus @default(pending)
+  created_at    BigInt                         @db.UnsignedBigInt
+
+  instructor User              @relation("InstructorAssignmentHistory", fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  student    User              @relation("StudentAssignmentHistory", fields: [student_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  assignment WebinarAssignment @relation("WebinarAssignmentHistory", fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  messages   WebinarAssignmentHistoryMessage[] @relation("WebinarAssignmentHistoryMessages")
+
+  @@map("webinar_assignment_history")
+}
+
+model WebinarAssignmentAttachment {
+  id            Int    @id @default(autoincrement()) @db.UnsignedInt
+  creator_id    Int    @db.UnsignedInt
+  assignment_id Int    @db.UnsignedInt
+  title         String @db.VarChar(255)
+  attach        String @db.VarChar(255)
+
+  assignment WebinarAssignment @relation("WebinarAssignmentAttachments", fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator    User              @relation("AttachmentCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_assignment_attachments")
+}
+
+model WebinarAssignmentHistoryMessage {
+  id                    Int     @id @default(autoincrement()) @db.UnsignedInt
+  assignment_history_id Int     @db.UnsignedInt
+  sender_id             Int     @db.UnsignedInt
+  message               String  @db.Text
+  curator_comment       String? @db.Text
+  file_title            String? @db.VarChar(255)
+  file_path             String? @db.VarChar(255)
+  created_at            BigInt  @db.UnsignedBigInt
+
+  history WebinarAssignmentHistory @relation("WebinarAssignmentHistoryMessages", fields: [assignment_history_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender  User                     @relation("AssignmentMessageSender", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_assignment_history_messages")
+}
+
+model WebinarChapterSchedule {
+  id                      BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  teacher_id              Int      @db.UnsignedInt
+  group_id                Int      @db.UnsignedInt
+  webinar_chapter_item_id Int
+  start_date              Int      @db.UnsignedInt
+  is_before_start         Boolean  @default(false) @db.TinyInt
+  end_date                Int      @db.UnsignedInt
+  expiration_check        Boolean  @default(false) @db.TinyInt
+  created_at              DateTime @default(now()) @db.Timestamp
+  updated_at              DateTime @updatedAt @db.Timestamp
+
+  teacher              User               @relation("TeacherChapterSchedule", fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar_chapter_item WebinarChapterItem @relation("WebinarChapterSchedule", fields: [webinar_chapter_item_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group                Group              @relation("ScheduleGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("webinar_chapter_schedule")
+}
+
+model Blog {
+  id             Int        @id @default(autoincrement()) @db.UnsignedInt
+  category_id    Int        @db.UnsignedInt
+  author_id      Int        @db.UnsignedInt
+  slug           String     @db.VarChar(255)
+  image          String?    @db.VarChar(255)
+  visit_count    Int        @default(0) @db.UnsignedInt
+  enable_comment Boolean    @default(true) @db.TinyInt
+  status         BlogStatus @default(pending)
+  link_type      String?    @db.VarChar(255)
+  page_type      String?    @db.VarChar(255)
+  link           String?    @db.VarChar(255)
+  created_at     Int        @db.UnsignedInt
+  updated_at     Int        @db.UnsignedInt
+
+  category     BlogCategory      @relation("BlogCategory", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  author       User              @relation("BlogAuthor", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  translations BlogTranslation[] @relation("BlogTranslations")
+
+  @@map("blog")
+}
+
+model BlogTranslation {
+  id               Int     @id @default(autoincrement()) @db.UnsignedInt
+  blog_id          Int     @db.UnsignedInt
+  locale           String  @db.VarChar(255)
+  title            String  @db.VarChar(255)
+  description      String  @db.Text
+  content          String  @db.LongText
+
+  blog Blog @relation("BlogTranslations", fields: [blog_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("blog_translations")
+}
+
+model BlogCategory {
+  id Int @id @default(autoincrement()) @db.UnsignedInt
+
+  blogs        Blog[]                    @relation("BlogCategory")
+  translations BlogCategoryTranslation[] @relation("BlogCategoryTranslations")
+
+  @@map("blog_categories")
+}
+
+model BlogCategoryTranslation {
+  id               Int    @id @default(autoincrement()) @db.UnsignedInt
+  blog_category_id Int    @db.UnsignedInt
+  locale           String @db.VarChar(255)
+  title            String @db.VarChar(255)
+
+  blog_category BlogCategory @relation("BlogCategoryTranslations", fields: [blog_category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("blog_category_translations")
+}
+
+model Advertisement {
+  id             Int        @id @default(autoincrement()) @db.UnsignedInt
+  category_id    Int        @db.UnsignedInt
+  author_id      Int        @db.UnsignedInt
+  slug           String     @db.VarChar(255)
+  image          String?    @db.VarChar(255)
+  video          String?    @db.VarChar(255)
+  visit_count    Int        @default(0) @db.UnsignedInt
+  enable_comment Boolean    @default(true) @db.TinyInt
+  status         BlogStatus @default(pending)
+  link_type      String?    @db.VarChar(255)
+  page_type      String?    @db.VarChar(255)
+  link           String?    @db.VarChar(255)
+  created_at     Int        @db.UnsignedInt
+  updated_at     Int        @db.UnsignedInt
+
+  category     AdvertisementCategory      @relation("AdvertisementCategory", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  translations AdvertisementTranslation[] @relation("AdvertisementTranslations")
+  author       User                       @relation("AdvertisementAuthor", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("advertisements")
+}
+
+model AdvertisementTranslation {
+  id               Int     @id @default(autoincrement()) @db.UnsignedInt
+  advertisement_id Int     @db.UnsignedInt
+  locale           String  @db.VarChar(255)
+  title            String  @db.VarChar(255)
+  description      String  @db.Text
+  content          String  @db.LongText
+
+  advertisement Advertisement @relation("AdvertisementTranslations", fields: [advertisement_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("advertisements_translations")
+}
+
+model AdvertisementCategory {
+  id   Int    @id @default(autoincrement()) @db.UnsignedInt
+  slug String @db.VarChar(255)
+
+  advertisements Advertisement[]                    @relation("AdvertisementCategory")
+  translations   AdvertisementCategoryTranslation[] @relation("AdvertisementCategoryTranslations")
+
+  @@map("advertisements_categories")
+}
+
+model AdvertisementCategoryTranslation {
+  id                        Int    @id @default(autoincrement()) @db.UnsignedInt
+  advertisement_category_id Int    @db.UnsignedInt
+  locale                    String @db.VarChar(255)
+  title                     String @db.VarChar(255)
+
+  advertisement_category AdvertisementCategory @relation("AdvertisementCategoryTranslations", fields: [advertisement_category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("advertisements_categories_translations")
+}
+
+model Story {
+  id             Int        @id @default(autoincrement()) @db.UnsignedInt
+  category_id    Int        @db.UnsignedInt
+  author_id      Int        @db.UnsignedInt
+  slug           String     @db.VarChar(255)
+  image          String?    @db.VarChar(255)
+  icon           String?    @db.VarChar(255)
+  video          String?    @db.VarChar(255)
+  visit_count    Int        @default(0) @db.UnsignedInt
+  enable_comment Boolean    @default(true) @db.TinyInt
+  status         BlogStatus @default(pending)
+  link_type      String?    @db.VarChar(255)
+  page_type      String?    @db.VarChar(255)
+  link           String?    @db.VarChar(255)
+  created_at     Int        @db.UnsignedInt
+  updated_at     Int        @db.UnsignedInt
+
+  category     StoryCategory      @relation("StoryCategory", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  translations StoryTranslation[] @relation("StoryTranslations")
+  author       User               @relation("StoryAuthor", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("stories")
+}
+
+model StoryTranslation {
+  id               Int     @id @default(autoincrement()) @db.UnsignedInt
+  story_id         Int     @db.UnsignedInt
+  locale           String  @db.VarChar(255)
+  title            String  @db.VarChar(255)
+  description      String  @db.Text
+  content          String  @db.LongText
+
+  story Story @relation("StoryTranslations", fields: [story_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("stories_translations")
+}
+
+model StoryCategory {
+  id   Int    @id @default(autoincrement()) @db.UnsignedInt
+  slug String @db.VarChar(255)
+
+  stories      Story[]                    @relation("StoryCategory")
+  translations StoryCategoryTranslation[] @relation("StoryCategoryTranslations")
+
+  @@map("stories_categories")
+}
+
+model StoryCategoryTranslation {
+  id                Int    @id @default(autoincrement()) @db.UnsignedInt
+  story_category_id Int    @db.UnsignedInt
+  locale            String @db.VarChar(255)
+  title             String @db.VarChar(255)
+
+  story_category StoryCategory @relation("StoryCategoryTranslations", fields: [story_category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("stories_categories_translations")
+}
+
+model Notification {
+  id         Int                 @id @default(autoincrement()) @db.UnsignedInt
+  user_id    Int?                @db.UnsignedInt
+  sender_id  Int?                @db.UnsignedInt
+  group_id   Int?                @db.UnsignedInt
+  webinar_id Int?                @db.UnsignedInt
+  title      String              @db.VarChar(255)
+  message    String              @db.Text
+  sender     NotificationSender? @default(system)
+  type       NotificationType    @default(single)
+  created_at Int                 @db.UnsignedInt
+
+  user        User?                @relation("UserNotifications", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender_user User?                @relation("SentNotifications", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar     Webinar?             @relation("WebinarNotifications", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group       Group?               @relation("NotificationGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  statuses    NotificationStatus[] @relation("NotificationStatuses")
+
+  @@map("notifications")
+}
+
+model NotificationStatus {
+  id              Int  @id @default(autoincrement()) @db.UnsignedInt
+  user_id         Int  @db.UnsignedInt
+  notification_id Int  @db.UnsignedInt
+  seen_at         Int? @db.UnsignedInt
+
+  user         User         @relation("UserNotificationStatuses", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  notification Notification @relation("NotificationStatuses", fields: [notification_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@map("notifications_status")
+}
+
+model Cart {
+  id                     Int     @id @default(autoincrement()) @db.UnsignedInt
+  creator_id             Int     @db.UnsignedInt
+  webinar_id             Int?    @db.UnsignedInt
+  quiz_id                Int?    @db.UnsignedInt
+  price_id               Int?    @db.UnsignedInt
+  product_code           String? @db.VarChar(255)
+  created_at             Int     @db.UnsignedInt
+
+  user             User             @relation(fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar          Webinar?         @relation(fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "WebinarCarts")
+  quiz             Quizzes?         @relation(fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "QuizCarts")
+  price            WebinarPrices?   @relation(fields: [price_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "PriceCarts")
+
+  @@index([creator_id], name: "cart_creator_id_foreign")
+  @@index([webinar_id], name: "cart_webinar_id_foreign")
+  @@index([price_id], name: "cart_price_id_foreign")
+  @@index([quiz_id], name: "cart_quiz_id_foreign")
+  @@map("cart")
+}
+
+model Promocode {
+  id                   Int      @id @default(autoincrement())
+  code                 String   @unique @db.VarChar(255)
+  title                String?  @db.VarChar(255)
+  description          String?  @db.Text
+  discount_type        String   @db.VarChar(255) // percentage, fixed
+  discount_value       Decimal  @db.Decimal(10, 2)
+  max_discount_amount  Decimal? @db.Decimal(15, 2)
+  minimum_order_amount Decimal? @db.Decimal(15, 2)
+  usage_limit          Int?     @db.Int
+  usage_limit_per_user Int?     @db.Int
+  is_active            Boolean  @db.TinyInt
+  start_date           Int      @db.UnsignedInt
+  expires_at           Int      @db.UnsignedInt
+  creator_id           Int
+  region_id            Int?
+  applicable_to        Json? // JSON field containing array of applicable items
+  excluded_items       Json? // JSON field containing array of excluded items
+  first_purchase_only  Boolean  @default(false) @db.TinyInt
+  created_at           Int      @db.UnsignedInt
+  updated_at           Int      @db.UnsignedInt
+
+  creator User             @relation("PromocodeCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  region  Region?          @relation("PromocodeRegion", fields: [region_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  usages  PromocodeUsage[] @relation("PromocodeUsages")
+
+  @@map("promocodes")
+}
+
+model PromocodeUsage {
+  id              Int      @id @default(autoincrement()) @db.UnsignedInt
+  promocode_id    Int      @db.UnsignedInt
+  user_id         Int      @db.UnsignedInt
+  order_id        Int      @db.UnsignedInt
+  discount_amount Decimal? @db.Decimal(8, 2)
+  order_amount    Decimal? @db.Decimal(8, 2)
+  used_at         Int
+
+  promocode Promocode @relation("PromocodeUsages", fields: [promocode_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user      User      @relation("PromocodeUsageUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  order     Order     @relation("OrderPromocodeUsages", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([promocode_id])
+  @@index([user_id])
+  @@map("promocode_usages")
+}
+
+model PushNotificationLog {
+  id           BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id      Int      @db.UnsignedInt
+  trigger_type String   @db.VarChar(100)
+  sent_at      DateTime @default(now()) @db.Timestamp(0)
+  success      Boolean  @default(true)
+  meta         Json?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([user_id, trigger_type, sent_at], name: "idx_push_log_user_trigger_date")
+  @@index([trigger_type, sent_at], name: "idx_push_log_trigger_date")
+  @@map("push_notification_logs")
+}
