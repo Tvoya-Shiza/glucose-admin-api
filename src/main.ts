@@ -1,6 +1,7 @@
 import { ValidationPipe, ValidationPipeOptions } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
 import { AppModule } from './app.module';
@@ -20,6 +21,10 @@ async function bootstrap() {
 
     app.useGlobalPipes(new ValidationPipe(validationPipeOptions));
     app.useGlobalInterceptors(new BigIntStringInterceptor());
+
+    // Cookie parsing — required for /admin-api/auth/logout's refresh-cookie fallback (Phase 2 Plan 04).
+    // Registered before helmet so subsequent middleware can read req.cookies.
+    app.use(cookieParser());
 
     // Security baseline — FND-09
     app.use(helmet());
