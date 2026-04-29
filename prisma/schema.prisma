@@ -198,33 +198,33 @@ datasource db {
 }
 
 model User {
-  id                        Int                      @id @default(autoincrement())
-  full_name                 String?                  @db.VarChar(255)
-  last_activity             DateTime?
-  role_name                 String                   @db.VarChar(64)
-  role_id                   Int
-  referrer_id               Int?
-  mobile                    String?                  @db.VarChar(32)
-  email                     String?                  @db.VarChar(255)
-  password                  String?                  @db.VarChar(255)
-  verified                  Boolean                  @default(false)
-  avatar                    String?                  @db.VarChar(255)
-  about                     String?                  @db.Text
-  country_id                Int?
-  province_id               Int?
-  city_id                   Int?
-  district_id               Int?
-  school_id                 Int?
-  school_subject_id         Int?
-  status                    UserStatus               @default(active)
-  created_at                Int
-  updated_at                Int?
-  deleted_at                Int?
-  country                   Region?                  @relation("CountryUsers", fields: [country_id], references: [id])
-  province                  Region?                  @relation("ProvinceUsers", fields: [province_id], references: [id])
-  city                      Region?                  @relation("CityUsers", fields: [city_id], references: [id])
-  district                  Region?                  @relation("DistrictUsers", fields: [district_id], references: [id])
-  school                    Region?                  @relation("SchoolUsers", fields: [school_id], references: [id])
+  id                Int        @id @default(autoincrement())
+  full_name         String?    @db.VarChar(255)
+  last_activity     DateTime?
+  role_name         String     @db.VarChar(64)
+  role_id           Int
+  referrer_id       Int?
+  mobile            String?    @unique @db.VarChar(32)
+  email             String?    @unique @db.VarChar(255)
+  password          String?    @db.VarChar(255)
+  verified          Boolean    @default(false)
+  avatar            String?    @db.VarChar(255)
+  about             String?    @db.Text
+  country_id        Int?
+  province_id       Int?
+  city_id           Int?
+  district_id       Int?
+  school_id         Int?
+  school_subject_id Int?
+  status            UserStatus @default(active)
+  created_at        Int
+  updated_at        Int?
+  deleted_at        Int?
+  country           Region?    @relation("CountryUsers", fields: [country_id], references: [id])
+  province          Region?    @relation("ProvinceUsers", fields: [province_id], references: [id])
+  city              Region?    @relation("CityUsers", fields: [city_id], references: [id])
+  district          Region?    @relation("DistrictUsers", fields: [district_id], references: [id])
+  school            Region?    @relation("SchoolUsers", fields: [school_id], references: [id])
 
   role Role @relation("RoleUsers", fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -266,29 +266,30 @@ model User {
   notification_statuses   NotificationStatus[] @relation("UserNotificationStatuses")
   carts                   Cart[]
 
-  orders                  Order[]              @relation("OrderUser")
-  sales_as_seller         Sale[]               @relation("SaleSeller")
-  sales_as_buyer          Sale[]               @relation("SaleBuyer")
-  created_assignments     WebinarAssignment[]  @relation("AssignmentCreator")
-  created_chapters        WebinarChapter[]     @relation("ChapterCreator")
-  created_chapter_items   WebinarChapterItem[] @relation("ChapterItemCreator")
-  created_files           Files[]              @relation("FileCreator")
-  created_attachments     WebinarAssignmentAttachment[] @relation("AttachmentCreator")
-  assignment_messages     WebinarAssignmentHistoryMessage[] @relation("AssignmentMessageSender")
-  created_promocodes      Promocode[]          @relation("PromocodeCreator")
-  promocode_usages        PromocodeUsage[]     @relation("PromocodeUsageUser")
-  course_learnings        CourseLearning[]     @relation("CourseLearningUser")
+  orders                Order[]                           @relation("OrderUser")
+  sales_as_seller       Sale[]                            @relation("SaleSeller")
+  sales_as_buyer        Sale[]                            @relation("SaleBuyer")
+  created_assignments   WebinarAssignment[]               @relation("AssignmentCreator")
+  created_chapters      WebinarChapter[]                  @relation("ChapterCreator")
+  created_chapter_items WebinarChapterItem[]              @relation("ChapterItemCreator")
+  created_files         Files[]                           @relation("FileCreator")
+  created_attachments   WebinarAssignmentAttachment[]     @relation("AttachmentCreator")
+  assignment_messages   WebinarAssignmentHistoryMessage[] @relation("AssignmentMessageSender")
+  created_promocodes    Promocode[]                       @relation("PromocodeCreator")
+  promocode_usages      PromocodeUsage[]                  @relation("PromocodeUsageUser")
+  course_learnings      CourseLearning[]                  @relation("CourseLearningUser")
 
   push_notification_logs PushNotificationLog[]
 
+  @@index([created_at], name: "idx_users_created_at")
   @@map("users")
 }
 
 model Role {
-  id   Int    @id @db.UnsignedInt @default(autoincrement())
-  name	  String	@db.VarChar(64)
-  is_admin	Boolean	@default(false)	
-  created_at	Int	@db.UnsignedInt
+  id         Int     @id @default(autoincrement()) @db.UnsignedInt
+  name       String  @db.VarChar(64)
+  is_admin   Boolean @default(false)
+  created_at Int     @db.UnsignedInt
 
   users User[] @relation("RoleUsers")
 
@@ -296,17 +297,17 @@ model Role {
 }
 
 model Group {
-  id   Int    @id @db.UnsignedInt @default(autoincrement())
-  creator_id	Int @db.UnsignedInt
-  supervisor_id	Int? @db.UnsignedInt
-  name  String @db.VarChar(64)
-  status GroupStatus @default(inactive)
+  id            Int         @id @default(autoincrement()) @db.UnsignedInt
+  creator_id    Int         @db.UnsignedInt
+  supervisor_id Int?        @db.UnsignedInt
+  name          String      @db.VarChar(64)
+  status        GroupStatus @default(inactive)
 
-  creator  User @relation("GroupCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  supervisor User? @relation("GroupSupervisor", fields: [supervisor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  members GroupUser[] @relation("GroupMembers")
+  creator           User                     @relation("GroupCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  supervisor        User?                    @relation("GroupSupervisor", fields: [supervisor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  members           GroupUser[]              @relation("GroupMembers")
   chapter_schedules WebinarChapterSchedule[] @relation("ScheduleGroup")
-  notifications Notification[] @relation("NotificationGroup")
+  notifications     Notification[]           @relation("NotificationGroup")
 
   @@map("groups")
 }
@@ -351,19 +352,19 @@ model Verification {
 }
 
 model UserLoginHistory {
-  id               Int                      @id @default(autoincrement())
-  user_id          Int                      @db.UnsignedInt
-  browser          String?                  @db.VarChar(255)
-  device           String?                  @db.VarChar(255)
-  os               String?                  @db.VarChar(255)
-  ip               String?                  @db.VarChar(255)
-  country          String?                  @db.VarChar(255)
-  city             String?                  @db.VarChar(255)
-  session_id       String                   @db.Text
-  session_start_at BigInt                   @db.UnsignedBigInt
-  session_end_at   BigInt?                  @db.UnsignedBigInt
+  id               Int             @id @default(autoincrement())
+  user_id          Int             @db.UnsignedInt
+  browser          String?         @db.VarChar(255)
+  device           String?         @db.VarChar(255)
+  os               String?         @db.VarChar(255)
+  ip               String?         @db.VarChar(255)
+  country          String?         @db.VarChar(255)
+  city             String?         @db.VarChar(255)
+  session_id       String          @db.Text
+  session_start_at BigInt          @db.UnsignedBigInt
+  session_end_at   BigInt?         @db.UnsignedBigInt
   end_session_type SessionEndType?
-  created_at       BigInt                   @db.UnsignedBigInt
+  created_at       BigInt          @db.UnsignedBigInt
 
   user User @relation("UserLoginHistories", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -431,7 +432,7 @@ model RegionTranslation {
 
 //* Предметы
 model SchoolSubject {
-  id         Int @id @default(autoincrement())
+  id         Int  @id @default(autoincrement())
   created_at Int
   updated_at Int?
 
@@ -455,20 +456,21 @@ model SchoolSubjectTranslation {
 
 //* Тесты
 model Quizzes {
-  id                          Int        @id @default(autoincrement())
-  category_id                 Int?
-  subject_id                  Int?
-  price                       Decimal?   @db.Decimal(15, 3)
-  time                        Int?       @default(0)
-  attempt                     Int?
-  pass_mark                   Int
-  certificate                 Boolean
-  status                      QuizStatus @default(active)
-  total_mark                  Int?       @db.UnsignedInt
-  display_questions_randomly  Boolean    @default(false)
-  expiry_days                 Int?       @db.UnsignedInt
-  created_at                  Int
-  updated_at                  Int?
+  id                         Int        @id @default(autoincrement())
+  category_id                Int?
+  subject_id                 Int?
+  price                      Decimal?   @db.Decimal(15, 3)
+  time                       Int?       @default(0)
+  attempt                    Int?
+  pass_mark                  Int
+  certificate                Boolean
+  status                     QuizStatus @default(active)
+  total_mark                 Int?       @db.UnsignedInt
+  display_questions_randomly Boolean    @default(false)
+  expiry_days                Int?       @db.UnsignedInt
+  version                    Int        @default(1)
+  created_at                 Int
+  updated_at                 Int?
 
   subject       QuizSubject?   @relation("QuizSubjects", fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   quiz_category QuizCategory?  @relation("QuizCategories", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
@@ -481,9 +483,10 @@ model Quizzes {
 
   translations QuizTranslation[] @relation("QuizTranslations")
 
-  webinar_quizzes  WebinarQuiz[]  @relation("WebinarQuizzes")
-  order_items      OrderItem[]
+  webinar_quizzes WebinarQuiz[] @relation("WebinarQuizzes")
+  order_items     OrderItem[]
 
+  @@index([created_at], name: "idx_quizzes_created_at")
   @@map("quizzes")
 }
 
@@ -530,7 +533,7 @@ model QuizCategoryTranslation {
 }
 
 model QuizSubject {
-  id         Int @id @default(autoincrement())
+  id         Int  @id @default(autoincrement())
   created_at Int?
   updated_at Int?
 
@@ -616,17 +619,18 @@ model QuizQuestionAnswerTranslation {
 }
 
 model QuizResult {
-  id          Int              @id @default(autoincrement())
-  webinar_id  Int?             @db.UnsignedInt
-  quiz_id     Int              @db.UnsignedInt
-  user_id     Int              @db.UnsignedInt
-  results     String?          @db.Text
-  user_grade  Int?             @db.UnsignedInt
-  status      QuizResultStatus @default(waiting)
-  created_at  Int
+  id                    Int              @id @default(autoincrement())
+  webinar_id            Int?             @db.UnsignedInt
+  quiz_id               Int              @db.UnsignedInt
+  quiz_version_at_start Int?
+  user_id               Int              @db.UnsignedInt
+  results               String?          @db.Text
+  user_grade            Int?             @db.UnsignedInt
+  status                QuizResultStatus @default(waiting)
+  created_at            Int
 
-  quiz     Quizzes   @relation("QuizResults", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  user     User      @relation("QuizResults", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  quiz Quizzes @relation("QuizResults", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  user User    @relation("QuizResults", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@index([user_id, quiz_id, status], name: "idx_quiz_results_lookup")
   @@map("quizzes_results")
@@ -724,7 +728,7 @@ model Sale {
   order      Order?     @relation("OrderSales", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@index([buyer_id, webinar_id], name: "idx_sales_buyer_webinar")
-
+  @@index([created_at], name: "idx_sales_created_at")
   @@map("sales")
 }
 
@@ -752,22 +756,22 @@ model Order {
 }
 
 model OrderItem {
-  id                      Int      @id @default(autoincrement())
-  order_id                Int
-  webinar_id              Int?
-  quiz_id                 Int?
-  price_id                Int?
-  product_code            String?  @db.VarChar(255)
-  amount                  Decimal? @db.Decimal(15, 2)
-  tax_price               Decimal? @db.Decimal(15, 2)
-  commission_price        Decimal? @db.Decimal(15, 2)
-  discount                Decimal? @db.Decimal(15, 2)
-  total_amount            Decimal? @db.Decimal(15, 2)
-  created_at              Int?
-  order                   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  id               Int      @id @default(autoincrement())
+  order_id         Int
+  webinar_id       Int?
+  quiz_id          Int?
+  price_id         Int?
+  product_code     String?  @db.VarChar(255)
+  amount           Decimal? @db.Decimal(15, 2)
+  tax_price        Decimal? @db.Decimal(15, 2)
+  commission_price Decimal? @db.Decimal(15, 2)
+  discount         Decimal? @db.Decimal(15, 2)
+  total_amount     Decimal? @db.Decimal(15, 2)
+  created_at       Int?
+  order            Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
 
-  webinar Webinar? @relation(fields: [webinar_id], references: [id], onDelete: Cascade)
-  quiz    Quizzes? @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
+  webinar Webinar?       @relation(fields: [webinar_id], references: [id], onDelete: Cascade)
+  quiz    Quizzes?       @relation(fields: [quiz_id], references: [id], onDelete: Cascade)
   price   WebinarPrices? @relation(fields: [price_id], references: [id], onDelete: Cascade)
 
   @@map("order_items")
@@ -775,7 +779,7 @@ model OrderItem {
 
 model KaspiPayment {
   id       Int     @id @default(autoincrement())
-  txn_id   BigInt  @db.UnsignedBigInt
+  txn_id   BigInt  @unique @db.UnsignedBigInt
   txn_date Int?    @db.UnsignedInt
   account  Int     @db.UnsignedInt
   sum      Decimal @db.Decimal(15, 3)
@@ -792,28 +796,29 @@ model KaspiPayment {
 
   status Int?
 
+  @@index([txn_date], name: "idx_kaspi_payments_txn_date")
   @@map("kaspi_payments")
 }
 
 //* Курсы
 model Webinar {
-  id                   Int              @id @default(autoincrement())
-  teacher_id           Int              @db.UnsignedInt
-  creator_id           Int              @db.UnsignedInt
-  category_id          Int?             @db.UnsignedInt
-  type                 WebinarType      @default(course)
-  slug                 String           @db.VarChar(255)
-  start_date           Int?             @db.UnsignedInt
-  duration             Int?             @db.UnsignedInt
-  thumbnail            String           @db.VarChar(255)
-  image_cover          String           @db.VarChar(255)
-  capacity             Int?             @db.UnsignedInt
-  certificate          Boolean          @default(false)
-  status               WebinarStatus    @default(pending)
-  position             Int?             @db.UnsignedInt
-  created_at           Int
-  updated_at           Int?
-  deleted_at           Int?
+  id          Int           @id @default(autoincrement())
+  teacher_id  Int           @db.UnsignedInt
+  creator_id  Int           @db.UnsignedInt
+  category_id Int?          @db.UnsignedInt
+  type        WebinarType   @default(course)
+  slug        String        @db.VarChar(255)
+  start_date  Int?          @db.UnsignedInt
+  duration    Int?          @db.UnsignedInt
+  thumbnail   String        @db.VarChar(255)
+  image_cover String        @db.VarChar(255)
+  capacity    Int?          @db.UnsignedInt
+  certificate Boolean       @default(false)
+  status      WebinarStatus @default(pending)
+  position    Int?          @db.UnsignedInt
+  created_at  Int
+  updated_at  Int?
+  deleted_at  Int?
 
   translations WebinarTranslations[] @relation("WebinarTranslations")
 
@@ -829,8 +834,8 @@ model Webinar {
 
   files Files[] @relation("WebinarFiles")
 
-  carts         Cart[]         @relation(name: "WebinarCarts")
-  sales         Sale[]         @relation("WebinarSales")
+  carts Cart[] @relation(name: "WebinarCarts")
+  sales Sale[] @relation("WebinarSales")
 
   quizzes WebinarQuiz[] @relation("WebinarQuizzes")
 
@@ -838,15 +843,16 @@ model Webinar {
   notifications Notification[]      @relation("WebinarNotifications")
   order_items   OrderItem[]
 
+  @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
 }
 
 model WebinarTranslations {
-  id              Int     @id @default(autoincrement())
-  webinar_id      Int     @db.UnsignedInt
-  locale          String  @db.VarChar(255)
-  title           String  @db.VarChar(255)
-  description     String? @db.LongText
+  id          Int     @id @default(autoincrement())
+  webinar_id  Int     @db.UnsignedInt
+  locale      String  @db.VarChar(255)
+  title       String  @db.VarChar(255)
+  description String? @db.LongText
 
   webinar Webinar @relation("WebinarTranslations", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -860,7 +866,7 @@ model WebinarCategory {
   icon      String? @db.VarChar(255)
   order     Int?    @db.UnsignedInt
 
-  webinars  Webinar[]  @relation("WebinarCategories")
+  webinars Webinar[] @relation("WebinarCategories")
 
   translations WebinarCategoryTranslation[] @relation("WebinarCategoryTranslations")
 
@@ -901,13 +907,13 @@ model WebinarReviews {
 }
 
 model WebinarPrices {
-  id                 Int      @id @default(autoincrement())
-  webinar_id         Int      @db.UnsignedInt
-  price              Decimal  @db.Decimal(15, 3)
-  access_days        Int      @db.UnsignedInt
+  id          Int     @id @default(autoincrement())
+  webinar_id  Int     @db.UnsignedInt
+  price       Decimal @db.Decimal(15, 3)
+  access_days Int     @db.UnsignedInt
 
-  webinar Webinar @relation("WebinarPrices", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  carts   Cart[]  @relation(name: "PriceCarts")
+  webinar     Webinar     @relation("WebinarPrices", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  carts       Cart[]      @relation(name: "PriceCarts")
   order_items OrderItem[]
 
   @@map("webinar_prices")
@@ -974,27 +980,27 @@ model WebinarQuiz {
 }
 
 model Files {
-  id                      Int                       @id @default(autoincrement())
-  creator_id              Int                       @db.UnsignedInt
-  webinar_id              Int?                      @db.UnsignedInt
-  chapter_id              Int?                      @db.UnsignedInt
-  accessibility           FileAccessbility          @default(free)
-  downloadable            Boolean                   @default(false)
-  storage                 FileStorage               @default(upload)
-  file                    String                    @db.Text
-  volume                  String                    @db.VarChar(64)
-  file_type               String                    @db.VarChar(64)
-  check_previous_parts    Boolean                   @default(false)
-  access_after_day        Int?                      @db.UnsignedInt
-  order                   Int?                      @db.UnsignedInt
-  status                  FileStatus                @default(active)
-  created_at              Int
-  updated_at              Int?
-  deleted_at              Int?
+  id                   Int              @id @default(autoincrement())
+  creator_id           Int              @db.UnsignedInt
+  webinar_id           Int?             @db.UnsignedInt
+  chapter_id           Int?             @db.UnsignedInt
+  accessibility        FileAccessbility @default(free)
+  downloadable         Boolean          @default(false)
+  storage              FileStorage      @default(upload)
+  file                 String           @db.Text
+  volume               String           @db.VarChar(64)
+  file_type            String           @db.VarChar(64)
+  check_previous_parts Boolean          @default(false)
+  access_after_day     Int?             @db.UnsignedInt
+  order                Int?             @db.UnsignedInt
+  status               FileStatus       @default(active)
+  created_at           Int
+  updated_at           Int?
+  deleted_at           Int?
 
-  webinar  Webinar?        @relation("WebinarFiles", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  chapter  WebinarChapter? @relation("WebinarChapterFiles", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  creator  User            @relation("FileCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar Webinar?        @relation("WebinarFiles", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter WebinarChapter? @relation("WebinarChapterFiles", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User            @relation("FileCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   courseLearnings CourseLearning[] @relation("CourseLearningFiles")
 
@@ -1026,7 +1032,6 @@ model CourseLearning {
   user User  @relation("CourseLearningUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@unique([user_id, file_id], name: "idx_course_learning_user_file")
-
   @@map("course_learning")
 }
 
@@ -1100,9 +1105,9 @@ model WebinarAssignmentHistory {
   status        WebinarAssignmentHistoryStatus @default(pending)
   created_at    BigInt                         @db.UnsignedBigInt
 
-  instructor User              @relation("InstructorAssignmentHistory", fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  student    User              @relation("StudentAssignmentHistory", fields: [student_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  assignment WebinarAssignment @relation("WebinarAssignmentHistory", fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  instructor User                              @relation("InstructorAssignmentHistory", fields: [instructor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  student    User                              @relation("StudentAssignmentHistory", fields: [student_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  assignment WebinarAssignment                 @relation("WebinarAssignmentHistory", fields: [assignment_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   messages   WebinarAssignmentHistoryMessage[] @relation("WebinarAssignmentHistoryMessages")
 
   @@map("webinar_assignment_history")
@@ -1179,12 +1184,12 @@ model Blog {
 }
 
 model BlogTranslation {
-  id               Int     @id @default(autoincrement()) @db.UnsignedInt
-  blog_id          Int     @db.UnsignedInt
-  locale           String  @db.VarChar(255)
-  title            String  @db.VarChar(255)
-  description      String  @db.Text
-  content          String  @db.LongText
+  id          Int    @id @default(autoincrement()) @db.UnsignedInt
+  blog_id     Int    @db.UnsignedInt
+  locale      String @db.VarChar(255)
+  title       String @db.VarChar(255)
+  description String @db.Text
+  content     String @db.LongText
 
   blog Blog @relation("BlogTranslations", fields: [blog_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -1235,12 +1240,12 @@ model Advertisement {
 }
 
 model AdvertisementTranslation {
-  id               Int     @id @default(autoincrement()) @db.UnsignedInt
-  advertisement_id Int     @db.UnsignedInt
-  locale           String  @db.VarChar(255)
-  title            String  @db.VarChar(255)
-  description      String  @db.Text
-  content          String  @db.LongText
+  id               Int    @id @default(autoincrement()) @db.UnsignedInt
+  advertisement_id Int    @db.UnsignedInt
+  locale           String @db.VarChar(255)
+  title            String @db.VarChar(255)
+  description      String @db.Text
+  content          String @db.LongText
 
   advertisement Advertisement @relation("AdvertisementTranslations", fields: [advertisement_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -1293,12 +1298,12 @@ model Story {
 }
 
 model StoryTranslation {
-  id               Int     @id @default(autoincrement()) @db.UnsignedInt
-  story_id         Int     @db.UnsignedInt
-  locale           String  @db.VarChar(255)
-  title            String  @db.VarChar(255)
-  description      String  @db.Text
-  content          String  @db.LongText
+  id          Int    @id @default(autoincrement()) @db.UnsignedInt
+  story_id    Int    @db.UnsignedInt
+  locale      String @db.VarChar(255)
+  title       String @db.VarChar(255)
+  description String @db.Text
+  content     String @db.LongText
 
   story Story @relation("StoryTranslations", fields: [story_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -1360,18 +1365,18 @@ model NotificationStatus {
 }
 
 model Cart {
-  id                     Int     @id @default(autoincrement()) @db.UnsignedInt
-  creator_id             Int     @db.UnsignedInt
-  webinar_id             Int?    @db.UnsignedInt
-  quiz_id                Int?    @db.UnsignedInt
-  price_id               Int?    @db.UnsignedInt
-  product_code           String? @db.VarChar(255)
-  created_at             Int     @db.UnsignedInt
+  id           Int     @id @default(autoincrement()) @db.UnsignedInt
+  creator_id   Int     @db.UnsignedInt
+  webinar_id   Int?    @db.UnsignedInt
+  quiz_id      Int?    @db.UnsignedInt
+  price_id     Int?    @db.UnsignedInt
+  product_code String? @db.VarChar(255)
+  created_at   Int     @db.UnsignedInt
 
-  user             User             @relation(fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  webinar          Webinar?         @relation(fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "WebinarCarts")
-  quiz             Quizzes?         @relation(fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "QuizCarts")
-  price            WebinarPrices?   @relation(fields: [price_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "PriceCarts")
+  user    User           @relation(fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar Webinar?       @relation(fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "WebinarCarts")
+  quiz    Quizzes?       @relation(fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "QuizCarts")
+  price   WebinarPrices? @relation(fields: [price_id], references: [id], onDelete: Cascade, onUpdate: Restrict, name: "PriceCarts")
 
   @@index([creator_id], name: "cart_creator_id_foreign")
   @@index([webinar_id], name: "cart_webinar_id_foreign")
@@ -1440,4 +1445,32 @@ model PushNotificationLog {
   @@index([user_id, trigger_type, sent_at], name: "idx_push_log_user_trigger_date")
   @@index([trigger_type, sent_at], name: "idx_push_log_trigger_date")
   @@map("push_notification_logs")
+}
+
+//* Admin audit log — Phase 1 Plan 08 / SCH-01
+//* Locked field shape mirrors AuditEntry interface in
+//* glucose-admin-api/src/common/audit/audit.types.ts so the Phase 2 NDJSON
+//* writes (logs/admin-audit.log) replay into this table without reshaping.
+//* actor_id is intentionally NOT a foreign key relation to User — coupling
+//* the audit log to FK cascade rules would lose audit history when users are
+//* deleted (Pitfall 10).
+model AdminAuditLog {
+  id         BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  ts         Int // Unix seconds — matches glucose-api Math.floor(Date.now()/1000) convention
+  actor_id   Int? // null only for @SkipAudit on public auth endpoints (login/refresh)
+  action     String  @db.VarChar(64)
+  entity     String  @db.VarChar(64)
+  entity_id  String? @db.VarChar(64) // string-typed: works for BigInt + Int + composite ids
+  ip         String? @db.VarChar(45) // IPv6-sized
+  ua         String? @db.VarChar(512)
+  before     Json?
+  after      Json?
+  meta       Json?
+  bulk_op_id String? @db.VarChar(64) // populated via meta.bulk_op_id; promoted to its own column for index reach
+  request_id String? @db.VarChar(64) // populated via meta.request_id once Phase 2 wires X-Request-Id
+
+  @@index([actor_id, ts], name: "idx_admin_audit_actor_ts")
+  @@index([entity, entity_id, ts], name: "idx_admin_audit_entity")
+  @@index([bulk_op_id], name: "idx_admin_audit_bulk_op")
+  @@map("admin_audit_logs")
 }
