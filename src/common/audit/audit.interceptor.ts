@@ -1,7 +1,8 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Observable, throwError } from 'rxjs';
 import { catchError, tap } from 'rxjs/operators';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AUDIT_METADATA_KEY, SKIP_AUDIT_METADATA_KEY } from './audit.decorator';
 import { auditLogger } from './audit.logger';
 import type { AuditEntry, AuditMeta, SkipAuditMeta } from './audit.types';
@@ -24,7 +25,59 @@ import type { AuditEntry, AuditMeta, SkipAuditMeta } from './audit.types';
  */
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
-    constructor(private readonly reflector: Reflector) {}
+    private readonly logger = new Logger(AuditInterceptor.name);
+
+    constructor(
+        private readonly reflector: Reflector,
+        private readonly prisma: PrismaService
+    ) {}
+
+    /**
+     * Best-effort DB persist of an audit entry. Writes via Prisma to the
+     * `admin_audit_logs` table when it exists; silently falls through to the
+     * NDJSON file when the table is missing (Phase 1 Plan 08 schema additions
+     * have been written but `prisma migrate dev` has NOT yet run against live
+     * MySQL — the table will not exist until the human operator applies the
+     * migration). The NDJSON file is the source-of-truth until that happens
+     * and remains an authoritative replay source even after.
+     *
+     * Failure modes (table missing, DB unreachable, schema drift) MUST NOT
+     * propagate — auditing is observability, not authorization. Errors are
+     * logged at debug level so noisy 'table missing' messages don't fill the
+     * combined log during the deferral window.
+     */
+    private async persistToDb(entry: AuditEntry): Promise<void> {
+        try {
+            // Cast to any: the generated Prisma client may not yet have
+            // adminAuditLog (it does after schema regeneration in Plan 08, but
+            // belt-and-braces — the moment the model exists, this resolves to
+            // the typed delegate; until then the assertion keeps tsc happy).
+            const delegate: any = (this.prisma as any).adminAuditLog;
+            if (!delegate || typeof delegate.create !== 'function') {
+                return;
+            }
+            await delegate.create({
+                data: {
+                    ts: entry.ts,
+                    actor_id: entry.actor_id,
+                    action: entry.action,
+                    entity: entry.entity,
+                    entity_id: entry.entity_id,
+                    ip: entry.ip,
+                    ua: entry.ua,
+                    before: entry.before === undefined ? null : (entry.before as any),
+                    after: entry.after === undefined ? null : (entry.after as any),
+                    meta: entry.meta === undefined ? null : (entry.meta as any),
+                    bulk_op_id: (entry.meta?.bulk_op_id as string | undefined) ?? null,
+                    request_id: (entry.meta?.request_id as string | undefined) ?? null,
+                },
+            });
+        } catch (err) {
+            // Table likely missing (migration not yet applied) OR DB unreachable.
+            // NDJSON write below remains the authoritative record.
+            this.logger.debug(`audit DB write skipped: ${(err as Error)?.message}`);
+        }
+    }
 
     intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
         const handler = context.getHandler();
@@ -57,7 +110,11 @@ export class AuditInterceptor implements NestInterceptor {
                         ip,
                         ua,
                     };
+                    // NDJSON write is the source of truth until the migration runs.
                     auditLogger.info(JSON.stringify(entry));
+                    // Best-effort DB persist; silently no-ops while admin_audit_logs
+                    // table is missing (Plan 08 migration deferred).
+                    void this.persistToDb(entry);
                 } catch (err) {
                     // Best-effort: never block the response. Surface via Winston error.
                     auditLogger.error(`audit-write-failed: ${(err as Error).message}`);
@@ -79,6 +136,7 @@ export class AuditInterceptor implements NestInterceptor {
                         meta: { failed: true, error_name: (err as Error).name },
                     };
                     auditLogger.info(JSON.stringify(entry));
+                    void this.persistToDb(entry);
                 } catch (logErr) {
                     auditLogger.error(`audit-write-failed: ${(logErr as Error).message}`);
                 }
