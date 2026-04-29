@@ -13,6 +13,7 @@ import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { HealthModule } from './modules/health/health.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
         }),
         ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
         PrismaModule,
+        RedisModule,
         HealthModule,
     ],
     controllers: [AppController],
