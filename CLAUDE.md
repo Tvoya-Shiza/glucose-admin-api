@@ -63,6 +63,57 @@ CI runs `bash ../scripts/check-shared-types-sync.sh` to fail on drift.
 
 DO NOT edit anything inside `vendor/shared-types/` directly. The sync script will overwrite your changes, and CI will reject any PR that touches it without a matching canonical update.
 
+## Auth + RBAC + Audit (Phase 2)
+
+### Auth flow
+
+Staff log in via `POST /admin-api/auth/login` with `{ email, password }`. The handler:
+- Defensively `findMany`s on `User.email` (HARD-13 unique constraint blocked); rejects ambiguous matches with `auth.ambiguous`.
+- Verifies bcryptjs.compare against `User.password`.
+- Enforces `STAFF_ROLES.includes(role_name)` (admin / curator / teacher; student is rejected).
+- Issues a 15-min access JWT and a 7-day refresh JWT (HS256, kid='admin-v1').
+- Writes the refresh `jti` to Redis at `geonline-admin:refresh:<jti>` (TTL 604800s).
+- Sets `Set-Cookie: glc_admin_at` and `glc_admin_rt` (HttpOnly, SameSite=Lax, Secure in prod).
+
+`POST /admin-api/auth/refresh` rotates the jti atomically via Redis MULTI/EXEC.
+`POST /admin-api/auth/logout` deletes the jti (idempotent) and is `@Audit`-logged.
+`GET /admin-api/auth/me` returns `{ user_id, email, role_name }`.
+
+Throttler: `/login` and `/refresh` are capped at 5 requests / 15 minutes / IP.
+
+### RBAC
+
+Every controller method MUST carry either `@Roles('admin', 'curator', 'teacher')` (or a subset) or `@Public()`. `RolesGuard` default-denies handlers without `@Roles()` to fail closed.
+
+Scope helpers live at `src/common/scoping/scope.helper.ts`. Phase 3+ feature modules ship per-feature `*.scope.ts` files implementing `ScopeRules` (admin sees all by default; curator/teacher narrow via Prisma `where` fragment). Call sites spread the result:
+
+```ts
+prisma.user.findMany({
+    where: { ...filters, ...buildScopeWhere(actor, USER_SCOPE_RULES) },
+});
+```
+
+### Audit log
+
+Every non-GET controller method MUST carry `@Audit(action, entity)` from `src/common/audit/audit.decorator.ts` — or `@SkipAudit('non-empty reason')` to opt out. The CI lint at `scripts/ci-audit-decorator-check.cjs` (run via `npm run ci:audit-required`) walks every `src/modules/**/*.controller.ts` via the TypeScript Compiler API and exits 1 on missing decorators or empty skip reasons.
+
+Note: `@Public()` is NOT recognized by the audit lint — public POST endpoints (e.g. `/auth/login`, `/auth/refresh`) MUST still carry `@SkipAudit('public auth endpoint — no authenticated actor at this stage')` to satisfy the lint, even though no actor is available to log.
+
+The interceptor writes one NDJSON line per mutation to `logs/admin-audit.log` (5MB × 10 rotate). Shape locked to `{ ts, actor_id, action, entity, entity_id, ip, ua, before?, after?, meta? }` so the eventual replay into `AdminAuditLog` (when SCH-01 lands) is a straight insert.
+
+### Files (Phase 2)
+
+- `src/common/audit/{audit.decorator,audit.interceptor,audit.logger,audit.types}.ts`
+- `src/common/scoping/{scope.helper,scope.types}.ts`
+- `src/modules/auth/auth.{module,controller,service}.ts`
+- `src/modules/auth/jwt/{jwt.module-config,jwt.strategy}.ts`
+- `src/modules/auth/guards/{jwt.guard,roles.guard}.ts`
+- `src/modules/auth/decorators/{roles.decorator,current-user.decorator}.ts`
+- `src/modules/auth/dto/{login.dto,refresh.dto,logout.dto}.ts`
+- `src/modules/auth/refresh-token.repo.ts`
+- `src/modules/redis/redis.module.ts`
+- `scripts/ci-audit-decorator-check.cjs` + `scripts/__fixtures__/`
+
 ## Commands
 
 ```bash
@@ -72,5 +123,6 @@ npm run build
 npm run start:prod
 npm run prisma:pull      # db pull + generate (only refresh path)
 npm run ci:prisma-drift
+npm run ci:audit-required
 npm run ci:forbid-migrations-dir
 ```
