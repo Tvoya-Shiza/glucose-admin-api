@@ -5,6 +5,8 @@ import { GroupsListController } from './groups-list.controller';
 import { GroupsListService } from './groups-list.service';
 import { GroupsMutationsController } from './groups-mutations.controller';
 import { GroupsMutationsService } from './groups-mutations.service';
+import { GroupsSupervisorController } from './groups-supervisor.controller';
+import { GroupsSupervisorService } from './groups-supervisor.service';
 
 /**
  * GroupsModule — controllers + providers added by Phase 4 Plans 02-04.
@@ -20,8 +22,23 @@ import { GroupsMutationsService } from './groups-mutations.service';
  */
 @Module({
     imports: [],
-    controllers: [GroupsListController, GroupsMutationsController, GroupsDetailController],
-    providers: [GroupsListService, GroupsMutationsService, GroupsDetailService],
-    exports: [GroupsListService, GroupsMutationsService, GroupsDetailService],
+    controllers: [
+        GroupsListController,
+        GroupsMutationsController,
+        GroupsDetailController,
+        GroupsSupervisorController,
+    ],
+    providers: [
+        GroupsListService,
+        GroupsMutationsService,
+        GroupsDetailService,
+        GroupsSupervisorService,
+    ],
+    exports: [
+        GroupsListService,
+        GroupsMutationsService,
+        GroupsDetailService,
+        GroupsSupervisorService,
+    ],
 })
 export class GroupsModule {}
