@@ -13,6 +13,7 @@ import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
+import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { UsersModule } from './modules/users/users.module';
@@ -31,6 +32,7 @@ import { PrismaModule } from './prisma/prisma.module';
         AuthModule,
         HealthModule,
         UsersModule,
+        GroupsModule,
     ],
     controllers: [AppController],
     providers: [
