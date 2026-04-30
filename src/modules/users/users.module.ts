@@ -3,6 +3,8 @@ import { UsersBulkController } from './users-bulk.controller';
 import { UsersBulkService } from './users-bulk.service';
 import { UsersDetailController } from './users-detail.controller';
 import { UsersDetailService } from './users-detail.service';
+import { UsersExportController } from './users-export.controller';
+import { UsersExportService } from './users-export.service';
 import { UsersImportController } from './users-import.controller';
 import { UsersImportService } from './users-import.service';
 import { UsersListController } from './users-list.controller';
@@ -20,9 +22,11 @@ import { UsersRoleService } from './users-role.service';
  * Wave 2 (Plan 04): UsersRoleController + UsersRoleService — admin-only role-change.
  * Wave 2 (Plan 05): UsersBulkController + UsersBulkService — bulk-provision
  *   (dry-run + commit) for course access grants. USR-04 + USR-05.
- * Wave 2 (this plan, 06): UsersImportController + UsersImportService — admin-only CSV
+ * Wave 2 (Plan 06): UsersImportController + UsersImportService — admin-only CSV
  *   import (dry-run + commit) with email-then-mobile idempotency. USR-06.
- * Plan 07 -> users-export.controller (proxies to geonline-api-export)
+ * Wave 2 (Plan 07): UsersExportController + UsersExportService — inline CSV/XLSX
+ *   export of the filtered users list (50k cap, @Throttle 5/15min). USR-07.
+ *   Worker offload to geonline-api-export deferred to Phase 9.
  */
 @Module({
     imports: [],
@@ -32,8 +36,23 @@ import { UsersRoleService } from './users-role.service';
         UsersRoleController,
         UsersBulkController,
         UsersImportController,
+        UsersExportController,
     ],
-    providers: [UsersListService, UsersDetailService, UsersRoleService, UsersBulkService, UsersImportService],
-    exports: [UsersListService, UsersDetailService, UsersRoleService, UsersBulkService, UsersImportService],
+    providers: [
+        UsersListService,
+        UsersDetailService,
+        UsersRoleService,
+        UsersBulkService,
+        UsersImportService,
+        UsersExportService,
+    ],
+    exports: [
+        UsersListService,
+        UsersDetailService,
+        UsersRoleService,
+        UsersBulkService,
+        UsersImportService,
+        UsersExportService,
+    ],
 })
 export class UsersModule {}
