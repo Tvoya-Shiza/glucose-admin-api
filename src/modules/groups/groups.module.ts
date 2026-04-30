@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { GroupsListController } from './groups-list.controller';
 import { GroupsListService } from './groups-list.service';
+import { GroupsMutationsController } from './groups-mutations.controller';
+import { GroupsMutationsService } from './groups-mutations.service';
 
 /**
  * GroupsModule — controllers + providers added by Phase 4 Plans 02-04.
@@ -15,8 +17,8 @@ import { GroupsListService } from './groups-list.service';
  */
 @Module({
     imports: [],
-    controllers: [GroupsListController],
-    providers: [GroupsListService],
-    exports: [GroupsListService],
+    controllers: [GroupsListController, GroupsMutationsController],
+    providers: [GroupsListService, GroupsMutationsService],
+    exports: [GroupsListService, GroupsMutationsService],
 })
 export class GroupsModule {}
