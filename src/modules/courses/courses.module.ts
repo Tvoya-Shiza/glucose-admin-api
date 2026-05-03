@@ -7,6 +7,8 @@ import { CoursesDetailController } from './courses-detail.controller';
 import { CoursesDetailService } from './courses-detail.service';
 import { CoursesContentController } from './courses-content.controller';
 import { CoursesContentService } from './courses-content.service';
+import { CoursesScheduleController } from './courses-schedule.controller';
+import { CoursesScheduleService } from './courses-schedule.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
@@ -35,6 +37,7 @@ import { UploadTokenGuard } from './upload-token.guard';
         CoursesMutationsController,
         CoursesDetailController,
         CoursesContentController,
+        CoursesScheduleController,
         UploadsController,
     ],
     providers: [
@@ -42,6 +45,7 @@ import { UploadTokenGuard } from './upload-token.guard';
         CoursesMutationsService,
         CoursesDetailService,
         CoursesContentService,
+        CoursesScheduleService,
         CoursesCacheService,
         UploadsService,
         UploadTokenGuard,
