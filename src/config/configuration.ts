@@ -34,6 +34,13 @@ export const configuration = () => ({
         baseDir: process.env.UPLOAD_BASE_DIR ?? '/var/data/glucose-uploads/courses',
         publicUrlPrefix: process.env.UPLOAD_PUBLIC_URL_PREFIX ?? '/static/courses',
     },
+    quizForce: {
+        // Phase 6 Plan 04 (QZ-06) — force-confirm tokens for destructive quiz edits.
+        // Distinct secret from JWT_ADMIN_SECRET / JWT_UPLOAD_SECRET so confused-deputy
+        // attempts (presenting an admin Bearer or upload token as a force-confirm
+        // token) reject at signature verify (T-06-44).
+        secret: process.env.JWT_QUIZ_FORCE_SECRET ?? '',
+    },
     throttler: {
         ttl: 60_000,
         limit: 100,

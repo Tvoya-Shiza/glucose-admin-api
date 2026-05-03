@@ -7,6 +7,8 @@ import { QuizzesDuplicateController } from './quizzes-duplicate.controller';
 import { QuizzesDuplicateService } from './quizzes-duplicate.service';
 import { QuizCategoriesController } from './quiz-categories.controller';
 import { QuizCategoriesService } from './quiz-categories.service';
+import { QuizzesDetailController } from './quizzes-detail.controller';
+import { QuizzesDetailService } from './quizzes-detail.service';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 
 /**
@@ -16,9 +18,11 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
  *                  + 13 DTO files + cache helper.
  * Wave 2 (Plan 02): list controller + list service + mutations controller +
  *                  mutations service + duplicate controller + duplicate service.
- * Wave 2 (Plan 03 — THIS PLAN): quiz-categories controller + service (tree CRUD,
- *                              cycle protection, force-delete repoint).
- * Wave 3 (Plan 04): detail controller + detail service + force-confirm signer.
+ * Wave 2 (Plan 03): quiz-categories controller + service (tree CRUD,
+ *                  cycle protection, force-delete repoint).
+ * Wave 3 (Plan 04 — THIS PLAN): detail controller + detail service +
+ *                              force-confirm.signer module (pure function exports;
+ *                              NOT a Nest provider — Plan 05 imports it directly).
  * Wave 4 (Plan 05): questions controller + service.
  * Wave 4 (Plan 06): quiz-badges controller + service + badge-items reorder.
  * Wave 5 (Plan 07): results controller + results service.
@@ -32,12 +36,14 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesMutationsController,
         QuizzesDuplicateController,
         QuizCategoriesController,
+        QuizzesDetailController,
     ],
     providers: [
         QuizzesListService,
         QuizzesMutationsService,
         QuizzesDuplicateService,
         QuizCategoriesService,
+        QuizzesDetailService,
         QuizzesCacheService,
     ],
     exports: [],

@@ -66,6 +66,14 @@ class EnvironmentVariables {
     @IsOptional()
     @IsString()
     UPLOAD_PUBLIC_URL_PREFIX?: string;
+
+    // Phase 6 Plan 04 — force-confirm tokens for destructive quiz edits (QZ-06).
+    // Distinct from JWT_ADMIN_SECRET / JWT_UPLOAD_SECRET so confused-deputy attempts
+    // (presenting an admin Bearer or upload token as a force-confirm token) reject at
+    // signature verification (T-06-44). Min 32 chars.
+    @IsString()
+    @MinLength(32, { message: 'JWT_QUIZ_FORCE_SECRET must be at least 32 characters' })
+    JWT_QUIZ_FORCE_SECRET!: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
