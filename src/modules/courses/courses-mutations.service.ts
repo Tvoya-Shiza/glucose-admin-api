@@ -5,6 +5,8 @@ import { CreateCourseDto } from './dto/create-course.dto';
 import { UpdateCourseDto } from './dto/update-course.dto';
 import type { CourseDetailDto, TranslationRowDto } from './dto/course-detail.dto';
 import { deriveTranslationCompleteness } from './utils/translation-completeness';
+import { CoursesCacheService } from './utils/courses-cache.service';
+import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
 
 /**
  * CRS-01 + CRS-07 — course create / update / soft-delete (Plan 02 task 2).
@@ -48,7 +50,10 @@ import { deriveTranslationCompleteness } from './utils/translation-completeness'
 export class CoursesMutationsService {
     private readonly logger = new Logger(CoursesMutationsService.name);
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cache: CoursesCacheService,
+    ) {}
 
     /** CRS-01 create. */
     public async create(actor: ScopeActor, dto: CreateCourseDto): Promise<CourseDetailDto> {
@@ -115,7 +120,9 @@ export class CoursesMutationsService {
             return w;
         });
 
-        // TODO (Plan 03 wire-up): cache.invalidate(COURSES_INVALIDATE_PATTERN)
+        // Plan 03 wire-up: invalidate the entire courses namespace (CONTEXT D-25 — aggressive
+        // invalidation; courses tree mutations affect both list and detail caches).
+        await this.cache.invalidate(COURSES_INVALIDATE_PATTERN);
         return this.readDetail(Number(created.id));
     }
 
@@ -192,7 +199,9 @@ export class CoursesMutationsService {
             }
         });
 
-        // TODO (Plan 03 wire-up): cache.invalidate(COURSES_INVALIDATE_PATTERN)
+        // Plan 03 wire-up: invalidate the entire courses namespace (CONTEXT D-25 — aggressive
+        // invalidation; courses tree mutations affect both list and detail caches).
+        await this.cache.invalidate(COURSES_INVALIDATE_PATTERN);
         return this.readDetail(id);
     }
 
@@ -204,7 +213,9 @@ export class CoursesMutationsService {
             where: { id: existing.id },
             data: { deleted_at: now, updated_at: now },
         });
-        // TODO (Plan 03 wire-up): cache.invalidate(COURSES_INVALIDATE_PATTERN)
+        // Plan 03 wire-up: invalidate the entire courses namespace (CONTEXT D-25 — aggressive
+        // invalidation; courses tree mutations affect both list and detail caches).
+        await this.cache.invalidate(COURSES_INVALIDATE_PATTERN);
         return { id, deleted: true };
     }
 

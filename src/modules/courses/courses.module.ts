@@ -3,24 +3,35 @@ import { CoursesListController } from './courses-list.controller';
 import { CoursesListService } from './courses-list.service';
 import { CoursesMutationsController } from './courses-mutations.controller';
 import { CoursesMutationsService } from './courses-mutations.service';
+import { CoursesDetailController } from './courses-detail.controller';
+import { CoursesDetailService } from './courses-detail.service';
+import { CoursesCacheService } from './utils/courses-cache.service';
 
 /**
  * CoursesModule — Phase 5.
  *
- * Wave 1 (Plan 01): module skeleton + WEBINAR_SCOPE_RULES + 11 DTO files + course-cache.
+ * Wave 1 (Plan 01): module skeleton + WEBINAR_SCOPE_RULES + 11 DTO files + course-cache helpers.
  * Wave 2 (Plan 02): list controller + service + mutations controller + service.
- * Wave 3 (Plan 03): detail + change-teacher.
+ * Wave 3 (Plan 03): detail controller + service (3-step 403-not-404)
+ *                   + CoursesCacheService wire-up (Plan 02 deferred — flipped here).
  * Wave 4 (Plan 04): upload-token + upload-file (BFF bypass).
  * Wave 5 (Plan 05): chapter/item editor + Tiptap + reorder.
  * Wave 6 (Plan 06): per-group schedule controller/service.
  * Wave 7 (Plan 07): preview-as-student page (admin-client only).
  *
- * PrismaModule is registered globally in AppModule, so we don't need to import it here.
+ * PrismaModule + RedisModule are registered globally in AppModule (PrismaService
+ * via PrismaModule; ioredis Redis client via RedisModule.@Global IoredisModule),
+ * so we don't need to import them here.
  */
 @Module({
     imports: [],
-    controllers: [CoursesListController, CoursesMutationsController],
-    providers: [CoursesListService, CoursesMutationsService],
+    controllers: [CoursesListController, CoursesMutationsController, CoursesDetailController],
+    providers: [
+        CoursesListService,
+        CoursesMutationsService,
+        CoursesDetailService,
+        CoursesCacheService,
+    ],
     exports: [],
 })
 export class CoursesModule {}
