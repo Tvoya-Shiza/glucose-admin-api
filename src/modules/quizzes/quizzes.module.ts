@@ -9,6 +9,10 @@ import { QuizCategoriesController } from './quiz-categories.controller';
 import { QuizCategoriesService } from './quiz-categories.service';
 import { QuizzesDetailController } from './quizzes-detail.controller';
 import { QuizzesDetailService } from './quizzes-detail.service';
+import { QuizzesQuestionsController } from './quizzes-questions.controller';
+import { QuizzesQuestionsService } from './quizzes-questions.service';
+import { QuizzesAnswersController } from './quizzes-answers.controller';
+import { QuizzesAnswersService } from './quizzes-answers.service';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 
 /**
@@ -37,6 +41,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesDuplicateController,
         QuizCategoriesController,
         QuizzesDetailController,
+        QuizzesQuestionsController,
+        QuizzesAnswersController,
     ],
     providers: [
         QuizzesListService,
@@ -44,6 +50,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesDuplicateService,
         QuizCategoriesService,
         QuizzesDetailService,
+        QuizzesQuestionsService,
+        QuizzesAnswersService,
         QuizzesCacheService,
     ],
     exports: [],

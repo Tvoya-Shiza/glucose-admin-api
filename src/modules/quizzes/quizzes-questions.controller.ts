@@ -1,0 +1,114 @@
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Param,
+    ParseIntPipe,
+    Patch,
+    Post,
+    Query,
+    UseGuards,
+} from '@nestjs/common';
+import { Audit } from '../../common/audit/audit.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtGuard } from '../auth/guards/jwt.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { ReorderQuestionsDto } from './dto/reorder-questions.dto';
+import { UpsertQuestionDto } from './dto/upsert-question.dto';
+import { QuizzesQuestionsService } from './quizzes-questions.service';
+
+/**
+ * QZ-02 / QZ-06 — admin/teacher question CRUD + reorder (Phase 6 Plan 05).
+ *
+ * Routes (all under /admin-api/v1/admin/quizzes/:quizId/questions):
+ *
+ *   GET    ''               -> list questions       (admin/curator/teacher; service 403s curator)
+ *   POST   ''               -> create question      (admin/teacher; NOT destructive)
+ *   PATCH  'reorder'        -> batch reorder        (admin/teacher; NOT destructive)  **MUST come before :questionId**
+ *   PATCH  ':questionId'    -> update question      (admin/teacher; destructive gate)
+ *   DELETE ':questionId'    -> delete question      (admin/teacher; destructive gate)
+ *
+ * Route ordering: Nest matches PATCH 'reorder' AFTER PATCH ':questionId' would
+ * absorb the literal "reorder" as a path parameter. We declare 'reorder' first
+ * so its handler wins. Verified: Nest's path-to-regexp resolves declaration order
+ * for static-vs-parameterized peers in this case.
+ *
+ * Audit (T-06-15): every mutation handler decorated. CI lint
+ * `npm run ci:audit-required` verifies decoration on every non-GET handler.
+ */
+@Controller('admin-api/v1/admin/quizzes/:quizId/questions')
+@UseGuards(JwtGuard, RolesGuard)
+export class QuizzesQuestionsController {
+    constructor(private readonly svc: QuizzesQuestionsService) {}
+
+    @Get()
+    @Roles('admin', 'curator', 'teacher')
+    public async list(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('quizId', ParseIntPipe) quizId: number,
+    ) {
+        return this.svc.listQuestions({ id: actor.id, role_name: actor.role_name }, quizId);
+    }
+
+    @Post()
+    @Roles('admin', 'teacher')
+    @Audit('quizzes.question.create', 'quiz_question')
+    public async create(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('quizId', ParseIntPipe) quizId: number,
+        @Body() dto: UpsertQuestionDto,
+    ) {
+        return this.svc.createQuestion({ id: actor.id, role_name: actor.role_name }, quizId, dto);
+    }
+
+    @Patch('reorder')
+    @Roles('admin', 'teacher')
+    @Audit('quizzes.question.reorder', 'quiz_question')
+    public async reorder(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('quizId', ParseIntPipe) quizId: number,
+        @Body() dto: ReorderQuestionsDto,
+    ) {
+        return this.svc.reorderQuestions({ id: actor.id, role_name: actor.role_name }, quizId, dto);
+    }
+
+    @Patch(':questionId')
+    @Roles('admin', 'teacher')
+    @Audit('quizzes.question.update', 'quiz_question')
+    public async update(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('quizId', ParseIntPipe) quizId: number,
+        @Param('questionId', ParseIntPipe) questionId: number,
+        @Body() dto: UpsertQuestionDto,
+    ) {
+        return this.svc.updateQuestion(
+            { id: actor.id, role_name: actor.role_name },
+            quizId,
+            questionId,
+            dto,
+        );
+    }
+
+    @Delete(':questionId')
+    @Roles('admin', 'teacher')
+    @Audit('quizzes.question.delete', 'quiz_question')
+    @HttpCode(HttpStatus.OK)
+    public async remove(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('quizId', ParseIntPipe) quizId: number,
+        @Param('questionId', ParseIntPipe) questionId: number,
+        @Query('force_confirm_token') forceConfirmToken?: string,
+    ) {
+        return this.svc.deleteQuestion(
+            { id: actor.id, role_name: actor.role_name },
+            quizId,
+            questionId,
+            forceConfirmToken ?? null,
+        );
+    }
+}
