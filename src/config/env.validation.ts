@@ -51,6 +51,21 @@ class EnvironmentVariables {
     @IsOptional()
     @IsString()
     GIT_SHA?: string;
+
+    // Phase 5 Plan 04 — file upload (BFF-bypass).
+    // Distinct from JWT_ADMIN_SECRET so a leaked admin token can't be replayed
+    // as an upload token (T-05-42 confused deputy). Min 32 chars.
+    @IsString()
+    @MinLength(32, { message: 'JWT_UPLOAD_SECRET must be at least 32 characters' })
+    JWT_UPLOAD_SECRET!: string;
+
+    @IsOptional()
+    @IsString()
+    UPLOAD_BASE_DIR?: string;
+
+    @IsOptional()
+    @IsString()
+    UPLOAD_PUBLIC_URL_PREFIX?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

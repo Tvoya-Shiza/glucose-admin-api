@@ -6,6 +6,9 @@ import { CoursesMutationsService } from './courses-mutations.service';
 import { CoursesDetailController } from './courses-detail.controller';
 import { CoursesDetailService } from './courses-detail.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
+import { UploadsController } from './uploads.controller';
+import { UploadsService } from './uploads.service';
+import { UploadTokenGuard } from './upload-token.guard';
 
 /**
  * CoursesModule — Phase 5.
@@ -25,12 +28,19 @@ import { CoursesCacheService } from './utils/courses-cache.service';
  */
 @Module({
     imports: [],
-    controllers: [CoursesListController, CoursesMutationsController, CoursesDetailController],
+    controllers: [
+        CoursesListController,
+        CoursesMutationsController,
+        CoursesDetailController,
+        UploadsController,
+    ],
     providers: [
         CoursesListService,
         CoursesMutationsService,
         CoursesDetailService,
         CoursesCacheService,
+        UploadsService,
+        UploadTokenGuard,
     ],
     exports: [],
 })

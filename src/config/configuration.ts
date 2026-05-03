@@ -26,6 +26,14 @@ export const configuration = () => ({
             .map((s) => s.trim())
             .filter(Boolean),
     },
+    upload: {
+        // Phase 5 Plan 04 (CRS-05) — file upload BFF bypass.
+        // Distinct secret from JWT_ADMIN_SECRET so a leaked admin token
+        // can't be replayed as an upload token (T-05-42 confused deputy).
+        secret: process.env.JWT_UPLOAD_SECRET ?? '',
+        baseDir: process.env.UPLOAD_BASE_DIR ?? '/var/data/glucose-uploads/courses',
+        publicUrlPrefix: process.env.UPLOAD_PUBLIC_URL_PREFIX ?? '/static/courses',
+    },
     throttler: {
         ttl: 60_000,
         limit: 100,
