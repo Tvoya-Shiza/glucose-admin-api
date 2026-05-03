@@ -38,6 +38,12 @@ export interface CourseRowDto {
     image_cover: string;
     translation_completeness: TranslationCompleteness;
     missing_locales: ('ru' | 'kz')[];
+    /**
+     * Count of WebinarChapter rows whose `webinar_id === this.id`. Computed via
+     * Prisma `_count` aggregate in the same findMany — NOT an N+1 fetch.
+     * Surfaced for the Plan 02 DeleteCourseDialog cascade copy + TypeTheCountConfirmation gate.
+     */
+    chapter_count: number;
     created_at: number;
     updated_at: number | null;
 }
