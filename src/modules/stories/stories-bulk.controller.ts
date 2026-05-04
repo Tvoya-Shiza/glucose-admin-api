@@ -1,0 +1,35 @@
+import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { Audit } from '../../common/audit/audit.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtGuard } from '../auth/guards/jwt.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { BulkStatusDto } from './dto/bulk-status.dto';
+import { StoriesBulkService } from './stories-bulk.service';
+
+/**
+ * STY-03 — POST /admin-api/v1/admin/stories/bulk-status (Plan 02 Task 2).
+ *
+ * Single endpoint serves both dry-run preview and commit (D-13 — `mode` discriminates).
+ * Audit fires on every call (even uncommitted dry-runs are auditable signals).
+ *
+ * RBAC: admin-only.
+ *
+ * Returns the raw BulkStatusResult shape (NOT wrapped in apiResponse) — admin-client
+ * useDryRunPreview hook + DryRunDialog consume it directly, mirroring the Phase 3
+ * Plan 05 bulk-provision endpoint.
+ */
+@Controller('admin-api/v1/admin/stories')
+@UseGuards(JwtGuard, RolesGuard)
+export class StoriesBulkController {
+    constructor(private readonly svc: StoriesBulkService) {}
+
+    @Post('bulk-status')
+    @Roles('admin')
+    @Audit('stories.bulkStatus', 'story')
+    @HttpCode(200)
+    public async bulkStatus(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: BulkStatusDto) {
+        return this.svc.bulkStatus({ id: actor.id, role_name: actor.role_name }, dto);
+    }
+}
