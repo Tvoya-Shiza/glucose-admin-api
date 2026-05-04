@@ -13,6 +13,10 @@ import { QuizzesQuestionsController } from './quizzes-questions.controller';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
 import { QuizzesAnswersController } from './quizzes-answers.controller';
 import { QuizzesAnswersService } from './quizzes-answers.service';
+import { QuizBadgesController } from './quiz-badges.controller';
+import { QuizBadgesService } from './quiz-badges.service';
+import { QuizBadgeItemsController } from './quiz-badge-items.controller';
+import { QuizBadgeItemsService } from './quiz-badge-items.service';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 
 /**
@@ -43,6 +47,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesDetailController,
         QuizzesQuestionsController,
         QuizzesAnswersController,
+        QuizBadgesController,
+        QuizBadgeItemsController,
     ],
     providers: [
         QuizzesListService,
@@ -52,6 +58,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesDetailService,
         QuizzesQuestionsService,
         QuizzesAnswersService,
+        QuizBadgesService,
+        QuizBadgeItemsService,
         QuizzesCacheService,
     ],
     exports: [],
