@@ -187,6 +187,14 @@ enum GroupStatus {
   inactive
 }
 
+enum ScheduledPushStatus {
+  pending
+  in_progress
+  completed
+  cancelled
+  failed
+}
+
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -280,6 +288,11 @@ model User {
   course_learnings      CourseLearning[]                  @relation("CourseLearningUser")
 
   push_notification_logs PushNotificationLog[]
+
+  scheduled_pushes_created   ScheduledPush[] @relation("ScheduledPushCreator")
+  scheduled_pushes_cancelled ScheduledPush[] @relation("ScheduledPushCanceller")
+  mailing_logs_received      MailingLog[]    @relation("MailingLogRecipient")
+  mailing_logs_sent          MailingLog[]    @relation("MailingLogSender")
 
   @@index([created_at], name: "idx_users_created_at")
   @@map("users")
@@ -1445,6 +1458,63 @@ model PushNotificationLog {
   @@index([user_id, trigger_type, sent_at], name: "idx_push_log_user_trigger_date")
   @@index([trigger_type, sent_at], name: "idx_push_log_trigger_date")
   @@map("push_notification_logs")
+}
+
+//* Phase 8 — admin-scheduled push delivery queue. Cron in admin-api fires due rows
+//* exactly-once across the cluster via @CronLock (Phase 1 Plan 04). attempt_id on
+//* PushNotificationLog rows is computed deterministically from scheduled_push_id +
+//* user_id so a duplicate cron tick (lock TTL exceeded) cannot double-write.
+model ScheduledPush {
+  id              BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  creator_id      Int                 @db.UnsignedInt
+  title_ru        String              @db.VarChar(255)
+  title_kz        String              @db.VarChar(255)
+  body_ru         String              @db.Text
+  body_kz         String              @db.Text
+  category        String              @db.VarChar(32) // info | promo | reminder | system (D-05 user-facing category)
+  deep_link       String?             @db.VarChar(512)
+  audience        Json // serialized AudienceFilter (Plan 01 lib/audience/types.ts)
+  scheduled_at    Int                 @db.UnsignedInt // Unix seconds, UTC; UI displays Asia/Almaty
+  status          ScheduledPushStatus @default(pending)
+  started_at      Int?                @db.UnsignedInt
+  completed_at    Int?                @db.UnsignedInt
+  delivered_count Int                 @default(0)
+  failed_count    Int                 @default(0)
+  audience_count  Int                 @default(0) // resolved at fire-time; 0 means not yet resolved
+  cancelled_at    Int?                @db.UnsignedInt
+  cancelled_by    Int?                @db.UnsignedInt
+  error           String?             @db.Text // populated only on terminal failure
+  created_at      Int                 @db.UnsignedInt
+  updated_at      Int                 @db.UnsignedInt
+
+  creator   User  @relation("ScheduledPushCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  canceller User? @relation("ScheduledPushCanceller", fields: [cancelled_by], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@index([status, scheduled_at], name: "idx_sched_push_status_at")
+  @@index([creator_id, created_at], name: "idx_sched_push_creator_at")
+  @@map("scheduled_pushes")
+}
+
+//* Phase 8 — mailing send log. Mirrors PushNotificationLog shape. attempt_id in meta
+//* enables cross-process idempotency (admin-api cron + future glucose-api auto-mail).
+model MailingLog {
+  id        BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id   Int      @db.UnsignedInt
+  sender_id Int?     @db.UnsignedInt // null for system-issued mails
+  subject   String   @db.VarChar(255)
+  to_email  String   @db.VarChar(255)
+  category  String   @db.VarChar(32) // marketing | transactional | reminder | system
+  sent_at   DateTime @default(now()) @db.Timestamp(0)
+  success   Boolean  @default(true)
+  error     String?  @db.Text
+  meta      Json? // { attempt_id, broadcast_id, audience_hash, smtp_message_id? }
+
+  user   User  @relation("MailingLogRecipient", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  sender User? @relation("MailingLogSender", fields: [sender_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@index([user_id, sent_at], name: "idx_mailing_log_user_sent")
+  @@index([sender_id, sent_at], name: "idx_mailing_log_sender_sent")
+  @@map("mailing_logs")
 }
 
 //* Admin audit log — Phase 1 Plan 08 / SCH-01
