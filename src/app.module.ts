@@ -6,10 +6,12 @@ type _UnusedRoleNameSmoke = RoleName;
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
+import { CronLockModule } from './common/decorators/cron-lock.module';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { AudienceModule } from './modules/audience/audience.module';
@@ -36,8 +38,14 @@ import { PrismaModule } from './prisma/prisma.module';
             validate: validateEnv,
         }),
         ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+        // Phase 8 Plan 04 — ScheduleModule enables @Cron handlers; CronLockModule
+        // provides CronLockService for @CronLock(name, ttl) cluster-mode locking.
+        // CronLockModule is @Global so cron-host services only inject CronLockService
+        // (public readonly cronLock) — see push-cron.service.ts.
+        ScheduleModule.forRoot(),
         PrismaModule,
         RedisModule,
+        CronLockModule,
         AuthModule,
         HealthModule,
         UsersModule,
