@@ -12,6 +12,7 @@ import { AppService } from './app.service';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
+import { AudienceModule } from './modules/audience/audience.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { BlogsModule } from './modules/blogs/blogs.module';
@@ -52,6 +53,9 @@ import { PrismaModule } from './prisma/prisma.module';
         // Phase 8 — push notifications + mailings (admin-only per D-19;
         // module skeletons + service providers in Plan 01; controllers land
         // in Plans 03-05).
+        // Plan 02 — AudienceModule is @Global() so PushModule + MailingsModule
+        // get AudienceService injected without explicit imports.
+        AudienceModule,
         PushModule,
         MailingsModule,
     ],
