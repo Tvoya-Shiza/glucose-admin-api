@@ -18,7 +18,9 @@ import { BlogsModule } from './modules/blogs/blogs.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
+import { MailingsModule } from './modules/mailings/mailings.module';
 import { PromocodesModule } from './modules/promocodes/promocodes.module';
+import { PushModule } from './modules/push/push.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { StoriesModule } from './modules/stories/stories.module';
@@ -47,6 +49,11 @@ import { PrismaModule } from './prisma/prisma.module';
         BannersModule,
         BlogsModule,
         PromocodesModule,
+        // Phase 8 — push notifications + mailings (admin-only per D-19;
+        // module skeletons + service providers in Plan 01; controllers land
+        // in Plans 03-05).
+        PushModule,
+        MailingsModule,
     ],
     controllers: [AppController],
     providers: [

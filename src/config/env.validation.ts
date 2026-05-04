@@ -74,6 +74,44 @@ class EnvironmentVariables {
     @IsString()
     @MinLength(32, { message: 'JWT_QUIZ_FORCE_SECRET must be at least 32 characters' })
     JWT_QUIZ_FORCE_SECRET!: string;
+
+    // Phase 8 — Firebase / FCM. All three optional; missing → PushFcmService no-ops.
+    @IsOptional()
+    @IsString()
+    FIREBASE_PROJECT_ID?: string;
+
+    @IsOptional()
+    @IsString()
+    FIREBASE_CLIENT_EMAIL?: string;
+
+    @IsOptional()
+    @IsString()
+    FIREBASE_PRIVATE_KEY?: string;
+
+    // Phase 8 — SMTP for admin mailings (PSH-05/06). All optional; missing → MailerService no-ops.
+    @IsOptional()
+    @IsString()
+    SMTP_HOST?: string;
+
+    @IsOptional()
+    @IsString()
+    SMTP_PORT?: string;
+
+    @IsOptional()
+    @IsString()
+    SMTP_USER?: string;
+
+    @IsOptional()
+    @IsString()
+    SMTP_PASSWORD?: string;
+
+    @IsOptional()
+    @IsString()
+    SMTP_FROM?: string;
+
+    @IsOptional()
+    @IsString()
+    SMTP_SECURE?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
