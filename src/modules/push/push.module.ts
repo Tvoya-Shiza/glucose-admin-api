@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { PushAudienceController } from './push-audience.controller';
 import { PushBroadcastController } from './push-broadcast.controller';
 import { PushBroadcastService } from './push-broadcast.service';
+import { PushHistoryController } from './push-history.controller';
+import { PushHistoryService } from './push-history.service';
 import { PushFcmService } from './services/push-fcm.service';
+import { PushCacheService } from './utils/push-cache.service';
 
 /**
  * PushModule — Phase 8.
@@ -19,8 +22,8 @@ import { PushFcmService } from './services/push-fcm.service';
  */
 @Module({
     imports: [],
-    controllers: [PushAudienceController, PushBroadcastController],
-    providers: [PushFcmService, PushBroadcastService],
+    controllers: [PushAudienceController, PushBroadcastController, PushHistoryController],
+    providers: [PushFcmService, PushBroadcastService, PushHistoryService, PushCacheService],
     exports: [PushFcmService, PushBroadcastService],
 })
 export class PushModule {}
