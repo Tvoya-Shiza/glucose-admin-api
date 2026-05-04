@@ -13,11 +13,15 @@ import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
+import { BannersModule } from './modules/banners/banners.module';
+import { BlogsModule } from './modules/blogs/blogs.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
+import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { StoriesModule } from './modules/stories/stories.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -37,6 +41,12 @@ import { PrismaModule } from './prisma/prisma.module';
         GroupsModule,
         CoursesModule,
         QuizzesModule,
+        // Phase 7 — marketing surfaces (admin-only per D-20; empty skeletons in Plan 01,
+        // controllers + services land in Plans 02-05).
+        StoriesModule,
+        BannersModule,
+        BlogsModule,
+        PromocodesModule,
     ],
     controllers: [AppController],
     providers: [
