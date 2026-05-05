@@ -3,6 +3,8 @@ import { SalesDetailController } from './sales-detail.controller';
 import { SalesDetailService } from './sales-detail.service';
 import { SalesListController } from './sales-list.controller';
 import { SalesListService } from './sales-list.service';
+import { SalesRefundController } from './sales-refund.controller';
+import { SalesRefundService } from './sales-refund.service';
 
 /**
  * SalesModule — Phase 9.
@@ -26,8 +28,8 @@ import { SalesListService } from './sales-list.service';
  */
 @Module({
     imports: [],
-    controllers: [SalesListController, SalesDetailController],
-    providers: [SalesListService, SalesDetailService],
-    exports: [SalesListService, SalesDetailService],
+    controllers: [SalesListController, SalesDetailController, SalesRefundController],
+    providers: [SalesListService, SalesDetailService, SalesRefundService],
+    exports: [SalesListService, SalesDetailService, SalesRefundService],
 })
 export class SalesModule {}
