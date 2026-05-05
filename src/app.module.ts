@@ -14,6 +14,7 @@ import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { CronLockModule } from './common/decorators/cron-lock.module';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AudienceModule } from './modules/audience/audience.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BannersModule } from './modules/banners/banners.module';
@@ -22,10 +23,12 @@ import { CoursesModule } from './modules/courses/courses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailingsModule } from './modules/mailings/mailings.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { PushModule } from './modules/push/push.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { SalesModule } from './modules/sales/sales.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -66,6 +69,14 @@ import { PrismaModule } from './prisma/prisma.module';
         AudienceModule,
         PushModule,
         MailingsModule,
+        // Phase 9 — payments + sales + analytics (admin-only payments+sales per
+        // D-18 + D-20; analytics is role-scoped per D-19 with per-endpoint actor
+        // narrowing). Module skeletons + scope rules + cache namespaces in
+        // Plan 01; controllers + services land in Plans 02 (payments), 03
+        // (sales), 04 (analytics).
+        PaymentsModule,
+        SalesModule,
+        AnalyticsModule,
     ],
     controllers: [AppController],
     providers: [
