@@ -16,6 +16,7 @@ import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AudienceModule } from './modules/audience/audience.module';
+import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { BlogsModule } from './modules/blogs/blogs.module';
@@ -77,6 +78,10 @@ import { PrismaModule } from './prisma/prisma.module';
         PaymentsModule,
         SalesModule,
         AnalyticsModule,
+        // Phase 10 Plan 01 — audit-read surface (AUD-01 / AUD-02 / AUD-03). Three GETs
+        // under /admin-api/v1/admin/audit; admin sees all rows, curator/teacher narrow
+        // to their own actor_id (D-02 + D-24, server-enforced via AUDIT_READ_SCOPE_RULES).
+        AuditModule,
     ],
     controllers: [AppController],
     providers: [
