@@ -1,0 +1,35 @@
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtGuard } from '../auth/guards/jwt.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { ListSalesDto } from './dto/list-sales.dto';
+import { SalesListService } from './sales-list.service';
+
+/**
+ * PAY-02 — GET /admin-api/v1/admin/sales.
+ *
+ * Returns the raw `SaleListResponseDto` shape (NOT wrapped in apiResponse) per
+ * glucose-admin-api/CLAUDE.md "List endpoints (Phase 3+) return `{ rows, total, ... }`
+ * directly — TanStack Table on the admin-client consumes the raw shape." Our shape
+ * is `{ rows, total, page, page_size, next_cursor }` per Plan 01's locked
+ * lib/sales/types.ts contract.
+ *
+ * RBAC (D-18, D-20): admin-only. Curator + teacher receive 403 from RolesGuard.
+ * Belt-and-braces in service via SALE_SCOPE_RULES default-deny.
+ *
+ * Audit posture: GET endpoints exempt from the @Audit lint (only POST/PUT/PATCH/DELETE
+ * trip the requirement) — no decorator needed here.
+ */
+@Controller('admin-api/v1/admin/sales')
+@UseGuards(JwtGuard, RolesGuard)
+export class SalesListController {
+    constructor(private readonly listService: SalesListService) {}
+
+    @Get()
+    @Roles('admin')
+    public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListSalesDto) {
+        return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
+    }
+}
