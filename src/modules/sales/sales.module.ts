@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { SalesDetailController } from './sales-detail.controller';
 import { SalesDetailService } from './sales-detail.service';
+import { SalesExportController } from './sales-export.controller';
+import { SalesExportService } from './sales-export.service';
 import { SalesListController } from './sales-list.controller';
 import { SalesListService } from './sales-list.service';
 import { SalesRefundController } from './sales-refund.controller';
@@ -28,8 +30,8 @@ import { SalesRefundService } from './sales-refund.service';
  */
 @Module({
     imports: [],
-    controllers: [SalesListController, SalesDetailController, SalesRefundController],
-    providers: [SalesListService, SalesDetailService, SalesRefundService],
-    exports: [SalesListService, SalesDetailService, SalesRefundService],
+    controllers: [SalesListController, SalesDetailController, SalesRefundController, SalesExportController],
+    providers: [SalesListService, SalesDetailService, SalesRefundService, SalesExportService],
+    exports: [SalesListService, SalesDetailService, SalesRefundService, SalesExportService],
 })
 export class SalesModule {}
