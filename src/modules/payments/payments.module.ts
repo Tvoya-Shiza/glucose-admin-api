@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { PaymentsDetailController } from './payments-detail.controller';
 import { PaymentsDetailService } from './payments-detail.service';
+import { PaymentsExportController } from './payments-export.controller';
+import { PaymentsExportService } from './payments-export.service';
 import { PaymentsListController } from './payments-list.controller';
 import { PaymentsListService } from './payments-list.service';
 
@@ -26,8 +28,8 @@ import { PaymentsListService } from './payments-list.service';
  */
 @Module({
     imports: [],
-    controllers: [PaymentsListController, PaymentsDetailController],
-    providers: [PaymentsListService, PaymentsDetailService],
-    exports: [PaymentsListService, PaymentsDetailService],
+    controllers: [PaymentsListController, PaymentsDetailController, PaymentsExportController],
+    providers: [PaymentsListService, PaymentsDetailService, PaymentsExportService],
+    exports: [PaymentsListService, PaymentsDetailService, PaymentsExportService],
 })
 export class PaymentsModule {}
