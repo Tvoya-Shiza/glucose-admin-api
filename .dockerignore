@@ -1,0 +1,11 @@
+node_modules
+dist
+generated
+.git
+*.log
+.env
+.env.*
+!.env.example
+logs
+README.md
+.DS_Store
