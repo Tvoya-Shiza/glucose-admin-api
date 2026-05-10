@@ -206,11 +206,11 @@ datasource db {
 }
 
 model User {
-  id                Int        @id @default(autoincrement())
+  id                Int        @id @default(autoincrement()) @db.UnsignedInt
   full_name         String?    @db.VarChar(255)
   last_activity     DateTime?
   role_name         String     @db.VarChar(64)
-  role_id           Int
+  role_id           Int        @db.UnsignedInt 
   referrer_id       Int?
   mobile            String?    @unique @db.VarChar(32)
   email             String?    @unique @db.VarChar(255)
