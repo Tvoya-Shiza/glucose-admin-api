@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { UsersBulkController } from './users-bulk.controller';
 import { UsersBulkService } from './users-bulk.service';
+import { UsersCreateController } from './users-create.controller';
+import { UsersCreateService } from './users-create.service';
 import { UsersDetailController } from './users-detail.controller';
 import { UsersDetailService } from './users-detail.service';
 import { UsersExportController } from './users-export.controller';
@@ -37,6 +39,7 @@ import { UsersRoleService } from './users-role.service';
         UsersBulkController,
         UsersImportController,
         UsersExportController,
+        UsersCreateController,
     ],
     providers: [
         UsersListService,
@@ -45,6 +48,7 @@ import { UsersRoleService } from './users-role.service';
         UsersBulkService,
         UsersImportService,
         UsersExportService,
+        UsersCreateService,
     ],
     exports: [
         UsersListService,
@@ -53,6 +57,7 @@ import { UsersRoleService } from './users-role.service';
         UsersBulkService,
         UsersImportService,
         UsersExportService,
+        UsersCreateService,
     ],
 })
 export class UsersModule {}
