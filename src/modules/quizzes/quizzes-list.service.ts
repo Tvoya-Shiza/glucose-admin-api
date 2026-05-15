@@ -22,10 +22,10 @@ import { buildQuizListCacheKey } from './utils/quizzes-cache';
  *   - Quizzes has NO deleted_at / soft-delete column. Status enum (active|inactive)
  *     is the only "lifecycle" gate; DELETE flips status='inactive' (see mutations service).
  *
- *   - translation_completeness: 'complete' iff both ru AND kz QuizTranslation rows
- *     exist with non-empty title. 'incomplete' otherwise. missing_locales lists which
- *     of ['ru','kz'] is absent or empty. Same shape as Phase 5 deriveTranslationCompleteness
- *     but inlined here because the Quizzes domain doesn't share the helper file.
+ *   - translation_completeness: 'complete' iff the kz QuizTranslation row exists
+ *     with non-empty title. 'incomplete' otherwise. missing_locales lists 'kz' when
+ *     absent or empty. Same shape as Phase 5 deriveTranslationCompleteness but inlined
+ *     here because the Quizzes domain doesn't share the helper file.
  *
  *   - question_count comes from `_count.questions` aggregate (no N+1).
  *
@@ -92,10 +92,10 @@ export class QuizzesListService {
         }
         if (query.q && query.q.trim().length > 0) {
             const needle = query.q.trim();
-            // Search hits ru locale title (RU canonical). MySQL collation is utf8mb4_general_ci
+            // Search hits kz locale title. MySQL collation is utf8mb4_general_ci
             // so contains is case-insensitive by default.
             filterWhere.translations = {
-                some: { locale: 'ru', title: { contains: needle } },
+                some: { locale: 'kz', title: { contains: needle } },
             };
         }
 
@@ -172,19 +172,19 @@ export class QuizzesListService {
 
     private mapRow(r: any): QuizRowDto {
         const translations: Array<{ locale: string; title: string | null }> = r.translations ?? [];
-        const ruTitle = translations.find((t) => t.locale === 'ru')?.title?.trim() ?? '';
         const kzTitle = translations.find((t) => t.locale === 'kz')?.title?.trim() ?? '';
 
         const missing_locales: RowLocale[] = [];
-        if (ruTitle.length === 0) missing_locales.push('ru');
         if (kzTitle.length === 0) missing_locales.push('kz');
         const translation_completeness: 'complete' | 'incomplete' = missing_locales.length === 0 ? 'complete' : 'incomplete';
+
+        const title_kz = kzTitle.length > 0 ? kzTitle : null;
 
         const category: QuizRowCategoryRef | null = r.quiz_category
             ? {
                   id: Number(r.quiz_category.id),
-                  title_ru:
-                      (r.quiz_category.translations ?? []).find((t: any) => t.locale === 'ru')?.title ?? null,
+                  title_kz:
+                      (r.quiz_category.translations ?? []).find((t: any) => t.locale === 'kz')?.title ?? null,
               }
             : null;
 
@@ -192,12 +192,13 @@ export class QuizzesListService {
             .filter((it) => it.quiz_badge)
             .map((it) => ({
                 id: Number(it.quiz_badge.id),
-                title_ru:
-                    (it.quiz_badge.translations ?? []).find((t: any) => t.locale === 'ru')?.title ?? null,
+                title_kz:
+                    (it.quiz_badge.translations ?? []).find((t: any) => t.locale === 'kz')?.title ?? null,
             }));
 
         return {
             id: Number(r.id),
+            title_kz,
             status: r.status,
             version: Number(r.version ?? 1),
             category,

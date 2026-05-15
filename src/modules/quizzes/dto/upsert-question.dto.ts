@@ -41,11 +41,12 @@ import {
  *   - Token shape: see ForceConfirmTokenClaims in force-confirm.dto.ts.
  */
 export type UpsertQuestionType = 'single' | 'multiple' | 'descriptive' | 'identificative';
-export type UpsertQuestionLocale = 'ru' | 'kz';
+export type UpsertQuestionLocale = 'kz';
 
 export class UpsertQuestionTranslationDto {
+    // 'ru' accepted for backward compatibility; service filters RU out before persisting.
     @IsIn(['ru', 'kz'])
-    locale!: UpsertQuestionLocale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @Length(1, 2000)

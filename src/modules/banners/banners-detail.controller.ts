@@ -11,11 +11,6 @@ import { BannersDetailService } from './banners-detail.service';
  * Admin-only. apiResponse-wrapped detail: `{ success, status, message, data }`.
  *
  * Audit posture: GET endpoints are exempt from the @Audit lint.
- *
- * Routing note: this controller's `:id` route lives under the same prefix as
- * `BannerCategoriesController` (`/admin-api/v1/admin/banners/categories`). Nest
- * matches the longer literal prefix first, so `/categories` resolves to the
- * categories controller before Nest tries to ParseInt 'categories' here.
  */
 @Controller('admin-api/v1/admin/banners')
 @UseGuards(JwtGuard, RolesGuard)

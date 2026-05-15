@@ -87,7 +87,7 @@ export class QuizCategoriesService {
                     parent_id: r.parent_id == null ? null : Number(r.parent_id),
                     subject_id: r.subject_id == null ? null : Number(r.subject_id),
                     translations: ((r.translations ?? []) as any[])
-                        .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+                        .filter((t) => t.locale === 'kz')
                         .map((t) => ({ locale: t.locale, title: t.title })),
                     quiz_count: Number(r._count?.quizzes ?? 0),
                     child_count: Number(r._count?.children ?? 0),
@@ -323,7 +323,7 @@ export class QuizCategoriesService {
             parent_id: r.parent_id == null ? null : Number(r.parent_id),
             subject_id: r.subject_id == null ? null : Number(r.subject_id),
             translations: ((r.translations ?? []) as any[])
-                .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t) => t.locale === 'kz')
                 .map((t) => ({ locale: t.locale, title: t.title })),
             quiz_count: Number(r._count?.quizzes ?? 0),
             child_count: Number(r._count?.children ?? 0),

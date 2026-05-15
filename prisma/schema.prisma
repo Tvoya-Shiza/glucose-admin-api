@@ -1231,7 +1231,7 @@ model BlogCategoryTranslation {
 
 model Advertisement {
   id             Int        @id @default(autoincrement()) @db.UnsignedInt
-  category_id    Int        @db.UnsignedInt
+  category_id    Int?       @db.UnsignedInt
   author_id      Int        @db.UnsignedInt
   slug           String     @db.VarChar(255)
   image          String?    @db.VarChar(255)
@@ -1245,7 +1245,7 @@ model Advertisement {
   created_at     Int        @db.UnsignedInt
   updated_at     Int        @db.UnsignedInt
 
-  category     AdvertisementCategory      @relation("AdvertisementCategory", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  category     AdvertisementCategory?     @relation("AdvertisementCategory", fields: [category_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
   translations AdvertisementTranslation[] @relation("AdvertisementTranslations")
   author       User                       @relation("AdvertisementAuthor", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -1288,7 +1288,7 @@ model AdvertisementCategoryTranslation {
 
 model Story {
   id             Int        @id @default(autoincrement()) @db.UnsignedInt
-  category_id    Int        @db.UnsignedInt
+  category_id    Int?       @db.UnsignedInt
   author_id      Int        @db.UnsignedInt
   slug           String     @db.VarChar(255)
   image          String?    @db.VarChar(255)
@@ -1303,7 +1303,7 @@ model Story {
   created_at     Int        @db.UnsignedInt
   updated_at     Int        @db.UnsignedInt
 
-  category     StoryCategory      @relation("StoryCategory", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  category     StoryCategory?     @relation("StoryCategory", fields: [category_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
   translations StoryTranslation[] @relation("StoryTranslations")
   author       User               @relation("StoryAuthor", fields: [author_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
@@ -1543,4 +1543,26 @@ model AdminAuditLog {
   @@index([entity, entity_id, ts], name: "idx_admin_audit_entity")
   @@index([bulk_op_id], name: "idx_admin_audit_bulk_op")
   @@map("admin_audit_logs")
+}
+
+// Phase 5+ — registry of every successful BFF-bypass upload.
+// Canonical schema + migration live in glucose-api. Mirror only here.
+// See glucose-api/prisma/migrations/phase-05-upload-assets-registry.MANUAL.sql.md
+// for the table contract and why no FKs are introduced.
+model UploadAsset {
+  id            String    @id @db.VarChar(26)
+  actor_id      Int
+  kind          String    @db.VarChar(16)
+  mime          String    @db.VarChar(64)
+  size          Int
+  filename      String    @db.VarChar(64)
+  file_url      String    @db.VarChar(512)
+  original_name String?   @db.VarChar(120)
+  created_at    DateTime  @default(now())
+  deleted_at    DateTime?
+
+  @@index([actor_id, created_at], name: "idx_upload_assets_actor_ts")
+  @@index([kind, created_at], name: "idx_upload_assets_kind_ts")
+  @@index([deleted_at], name: "idx_upload_assets_deleted")
+  @@map("upload_assets")
 }

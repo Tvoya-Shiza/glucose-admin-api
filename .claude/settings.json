@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/Users/admin/Documents/work/glucose-api/shared-types",
+      "/Users/admin/Documents/work/glucose-admin-client/vendor/shared-types"
+    ],
+    "allow": [
+      "Bash(echo \"TSC exit: $?\")"
+    ]
+  }
+}

@@ -23,20 +23,22 @@ const CATEGORIES = ['info', 'promo', 'reminder', 'system'] as const;
 type NotificationCategory = (typeof CATEGORIES)[number];
 
 export class PushPayloadDto {
+    // title_ru / body_ru kept optional for backward compatibility. Service mirrors
+    // title_kz / body_kz into the NOT-NULL DB columns when these are omitted.
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
     @MaxLength(64)
-    title_ru!: string;
+    title_ru?: string;
 
     @IsString()
     @IsNotEmpty()
     @MaxLength(64)
     title_kz!: string;
 
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
     @MaxLength(240)
-    body_ru!: string;
+    body_ru?: string;
 
     @IsString()
     @IsNotEmpty()

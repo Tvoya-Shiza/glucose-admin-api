@@ -86,12 +86,13 @@ export class BlogsMutationsService {
                 select: { id: true },
             });
 
-            if (dto.translations && dto.translations.length > 0) {
+            const kzTranslations = (dto.translations ?? []).filter((t) => t.locale === 'kz');
+            if (kzTranslations.length > 0) {
                 // T-07-04-02: sanitize content server-side BEFORE persisting (defense
                 // in depth — the admin-client also sanitizes via @/lib/sanitize/sanitize-html
                 // but the server is the final gate even against tampered clients).
                 await tx.blogTranslation.createMany({
-                    data: dto.translations.map((t) => ({
+                    data: kzTranslations.map((t) => ({
                         blog_id: b.id,
                         locale: t.locale,
                         title: t.title,
@@ -136,8 +137,11 @@ export class BlogsMutationsService {
         if (dto.page_type !== undefined) data.page_type = dto.page_type;
         if (dto.link !== undefined) data.link = dto.link;
 
+        const kzTranslations = Array.isArray(dto.translations)
+            ? dto.translations.filter((t) => t.locale === 'kz')
+            : [];
         const hasField = Object.keys(data).length > 0;
-        const hasTranslations = Array.isArray(dto.translations) && dto.translations.length > 0;
+        const hasTranslations = kzTranslations.length > 0;
 
         if (!hasField && !hasTranslations) {
             // No-op — return current detail.
@@ -153,7 +157,7 @@ export class BlogsMutationsService {
             }
 
             if (hasTranslations) {
-                for (const t of dto.translations!) {
+                for (const t of kzTranslations) {
                     // T-07-04-02 — sanitize on EVERY content write (create + update).
                     const sanitizedContent = sanitizeBlogHtmlServer(t.content);
                     const row: any = await tx.blogTranslation.findFirst({

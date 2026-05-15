@@ -106,9 +106,10 @@ export class CoursesMutationsService {
                 select: { id: true },
             });
 
-            if (dto.translations.length > 0) {
+            const kzTranslations = dto.translations.filter((t) => t.locale === 'kz');
+            if (kzTranslations.length > 0) {
                 await tx.webinarTranslations.createMany({
-                    data: dto.translations.map((t) => ({
+                    data: kzTranslations.map((t) => ({
                         webinar_id: w.id,
                         locale: t.locale,
                         title: t.title,
@@ -151,8 +152,11 @@ export class CoursesMutationsService {
         if (dto.category_id === null) data.category_id = null;
         else if (typeof dto.category_id === 'number') data.category_id = dto.category_id;
 
+        const kzTranslations = Array.isArray(dto.translations)
+            ? dto.translations.filter((t) => t.locale === 'kz')
+            : [];
         const hasField = Object.keys(data).length > 0;
-        const hasTranslations = Array.isArray(dto.translations) && dto.translations.length > 0;
+        const hasTranslations = kzTranslations.length > 0;
 
         if (!hasField && !hasTranslations) {
             // No-op — return current state.
@@ -169,7 +173,7 @@ export class CoursesMutationsService {
             }
 
             if (hasTranslations) {
-                for (const t of dto.translations!) {
+                for (const t of kzTranslations) {
                     // Find FIRST row by (webinar_id, locale) — schema lacks @@unique so we cannot
                     // use upsert. Documented in DTO header.
                     const row: any = await tx.webinarTranslations.findFirst({
@@ -282,9 +286,9 @@ export class CoursesMutationsService {
         }
 
         const translations: TranslationRowDto[] = (row.translations ?? [])
-            .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+            .filter((t: any) => t.locale === 'kz')
             .map((t: any) => ({
-                locale: t.locale as 'ru' | 'kz',
+                locale: 'kz' as const,
                 title: t.title,
                 description: t.description ?? null,
             }));
@@ -307,7 +311,7 @@ export class CoursesMutationsService {
                 : null,
             // category title-locales not available in this select — Plan 03 detail service joins translations.
             category: row.category
-                ? { id: Number(row.category.id), slug: row.category.slug, title_ru: null, title_kz: null }
+                ? { id: Number(row.category.id), slug: row.category.slug, title_kz: null }
                 : null,
             image_cover: row.image_cover ?? '',
             thumbnail: row.thumbnail ?? '',

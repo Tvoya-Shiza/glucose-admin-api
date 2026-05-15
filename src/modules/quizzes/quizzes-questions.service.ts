@@ -570,7 +570,7 @@ export function mapQuestionRow(q: any): any {
         answer_video_url: q.answer_video_url ?? null,
         order: q.order == null ? null : Number(q.order),
         translations: ((q.translations ?? []) as any[])
-            .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+            .filter((t) => t.locale === 'kz')
             .map((t) => ({
                 locale: t.locale,
                 title: t.title,
@@ -583,7 +583,7 @@ export function mapQuestionRow(q: any): any {
             image: a.image ?? null,
             correct: !!a.correct,
             translations: ((a.translations ?? []) as any[])
-                .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t) => t.locale === 'kz')
                 .map((t) => ({ locale: t.locale, title: t.title })),
             created_at: Number(a.created_at),
             updated_at: a.updated_at == null ? null : Number(a.updated_at),

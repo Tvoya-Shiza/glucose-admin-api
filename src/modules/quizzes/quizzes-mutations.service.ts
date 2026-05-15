@@ -94,9 +94,10 @@ export class QuizzesMutationsService {
                 select: { id: true },
             });
 
-            if (dto.translations.length > 0) {
+            const kzTranslations = dto.translations.filter((t) => t.locale === 'kz');
+            if (kzTranslations.length > 0) {
                 await tx.quizTranslation.createMany({
-                    data: dto.translations.map((t) => ({
+                    data: kzTranslations.map((t) => ({
                         quiz_id: q.id,
                         locale: t.locale,
                         title: t.title,
@@ -149,8 +150,11 @@ export class QuizzesMutationsService {
         if (dto.expiry_days === null) data.expiry_days = null;
         else if (typeof dto.expiry_days === 'number') data.expiry_days = dto.expiry_days;
 
+        const kzTranslations = Array.isArray(dto.translations)
+            ? dto.translations.filter((t) => t.locale === 'kz')
+            : [];
         const hasField = Object.keys(data).length > 0;
-        const hasTranslations = Array.isArray(dto.translations) && dto.translations.length > 0;
+        const hasTranslations = kzTranslations.length > 0;
 
         if (!hasField && !hasTranslations) {
             return apiResponse(1, 'noop', 'quizzes.updated', await this.readDetail(id));
@@ -165,7 +169,7 @@ export class QuizzesMutationsService {
             }
 
             if (hasTranslations) {
-                for (const t of dto.translations!) {
+                for (const t of kzTranslations) {
                     const row: any = await tx.quizTranslation.findFirst({
                         where: { quiz_id: existing.id, locale: t.locale },
                         select: { id: true },
@@ -320,13 +324,11 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
     if (!row) throw new NotFoundException('quizzes.not_found');
 
     const translations: QuizTranslationRef[] = ((row.translations ?? []) as any[])
-        .filter((t) => t.locale === 'ru' || t.locale === 'kz')
-        .map((t) => ({ locale: t.locale as Locale, title: t.title }));
+        .filter((t) => t.locale === 'kz')
+        .map((t) => ({ locale: 'kz' as const, title: t.title }));
 
-    const ruTitle = translations.find((t) => t.locale === 'ru')?.title?.trim() ?? '';
     const kzTitle = translations.find((t) => t.locale === 'kz')?.title?.trim() ?? '';
     const missing_locales: Locale[] = [];
-    if (ruTitle.length === 0) missing_locales.push('ru');
     if (kzTitle.length === 0) missing_locales.push('kz');
     const translation_completeness: 'complete' | 'incomplete' = missing_locales.length === 0 ? 'complete' : 'incomplete';
 
@@ -334,15 +336,15 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
         ? {
               id: Number(row.quiz_category.id),
               parent_id: row.quiz_category.parent_id == null ? null : Number(row.quiz_category.parent_id),
-              title_ru:
-                  (row.quiz_category.translations ?? []).find((t: any) => t.locale === 'ru')?.title ?? null,
+              title_kz:
+                  (row.quiz_category.translations ?? []).find((t: any) => t.locale === 'kz')?.title ?? null,
           }
         : null;
 
     const subject: QuizSubjectRef | null = row.subject
         ? {
               id: Number(row.subject.id),
-              title_ru: (row.subject.translations ?? []).find((t: any) => t.locale === 'ru')?.title ?? null,
+              title_kz: (row.subject.translations ?? []).find((t: any) => t.locale === 'kz')?.title ?? null,
           }
         : null;
 
@@ -353,8 +355,8 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             image: a.image ?? null,
             correct: !!a.correct,
             translations: ((a.translations ?? []) as any[])
-                .filter((t) => t.locale === 'ru' || t.locale === 'kz')
-                .map((t) => ({ locale: t.locale as Locale, title: t.title })),
+                .filter((t) => t.locale === 'kz')
+                .map((t) => ({ locale: 'kz' as const, title: t.title })),
             created_at: Number(a.created_at),
             updated_at: a.updated_at == null ? null : Number(a.updated_at),
         }));
@@ -367,9 +369,9 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             answer_video_url: q.answer_video_url ?? null,
             order: q.order == null ? null : Number(q.order),
             translations: ((q.translations ?? []) as any[])
-                .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t) => t.locale === 'kz')
                 .map((t) => ({
-                    locale: t.locale as Locale,
+                    locale: 'kz' as const,
                     title: t.title,
                     description: t.description ?? null,
                     correct: t.correct ?? null,
@@ -384,7 +386,7 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
         .filter((it: any) => it.quiz_badge)
         .map((it: any) => ({
             id: Number(it.quiz_badge.id),
-            title_ru: (it.quiz_badge.translations ?? []).find((t: any) => t.locale === 'ru')?.title ?? null,
+            title_kz: (it.quiz_badge.translations ?? []).find((t: any) => t.locale === 'kz')?.title ?? null,
             is_active: !!it.quiz_badge.is_active,
         }));
 

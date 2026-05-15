@@ -40,11 +40,12 @@ import {
  *     answer mutation is destructive (changing correctness, changing translation title,
  *     or delete via the dedicated DELETE handler).
  */
-export type UpsertAnswerLocale = 'ru' | 'kz';
+export type UpsertAnswerLocale = 'kz';
 
 export class UpsertAnswerTranslationDto {
+    // 'ru' accepted for backward compatibility; service filters RU out before persisting.
     @IsIn(['ru', 'kz'])
-    locale!: UpsertAnswerLocale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @Length(1, 1000)

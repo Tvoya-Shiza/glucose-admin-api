@@ -33,9 +33,8 @@ export interface BlogListRow {
     visit_count: number;
     created_at: number;
     updated_at: number;
-    title_ru: string | null;
     title_kz: string | null;
-    category_title_ru: string | null;
+    category_title_kz: string | null;
     author_full_name: string | null;
 }
 
@@ -107,7 +106,7 @@ export class BlogsListService {
                     category: {
                         select: {
                             translations: {
-                                where: { locale: 'ru' },
+                                where: { locale: 'kz' },
                                 select: { title: true },
                                 take: 1,
                             },
@@ -122,7 +121,6 @@ export class BlogsListService {
         ]);
 
         const out: BlogListRow[] = (rows as any[]).map((r: any) => {
-            const ru = (r.translations ?? []).find((t: any) => t.locale === 'ru');
             const kz = (r.translations ?? []).find((t: any) => t.locale === 'kz');
             return {
                 id: Number(r.id),
@@ -134,9 +132,8 @@ export class BlogsListService {
                 visit_count: Number(r.visit_count ?? 0),
                 created_at: Number(r.created_at),
                 updated_at: Number(r.updated_at ?? r.created_at),
-                title_ru: ru?.title ?? null,
                 title_kz: kz?.title ?? null,
-                category_title_ru: r.category?.translations?.[0]?.title ?? null,
+                category_title_kz: r.category?.translations?.[0]?.title ?? null,
                 author_full_name: r.author?.full_name ?? null,
             };
         });

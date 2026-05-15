@@ -163,9 +163,9 @@ export class CoursesDetailService {
 
         // Top-level translations.
         const translations: TranslationRowDto[] = (row.translations ?? [])
-            .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+            .filter((t: any) => t.locale === 'kz')
             .map((t: any) => ({
-                locale: t.locale as 'ru' | 'kz',
+                locale: 'kz' as const,
                 title: t.title,
                 description: t.description ?? null,
             }));
@@ -174,12 +174,10 @@ export class CoursesDetailService {
             translations.map((t) => ({ locale: t.locale, title: t.title })),
         );
 
-        // Category title-locales from the joined translations array (prefer ru, kz).
-        let title_ru: string | null = null;
+        // Category title from joined translations array (kz only).
         let title_kz: string | null = null;
         if (row.category && Array.isArray(row.category.translations)) {
             for (const ct of row.category.translations) {
-                if (ct.locale === 'ru' && (ct.title ?? '').length > 0) title_ru = ct.title;
                 if (ct.locale === 'kz' && (ct.title ?? '').length > 0) title_kz = ct.title;
             }
         }
@@ -187,9 +185,9 @@ export class CoursesDetailService {
         // Chapters + items.
         const chapters: ChapterDto[] = (row.chapters as any[]).map((c: any) => {
             const cTranslations: TranslationRowDto[] = (c.translations ?? [])
-                .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t: any) => t.locale === 'kz')
                 .map((t: any) => ({
-                    locale: t.locale as 'ru' | 'kz',
+                    locale: 'kz' as const,
                     title: t.title,
                     description: null, // schema has no description column on chapter translations
                 }));
@@ -231,7 +229,6 @@ export class CoursesDetailService {
                 ? {
                       id: Number(row.category.id),
                       slug: row.category.slug,
-                      title_ru,
                       title_kz,
                   }
                 : null,

@@ -37,12 +37,6 @@ export class ListStoriesDto {
     status?: StoryStatusFilter;
 
     @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    category_id?: number;
-
-    @IsOptional()
     @IsString()
     @MaxLength(200)
     q?: string;

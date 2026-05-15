@@ -14,7 +14,7 @@ import { PrismaService } from '../../prisma/prisma.service';
  * StoryDetail / BannerDetail.
  */
 export interface BlogTranslationDetail {
-    locale: 'ru' | 'kz';
+    locale: 'kz';
     title: string;
     description: string;
     /** Tiptap HTML — already sanitized server-side at write-time (T-07-04-02). */
@@ -38,7 +38,6 @@ export interface BlogDetail {
     translations: BlogTranslationDetail[];
     category: {
         id: number;
-        title_ru: string | null;
         title_kz: string | null;
     } | null;
     author: { id: number; full_name: string | null; role_name: string | null } | null;
@@ -85,19 +84,17 @@ export class BlogsDetailService {
         }
 
         const translations: BlogTranslationDetail[] = (row.translations ?? [])
-            .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+            .filter((t: any) => t.locale === 'kz')
             .map((t: any) => ({
-                locale: t.locale as 'ru' | 'kz',
+                locale: 'kz' as const,
                 title: t.title ?? '',
                 description: t.description ?? '',
                 content: t.content ?? '',
             }));
 
-        let title_ru: string | null = null;
         let title_kz: string | null = null;
         if (row.category && Array.isArray(row.category.translations)) {
             for (const ct of row.category.translations) {
-                if (ct.locale === 'ru' && (ct.title ?? '').length > 0) title_ru = ct.title;
                 if (ct.locale === 'kz' && (ct.title ?? '').length > 0) title_kz = ct.title;
             }
         }
@@ -120,7 +117,6 @@ export class BlogsDetailService {
             category: row.category
                 ? {
                       id: Number(row.category.id),
-                      title_ru,
                       title_kz,
                   }
                 : null,

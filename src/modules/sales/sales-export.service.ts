@@ -121,7 +121,7 @@ export class SalesExportService {
                 webinar: {
                     select: {
                         translations: {
-                            where: { locale: 'ru' },
+                            where: { locale: 'kz' },
                             select: { title: true },
                             take: 1,
                         },
@@ -130,7 +130,7 @@ export class SalesExportService {
                 quiz: {
                     select: {
                         translations: {
-                            where: { locale: 'ru' },
+                            where: { locale: 'kz' },
                             select: { title: true },
                             take: 1,
                         },
@@ -139,7 +139,7 @@ export class SalesExportService {
                 quiz_badge: {
                     select: {
                         translations: {
-                            where: { locale: 'ru' },
+                            where: { locale: 'kz' },
                             select: { title: true },
                             take: 1,
                         },

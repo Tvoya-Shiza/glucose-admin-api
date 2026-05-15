@@ -1,9 +1,11 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
     InternalServerErrorException,
     Logger,
+    NotFoundException,
     OnModuleInit,
     UnauthorizedException,
 } from '@nestjs/common';
@@ -14,6 +16,8 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { ulid } from 'ulid';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { PrismaService } from '../../prisma/prisma.service';
+import { ListUploadsQueryDto, type ListUploadsResponseDto, type UploadAssetDto } from './dto/list-uploads.dto';
 import { UploadTokenRequestDto, UploadTokenResponseDto } from './dto/upload-token.dto';
 import {
     signUploadToken,
@@ -65,6 +69,7 @@ export class UploadsService implements OnModuleInit {
     constructor(
         config: ConfigService,
         @InjectRedis() private readonly redis: Redis,
+        private readonly prisma: PrismaService,
     ) {
         const s = config.get<string>('upload.secret') ?? process.env.JWT_UPLOAD_SECRET;
         if (!s || s.length < 32) {
@@ -212,6 +217,27 @@ export class UploadsService implements OnModuleInit {
         }
 
         const file_url = `${this.publicUrlPrefix}/${filename}`;
+
+        // Step 7: register in upload_assets so the admin file-library can list/delete.
+        // Failure here is non-fatal — the file is on disk + the audit row already
+        // captures the upload — but log the error so ops sees the desync.
+        try {
+            await this.prisma.uploadAsset.create({
+                data: {
+                    id,
+                    actor_id: claims.sub,
+                    kind: claims.kind,
+                    mime: claims.content_type,
+                    size: file.size,
+                    filename,
+                    file_url,
+                    original_name: UploadsService.sanitizeOriginalName(file.originalname),
+                },
+            });
+        } catch (err) {
+            this.logger.error(`upload_assets insert failed for ${id}: ${(err as Error).message}`);
+        }
+
         return {
             file_url,
             content_type: claims.content_type,
@@ -222,5 +248,110 @@ export class UploadsService implements OnModuleInit {
             actor_role: claims.role,
             av_scanned: false,
         };
+    }
+
+    /**
+     * List uploads for the admin file-library UI.
+     *
+     * - Staff-only (admin/teacher/curator) — controller enforces with @Roles.
+     * - `mine=true` narrows to the calling actor (used by the "My uploads" tab).
+     * - Soft-deleted rows are hidden.
+     * - Page bounds clamped in the DTO via class-validator.
+     */
+    async listUploads(actor: AuthenticatedRequestUser, query: ListUploadsQueryDto): Promise<ListUploadsResponseDto> {
+        const page = Math.max(1, query.page ?? 1);
+        const perPage = Math.min(100, Math.max(1, query.per_page ?? 24));
+        const where: Record<string, unknown> = { deleted_at: null };
+        if (query.kind) {
+            where.kind = query.kind;
+        }
+        if (query.mime) {
+            where.mime = query.mime;
+        }
+        if (query.mine) {
+            where.actor_id = actor.id;
+        }
+        if (query.q) {
+            where.original_name = { contains: query.q };
+        }
+
+        const [rows, total] = await Promise.all([
+            this.prisma.uploadAsset.findMany({
+                where,
+                orderBy: { created_at: 'desc' },
+                skip: (page - 1) * perPage,
+                take: perPage,
+            }),
+            this.prisma.uploadAsset.count({ where }),
+        ]);
+
+        const data: UploadAssetDto[] = rows.map((row) => ({
+            id: row.id,
+            actor_id: row.actor_id,
+            kind: row.kind as UploadKind,
+            mime: row.mime,
+            size: row.size,
+            filename: row.filename,
+            file_url: row.file_url,
+            original_name: row.original_name,
+            created_at: row.created_at.toISOString(),
+        }));
+
+        return { data, meta: { total, page, per_page: perPage } };
+    }
+
+    /**
+     * Soft-delete an upload + best-effort unlink the on-disk file.
+     *
+     * Staff-only (admin/teacher) — curators can list but not delete; controller
+     * enforces with @Roles. Idempotent: a second call on a soft-deleted row
+     * returns 404 (the row is no longer "visible").
+     *
+     * The file_url is intentionally NOT searched against feature tables
+     * (banners.image / courses.image_cover / etc.) — see Phase B safety notes.
+     * UI warns the user before calling this.
+     */
+    async deleteUpload(id: string): Promise<void> {
+        const row = await this.prisma.uploadAsset.findFirst({ where: { id, deleted_at: null } });
+        if (!row) {
+            throw new NotFoundException('upload.asset_not_found');
+        }
+
+        // Belt-and-braces path-traversal defense, mirroring acceptUpload.
+        // filename comes from DB and is always '<ulid>.<ext>' but resolve+startsWith
+        // catches any legacy/corrupted value before we touch the filesystem.
+        const fullPath = path.resolve(this.baseDir, row.filename);
+        const baseResolved = path.resolve(this.baseDir);
+        if (!fullPath.startsWith(baseResolved + path.sep)) {
+            throw new ForbiddenException('upload.path_resolution_failed');
+        }
+
+        await this.prisma.uploadAsset.update({
+            where: { id },
+            data: { deleted_at: new Date() },
+        });
+
+        try {
+            await fs.unlink(fullPath);
+        } catch (err) {
+            const code = (err as NodeJS.ErrnoException).code;
+            if (code === 'ENOENT') {
+                this.logger.warn(`upload ${id} already missing on disk during delete`);
+            } else {
+                this.logger.error(`upload ${id} unlink failed: ${(err as Error).message}`);
+            }
+        }
+    }
+
+    /**
+     * Sanitize a user-supplied original filename for safe storage in DB + UI search.
+     * Keeps the visual character of the name while stripping any path/control bytes.
+     */
+    private static sanitizeOriginalName(raw: string | undefined): string | null {
+        if (!raw || typeof raw !== 'string') {
+            return null;
+        }
+        const trimmed = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
+        return trimmed.length > 0 ? trimmed : null;
     }
 }

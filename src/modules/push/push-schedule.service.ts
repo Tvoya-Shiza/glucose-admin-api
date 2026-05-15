@@ -61,12 +61,16 @@ export class PushScheduleService {
         // audience shape resolves correctly under the actor's RBAC scope.
         const preview = await this.audience.preview(input.audience, actor);
 
+        // RU columns are NOT NULL in the DB but no longer requested from clients.
+        // Mirror KZ into RU at write time so legacy rows stay populated.
+        const titleRu = input.payload.title_ru ?? input.payload.title_kz;
+        const bodyRu = input.payload.body_ru ?? input.payload.body_kz;
         const created = await this.prisma.scheduledPush.create({
             data: {
                 creator_id: actor.id,
-                title_ru: input.payload.title_ru,
+                title_ru: titleRu,
                 title_kz: input.payload.title_kz,
-                body_ru: input.payload.body_ru,
+                body_ru: bodyRu,
                 body_kz: input.payload.body_kz,
                 category: input.payload.category,
                 deep_link: input.payload.deep_link ?? null,
@@ -170,7 +174,6 @@ export class PushScheduleService {
     private mapRow(r: any) {
         return {
             id: r.id.toString(),
-            title_ru: r.title_ru,
             title_kz: r.title_kz,
             category: r.category,
             scheduled_at: r.scheduled_at,
@@ -189,7 +192,6 @@ export class PushScheduleService {
     private mapDetail(r: any, audience_hash: string) {
         return {
             ...this.mapRow(r),
-            body_ru: r.body_ru,
             body_kz: r.body_kz,
             deep_link: r.deep_link,
             audience: r.audience,

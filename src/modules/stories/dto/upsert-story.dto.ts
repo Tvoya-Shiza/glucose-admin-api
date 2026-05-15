@@ -5,11 +5,9 @@ import {
     IsArray,
     IsBoolean,
     IsIn,
-    IsInt,
     IsOptional,
     IsString,
     MaxLength,
-    Min,
     ValidateNested,
 } from 'class-validator';
 
@@ -30,12 +28,13 @@ import {
  *
  * Translations: 1..2 entries, locale narrowed to 'ru' | 'kz' at the API boundary.
  */
-export type StoryLocale = 'ru' | 'kz';
+export type StoryLocale = 'kz';
 export type StoryStatusInput = 'pending' | 'publish';
 
 export class StoryTranslationDto {
+    // 'ru' accepted for backward compatibility; service filters RU out before persisting.
     @IsIn(['ru', 'kz'])
-    locale!: StoryLocale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @MaxLength(255)
@@ -56,11 +55,6 @@ export class UpsertStoryDto {
     @IsString()
     @MaxLength(255)
     slug?: string;
-
-    @IsOptional()
-    @IsInt()
-    @Min(1)
-    category_id?: number;
 
     /** image url; null clears (the column is nullable). */
     @IsOptional()

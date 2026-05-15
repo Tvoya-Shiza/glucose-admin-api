@@ -76,19 +76,19 @@ export interface QuestionDto {
 export interface QuizCategoryRef {
     id: number;
     parent_id: number | null;
-    /** Optional joined ru title (no `name` column on QuizCategory). */
-    title_ru: string | null;
+    /** Joined kz title (no `name` column on QuizCategory). */
+    title_kz: string | null;
 }
 
 export interface QuizSubjectRef {
     id: number;
-    /** Joined ru title from QuizSubjectTranslation. */
-    title_ru: string | null;
+    /** Joined kz title from QuizSubjectTranslation. */
+    title_kz: string | null;
 }
 
 export interface QuizBadgeRef {
     id: number;
-    title_ru: string | null;
+    title_kz: string | null;
     is_active: boolean;
 }
 

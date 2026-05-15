@@ -31,8 +31,18 @@ export const configuration = () => ({
         // Distinct secret from JWT_ADMIN_SECRET so a leaked admin token
         // can't be replayed as an upload token (T-05-42 confused deputy).
         secret: process.env.JWT_UPLOAD_SECRET ?? '',
-        baseDir: process.env.UPLOAD_BASE_DIR ?? '/var/data/glucose-uploads/courses',
+        // Prod default is /var/data/... (writable only by service user).
+        // Dev fallback is ./.uploads/courses so contributors don't need sudo.
+        baseDir:
+            process.env.UPLOAD_BASE_DIR ??
+            ((process.env.NODE_ENV ?? 'development') === 'production'
+                ? '/var/data/glucose-uploads/courses'
+                : './.uploads/courses'),
         publicUrlPrefix: process.env.UPLOAD_PUBLIC_URL_PREFIX ?? '/static/courses',
+        // When true, Nest serves UPLOAD_BASE_DIR at UPLOAD_PUBLIC_URL_PREFIX itself.
+        // Prod leaves this false — nginx maps /static/courses to the disk path.
+        // Dev sets UPLOAD_SERVE_STATIC=true so previews work without nginx.
+        serveStatic: (process.env.UPLOAD_SERVE_STATIC ?? '').toLowerCase() === 'true',
     },
     quizForce: {
         // Phase 6 Plan 04 (QZ-06) — force-confirm tokens for destructive quiz edits.

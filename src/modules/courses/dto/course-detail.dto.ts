@@ -50,7 +50,6 @@ export interface CourseDetailTeacherRef {
 export interface CourseDetailCategoryRef {
     id: number;
     slug: string;
-    title_ru: string | null;
     title_kz: string | null;
 }
 

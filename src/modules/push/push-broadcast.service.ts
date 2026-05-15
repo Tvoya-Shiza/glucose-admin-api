@@ -122,7 +122,7 @@ export class PushBroadcastService {
                 let success = false;
                 let error: string | undefined;
                 try {
-                    success = await this.fcm.sendToUser(recipient.id, payload.title_ru, payload.body_ru, {
+                    success = await this.fcm.sendToUser(recipient.id, payload.title_kz, payload.body_kz, {
                         category: payload.category,
                         deep_link: payload.deep_link ?? '',
                         broadcast_id: broadcastId,
@@ -180,7 +180,7 @@ export class PushBroadcastService {
         let success = false;
         let error: string | undefined;
         try {
-            success = await this.fcm.sendToUser(actorId, payload.title_ru, payload.body_ru, {
+            success = await this.fcm.sendToUser(actorId, payload.title_kz, payload.body_kz, {
                 category: payload.category,
                 deep_link: payload.deep_link ?? '',
                 attempt_id: attemptId,

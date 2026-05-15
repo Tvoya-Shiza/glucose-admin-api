@@ -87,25 +87,18 @@ export class CoursesListService {
         }
 
         // Server-side translation-completeness narrowing.
-        // 'complete'  -> AND requires both ru AND kz with non-empty title
+        // 'complete'  -> requires kz translation with non-empty title
         // 'incomplete'-> NOT(complete)
         if (query.translation_completeness === 'complete') {
-            const completePredicate = [
-                { translations: { some: { locale: 'ru', title: { not: '' } } } },
+            filterWhere.AND = [
+                ...(filterWhere.AND ?? []),
                 { translations: { some: { locale: 'kz', title: { not: '' } } } },
             ];
-            // Merge AND with any existing AND keyword (none here, but keep defensive).
-            filterWhere.AND = [...(filterWhere.AND ?? []), ...completePredicate];
         } else if (query.translation_completeness === 'incomplete') {
             filterWhere.AND = [
                 ...(filterWhere.AND ?? []),
                 {
-                    NOT: {
-                        AND: [
-                            { translations: { some: { locale: 'ru', title: { not: '' } } } },
-                            { translations: { some: { locale: 'kz', title: { not: '' } } } },
-                        ],
-                    },
+                    NOT: { translations: { some: { locale: 'kz', title: { not: '' } } } },
                 },
             ];
         }
@@ -152,12 +145,15 @@ export class CoursesListService {
         ]);
 
         const out: CourseRowDto[] = (rows as any[]).map((r: any) => {
+            const translations = (r.translations ?? []) as Array<{ locale: string; title: string | null }>;
             const completeness = deriveTranslationCompleteness(
-                (r.translations ?? []).map((t: any) => ({ locale: t.locale, title: t.title ?? null })),
+                translations.map((t) => ({ locale: t.locale, title: t.title ?? null })),
             );
+            const kzTitle = translations.find((t) => t.locale === 'kz')?.title?.trim() ?? '';
             return {
                 id: Number(r.id),
                 slug: r.slug,
+                title_kz: kzTitle.length > 0 ? kzTitle : null,
                 status: r.status,
                 teacher: r.teacher
                     ? { id: Number(r.teacher.id), full_name: r.teacher.full_name ?? null }

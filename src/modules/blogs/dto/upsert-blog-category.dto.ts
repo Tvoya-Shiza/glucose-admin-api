@@ -10,16 +10,10 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
  *   - BlogCategoryTranslation: per-locale title (`String VARCHAR(255)`), no description.
  *   - NO @@unique on translations — service must use find-then-update.
  *
- * Translation policy: RU is canonical; KZ permitted blank but the field is required
- * in the row when supplied. Two top-level fields (rather than translations[]) match
- * the categories dialog ergonomics — same shape Plan 02/03 used.
+ * Translation policy: KZ-only. Single title field bound directly to the
+ * create/edit dialog input (no translations[] or RU companion).
  */
 export class UpsertBlogCategoryDto {
-    @IsOptional()
-    @IsString()
-    @MaxLength(255)
-    title_ru?: string;
-
     @IsOptional()
     @IsString()
     @MaxLength(255)

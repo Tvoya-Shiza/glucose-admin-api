@@ -32,14 +32,11 @@ export interface StoryListRow {
     icon: string | null;
     video: string | null;
     status: 'pending' | 'publish';
-    category_id: number;
     author_id: number;
     visit_count: number;
     created_at: number;
     updated_at: number;
-    title_ru: string | null;
     title_kz: string | null;
-    category_title_ru: string | null;
     author_full_name: string | null;
 }
 
@@ -67,10 +64,9 @@ export class StoriesListService {
         const sort = query.sort ?? 'created_at';
         const order: 'asc' | 'desc' = query.order ?? 'desc';
 
-        // Filter where (status / category / q).
+        // Filter where (status / q).
         const filterWhere: any = {};
         if (query.status) filterWhere.status = query.status;
-        if (typeof query.category_id === 'number') filterWhere.category_id = query.category_id;
 
         if (query.q && query.q.trim().length > 0) {
             const needle = query.q.trim();
@@ -103,21 +99,11 @@ export class StoriesListService {
                     icon: true,
                     video: true,
                     status: true,
-                    category_id: true,
                     author_id: true,
                     visit_count: true,
                     created_at: true,
                     updated_at: true,
                     translations: { select: { locale: true, title: true } },
-                    category: {
-                        select: {
-                            translations: {
-                                where: { locale: 'ru' },
-                                select: { title: true },
-                                take: 1,
-                            },
-                        },
-                    },
                     author: { select: { full_name: true } },
                 },
                 orderBy: [orderBy, { id: order }],
@@ -127,7 +113,6 @@ export class StoriesListService {
         ]);
 
         const out: StoryListRow[] = (rows as any[]).map((r: any) => {
-            const ru = (r.translations ?? []).find((t: any) => t.locale === 'ru');
             const kz = (r.translations ?? []).find((t: any) => t.locale === 'kz');
             return {
                 id: Number(r.id),
@@ -136,14 +121,11 @@ export class StoriesListService {
                 icon: r.icon ?? null,
                 video: r.video ?? null,
                 status: r.status as 'pending' | 'publish',
-                category_id: Number(r.category_id),
                 author_id: Number(r.author_id),
                 visit_count: Number(r.visit_count ?? 0),
                 created_at: Number(r.created_at),
                 updated_at: Number(r.updated_at ?? r.created_at),
-                title_ru: ru?.title ?? null,
                 title_kz: kz?.title ?? null,
-                category_title_ru: r.category?.translations?.[0]?.title ?? null,
                 author_full_name: r.author?.full_name ?? null,
             };
         });

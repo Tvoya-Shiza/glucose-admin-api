@@ -36,10 +36,6 @@ import { STORIES_INVALIDATE_PATTERN } from './utils/stories-cache';
  *   - Cache invalidation (D-19): every successful mutation invalidates
  *     STORIES_INVALIDATE_PATTERN ('geonline-admin:stories:*') — aggressive nuke since
  *     Plan 02's read-side caching is OFF; the pattern is reserved for the polish pass.
- *
- *   - category_id existence is pre-checked on create + update (when supplied) and
- *     surfaces 400 'stories.category_not_found' on miss. Story.category_id is FK
- *     onDelete: Cascade in schema as a backstop, but a friendly 400 is better UX.
  */
 @Injectable()
 export class StoriesMutationsService {
@@ -53,19 +49,9 @@ export class StoriesMutationsService {
 
     public async create(actor: ScopeActor, dto: UpsertStoryDto): Promise<StoryDetail> {
         if (!dto.slug) throw new BadRequestException('stories.slug_required');
-        if (typeof dto.category_id !== 'number' || dto.category_id <= 0) {
-            throw new BadRequestException('stories.category_id_required');
-        }
         if (!dto.translations || dto.translations.length === 0) {
             throw new BadRequestException('stories.translations_required');
         }
-
-        // Validate category exists (RESTRICT-style 400 instead of FK violation 500).
-        const cat: any = await this.prisma.storyCategory.findFirst({
-            where: { id: dto.category_id },
-            select: { id: true },
-        });
-        if (!cat) throw new BadRequestException('stories.category_not_found');
 
         const now = Math.floor(Date.now() / 1000);
 
@@ -73,7 +59,6 @@ export class StoriesMutationsService {
             const s: any = await tx.story.create({
                 data: {
                     slug: dto.slug!,
-                    category_id: dto.category_id!,
                     author_id: actor.id,
                     image: dto.image ?? null,
                     icon: dto.icon ?? null,
@@ -90,9 +75,10 @@ export class StoriesMutationsService {
                 select: { id: true },
             });
 
-            if (dto.translations && dto.translations.length > 0) {
+            const kzTranslations = (dto.translations ?? []).filter((t) => t.locale === 'kz');
+            if (kzTranslations.length > 0) {
                 await tx.storyTranslation.createMany({
-                    data: dto.translations.map((t) => ({
+                    data: kzTranslations.map((t) => ({
                         story_id: s.id,
                         locale: t.locale,
                         title: t.title,
@@ -116,20 +102,10 @@ export class StoriesMutationsService {
         });
         if (!existing) throw new NotFoundException('stories.not_found');
 
-        // category_id existence (when supplied).
-        if (typeof dto.category_id === 'number' && dto.category_id > 0) {
-            const cat: any = await this.prisma.storyCategory.findFirst({
-                where: { id: dto.category_id },
-                select: { id: true },
-            });
-            if (!cat) throw new BadRequestException('stories.category_not_found');
-        }
-
         const now = Math.floor(Date.now() / 1000);
 
         const data: Record<string, unknown> = {};
         if (typeof dto.slug === 'string') data.slug = dto.slug;
-        if (typeof dto.category_id === 'number') data.category_id = dto.category_id;
         if (dto.image !== undefined) data.image = dto.image;
         if (dto.icon !== undefined) data.icon = dto.icon;
         if (dto.video !== undefined) data.video = dto.video;
@@ -139,8 +115,11 @@ export class StoriesMutationsService {
         if (dto.page_type !== undefined) data.page_type = dto.page_type;
         if (dto.link !== undefined) data.link = dto.link;
 
+        const kzTranslations = Array.isArray(dto.translations)
+            ? dto.translations.filter((t) => t.locale === 'kz')
+            : [];
         const hasField = Object.keys(data).length > 0;
-        const hasTranslations = Array.isArray(dto.translations) && dto.translations.length > 0;
+        const hasTranslations = kzTranslations.length > 0;
 
         if (!hasField && !hasTranslations) {
             // No-op — return current detail.
@@ -156,7 +135,7 @@ export class StoriesMutationsService {
             }
 
             if (hasTranslations) {
-                for (const t of dto.translations!) {
+                for (const t of kzTranslations) {
                     const row: any = await tx.storyTranslation.findFirst({
                         where: { story_id: id, locale: t.locale },
                         select: { id: true },

@@ -66,8 +66,7 @@ export interface QuizResultUserRefDto {
 
 export interface QuizResultQuizRefDto {
     id: number;
-    title_ru: string | null;
-    kz_title?: string | null;
+    title_kz: string | null;
     /** Current quiz version (used for `is_stale_version` comparison). */
     version: number;
 }
@@ -234,7 +233,6 @@ export class QuizzesResultsService {
 
     private mapRow(r: any): QuizResultRowDto {
         const translations: Array<{ locale: string; title: string | null }> = r.quiz?.translations ?? [];
-        const ruTitle = translations.find((t) => t.locale === 'ru')?.title ?? null;
         const kzTitle = translations.find((t) => t.locale === 'kz')?.title ?? null;
         const quizVersion: number = Number(r.quiz?.version ?? 1);
         const versionAtStart: number | null = r.quiz_version_at_start == null ? null : Number(r.quiz_version_at_start);
@@ -245,8 +243,7 @@ export class QuizzesResultsService {
             quiz: r.quiz
                 ? {
                       id: Number(r.quiz.id),
-                      title_ru: ruTitle,
-                      kz_title: kzTitle,
+                      title_kz: kzTitle,
                       version: quizVersion,
                   }
                 : null,

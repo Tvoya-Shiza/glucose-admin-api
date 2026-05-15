@@ -7,8 +7,6 @@ import { StoriesMutationsController } from './stories-mutations.controller';
 import { StoriesMutationsService } from './stories-mutations.service';
 import { StoriesBulkController } from './stories-bulk.controller';
 import { StoriesBulkService } from './stories-bulk.service';
-import { StoryCategoriesController } from './story-categories.controller';
-import { StoryCategoriesService } from './story-categories.service';
 import { StoriesCacheService } from './utils/stories-cache.service';
 
 /**
@@ -23,7 +21,6 @@ import { StoriesCacheService } from './utils/stories-cache.service';
  *   - StoriesDetailController GET   /admin-api/v1/admin/stories/:id
  *   - StoriesMutationsCtl     POST/PATCH/DELETE /admin-api/v1/admin/stories[/:id]
  *   - StoriesBulkController   POST  /admin-api/v1/admin/stories/bulk-status
- *   - StoryCategoriesCtl      GET/POST/PATCH/DELETE /admin-api/v1/admin/stories/categories[/:id]
  *
  * Every controller method carries @Roles('admin') (D-20). Mutations carry @Audit (D-17).
  *
@@ -37,14 +34,12 @@ import { StoriesCacheService } from './utils/stories-cache.service';
         StoriesDetailController,
         StoriesMutationsController,
         StoriesBulkController,
-        StoryCategoriesController,
     ],
     providers: [
         StoriesListService,
         StoriesDetailService,
         StoriesMutationsService,
         StoriesBulkService,
-        StoryCategoriesService,
         StoriesCacheService,
     ],
     exports: [],

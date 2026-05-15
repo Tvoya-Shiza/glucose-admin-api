@@ -16,9 +16,6 @@ import { CoursesPreviewService } from './courses-preview.service';
 import { CourseCategoriesController } from './course-categories.controller';
 import { CourseCategoriesService } from './course-categories.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
-import { UploadsController } from './uploads.controller';
-import { UploadsService } from './uploads.service';
-import { UploadTokenGuard } from './upload-token.guard';
 
 /**
  * CoursesModule — Phase 5.
@@ -28,6 +25,8 @@ import { UploadTokenGuard } from './upload-token.guard';
  * Wave 3 (Plan 03): detail controller + service (3-step 403-not-404)
  *                   + CoursesCacheService wire-up (Plan 02 deferred — flipped here).
  * Wave 4 (Plan 04): upload-token + upload-file (BFF bypass).
+ *                   → Phase 5+ refactor: extracted to its own UploadsModule
+ *                   since banners/blogs/stories/quizzes also consume uploads.
  * Wave 5 (Plan 05): chapter/item editor + Tiptap + reorder.
  * Wave 6 (Plan 06): per-group schedule controller/service.
  * Wave 7 (Plan 07): teacher-change controller/service (CRS-06, admin-only audited)
@@ -48,7 +47,6 @@ import { UploadTokenGuard } from './upload-token.guard';
         CoursesTeacherController,
         CoursesPreviewController,
         CourseCategoriesController,
-        UploadsController,
     ],
     providers: [
         CoursesListService,
@@ -60,8 +58,6 @@ import { UploadTokenGuard } from './upload-token.guard';
         CoursesPreviewService,
         CourseCategoriesService,
         CoursesCacheService,
-        UploadsService,
-        UploadTokenGuard,
     ],
     exports: [],
 })

@@ -31,6 +31,7 @@ import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StoriesModule } from './modules/stories/stories.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -55,6 +56,9 @@ import { PrismaModule } from './prisma/prisma.module';
         UsersModule,
         GroupsModule,
         CoursesModule,
+        // Phase 5+ — uploads extracted from CoursesModule. Owns POST /token,
+        // POST /file, GET /uploads, DELETE /uploads/:id.
+        UploadsModule,
         QuizzesModule,
         // Phase 7 — marketing surfaces (admin-only per D-20; empty skeletons in Plan 01,
         // controllers + services land in Plans 02-05).

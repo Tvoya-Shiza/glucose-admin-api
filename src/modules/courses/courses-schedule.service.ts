@@ -163,7 +163,7 @@ export class CoursesScheduleService {
                       id: Number(chapter.id),
                       order: chapter.order == null ? null : Number(chapter.order),
                       translations: (chapter.translations ?? [])
-                          .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+                          .filter((t: any) => t.locale === 'kz')
                           .map((t: any) => ({ locale: t.locale, title: t.title })),
                   }
                 : null,

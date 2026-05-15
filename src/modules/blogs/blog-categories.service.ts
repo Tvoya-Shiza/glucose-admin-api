@@ -21,7 +21,6 @@ import { BLOGS_INVALIDATE_PATTERN } from './utils/blogs-cache';
  */
 export interface BlogCategoryListRow {
     id: number;
-    title_ru: string | null;
     title_kz: string | null;
 }
 
@@ -51,11 +50,9 @@ export class BlogCategoriesService {
             },
         });
         const out: BlogCategoryListRow[] = rows.map((r) => {
-            const ru = (r.translations ?? []).find((t: any) => t.locale === 'ru');
             const kz = (r.translations ?? []).find((t: any) => t.locale === 'kz');
             return {
                 id: Number(r.id),
-                title_ru: ru?.title ?? null,
                 title_kz: kz?.title ?? null,
             };
         });
@@ -72,11 +69,9 @@ export class BlogCategoriesService {
             },
         });
         if (!row) throw new NotFoundException('blogs.category_not_found');
-        const ru = (row.translations ?? []).find((t: any) => t.locale === 'ru');
         const kz = (row.translations ?? []).find((t: any) => t.locale === 'kz');
         return {
             id: Number(row.id),
-            title_ru: ru?.title ?? null,
             title_kz: kz?.title ?? null,
             blog_count: row._count?.blogs ?? 0,
         };
@@ -88,11 +83,6 @@ export class BlogCategoriesService {
                 data: {},
                 select: { id: true },
             });
-            if (dto.title_ru !== undefined && dto.title_ru !== null && dto.title_ru !== '') {
-                await tx.blogCategoryTranslation.create({
-                    data: { blog_category_id: c.id, locale: 'ru', title: dto.title_ru },
-                });
-            }
             if (dto.title_kz !== undefined && dto.title_kz !== null && dto.title_kz !== '') {
                 await tx.blogCategoryTranslation.create({
                     data: { blog_category_id: c.id, locale: 'kz', title: dto.title_kz },
@@ -113,9 +103,6 @@ export class BlogCategoriesService {
         if (!existing) throw new NotFoundException('blogs.category_not_found');
 
         await this.prisma.$transaction(async (tx) => {
-            if (dto.title_ru !== undefined) {
-                await this.upsertCategoryTranslation(tx, id, 'ru', dto.title_ru);
-            }
             if (dto.title_kz !== undefined) {
                 await this.upsertCategoryTranslation(tx, id, 'kz', dto.title_kz);
             }
@@ -147,7 +134,7 @@ export class BlogCategoriesService {
     private async upsertCategoryTranslation(
         tx: any,
         blog_category_id: number,
-        locale: 'ru' | 'kz',
+        locale: 'kz',
         title: string | null | undefined,
     ): Promise<void> {
         const row: any = await tx.blogCategoryTranslation.findFirst({

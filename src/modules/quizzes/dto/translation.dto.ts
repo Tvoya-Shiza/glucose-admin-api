@@ -23,11 +23,13 @@ import { IsIn, IsString, Length } from 'class-validator';
  * Question/answer-level translations DO NOT use this DTO — they have richer fields
  * (description, correct). See UpsertQuestionDto / UpsertAnswerDto.
  */
-export type Locale = 'ru' | 'kz';
+export type Locale = 'kz';
 
 export class TranslationDto {
+    // 'ru' accepted for backward compatibility with older clients; service layer
+    // filters RU entries out before persisting. Only 'kz' is written to the DB.
     @IsIn(['ru', 'kz'])
-    locale!: Locale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @Length(1, 255)

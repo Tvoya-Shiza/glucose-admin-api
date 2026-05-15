@@ -1,25 +1,16 @@
 /**
  * CRS-02 translation-completeness helper.
  *
- * 'complete' iff for both 'ru' and 'kz' there is at least one translation
- * row with a non-empty title (description is NOT required for completeness
- * — it is optional in the schema as LongText).
- *
- * Used by:
- *   - Plan 02 list service (per-row aggregate over the embedded translations array)
- *   - Plan 03 detail service (single course)
- *
- * Pure function. No Prisma dependency. Must remain framework-free so it can be
- * imported from anywhere without dragging Nest providers along.
+ * 'complete' iff for 'kz' there is at least one translation row with a
+ * non-empty title (description is NOT required for completeness — it is
+ * optional in the schema as LongText).
  *
  * Schema-truth note: WebinarTranslations.locale is a free-form String column
- * (no FK, no enum, no @@unique on (webinar_id, locale)). The locked DTO contract
- * narrows incoming locale values to 'ru' | 'kz' at the API boundary; downstream
- * the same union is treated as authoritative — any other locale row in the DB
- * is ignored by this helper.
+ * (no FK, no enum, no @@unique on (webinar_id, locale)). Legacy 'ru' rows may
+ * exist in the DB but are dormant; this helper ignores any non-'kz' locale.
  */
-export type Locale = 'ru' | 'kz';
-export const REQUIRED_LOCALES: Locale[] = ['ru', 'kz'];
+export type Locale = 'kz';
+export const REQUIRED_LOCALES: Locale[] = ['kz'];
 
 export interface TranslationLite {
     locale: string;

@@ -99,9 +99,9 @@ export class UsersDetailService {
             });
             for (const w of wins) {
                 const ts = (w.translations ?? []) as Array<{ title: string; locale: string }>;
-                const ru = ts.find((t) => t.locale === 'ru');
+                const kz = ts.find((t) => t.locale === 'kz');
                 const fallback = ts[0];
-                webinarMap.set(Number(w.id), (ru ?? fallback)?.title ?? null);
+                webinarMap.set(Number(w.id), (kz ?? fallback)?.title ?? null);
             }
         }
 

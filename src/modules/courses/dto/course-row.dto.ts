@@ -14,8 +14,8 @@ import type { CourseStatusFilter, TranslationCompleteness } from './list-courses
  *   - category resolved from Webinar.category relation (schema line 827); slug carried for list display.
  *   - image_cover is NOT NULL on schema (line 814) — empty string when not yet uploaded.
  *   - translation_completeness computed server-side per CONTEXT D-03:
- *       'complete' iff WebinarTranslations rows for both ru AND kz exist with non-empty title.
- *   - missing_locales lists which of {ru, kz} lack a translation row OR have empty title.
+ *       'complete' iff WebinarTranslations row for kz exists with non-empty title.
+ *   - missing_locales lists which of {kz} lack a translation row OR have empty title.
  *   - created_at is Unix seconds (schema line 815).
  *   - updated_at is Unix seconds, nullable (schema line 816).
  */
@@ -32,12 +32,14 @@ export interface CategoryRef {
 export interface CourseRowDto {
     id: number;
     slug: string;
+    /** KZ title from WebinarTranslations join (locale='kz'). null when missing. */
+    title_kz: string | null;
     status: CourseStatusFilter;
     teacher: TeacherRef | null;
     category: CategoryRef | null;
     image_cover: string;
     translation_completeness: TranslationCompleteness;
-    missing_locales: ('ru' | 'kz')[];
+    missing_locales: 'kz'[];
     /**
      * Count of WebinarChapter rows whose `webinar_id === this.id`. Computed via
      * Prisma `_count` aggregate in the same findMany — NOT an N+1 fetch.

@@ -225,7 +225,7 @@ export class CoursesContentService {
             // Schema has TITLE only — TranslationDto.description is dropped.
             if (dto.translations && dto.translations.length > 0) {
                 for (const t of dto.translations) {
-                    if (t.locale !== 'ru' && t.locale !== 'kz') continue;
+                    if (t.locale !== 'kz') continue;
                     const existing: any = await tx.webinarChapterTranslation.findFirst({
                         where: { webinar_chapter_id: chapId, locale: t.locale },
                         select: { id: true },
@@ -367,7 +367,7 @@ export class CoursesContentService {
                 // Upsert FileTranslations per locale — sanitize description SERVER-SIDE (T-05-30).
                 if (dto.translations && dto.translations.length > 0) {
                     for (const t of dto.translations) {
-                        if (t.locale !== 'ru' && t.locale !== 'kz') continue;
+                        if (t.locale !== 'kz') continue;
                         const sanitizedDesc = sanitizeTiptapHtmlServer(t.description ?? '');
                         const existing: any = await tx.fileTranslations.findFirst({
                             where: { file_id: fileId, locale: t.locale },
@@ -497,9 +497,9 @@ export class CoursesContentService {
             order: row.order == null ? null : Number(row.order),
             status: row.status,
             translations: (row.translations ?? [])
-                .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t: any) => t.locale === 'kz')
                 .map((t: any) => ({
-                    locale: t.locale as 'ru' | 'kz',
+                    locale: 'kz' as const,
                     title: t.title,
                     description: null,
                 })),
@@ -550,9 +550,9 @@ export class CoursesContentService {
                     volume: f.volume,
                 };
                 translations = (f.translations ?? [])
-                    .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+                    .filter((t: any) => t.locale === 'kz')
                     .map((t: any) => ({
-                        locale: t.locale as 'ru' | 'kz',
+                        locale: 'kz' as const,
                         title: t.title,
                         description: t.description ?? null,
                     }));

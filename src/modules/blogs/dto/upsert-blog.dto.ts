@@ -32,12 +32,13 @@ import {
  * to 200_000 chars to accept rich Tiptap output (D-04 — same posture as Phase 5
  * Plan 05 FileTranslation.description).
  */
-export type BlogLocale = 'ru' | 'kz';
+export type BlogLocale = 'kz';
 export type BlogStatusInput = 'pending' | 'publish';
 
 export class BlogTranslationDto {
+    // 'ru' accepted for backward compatibility; service filters RU out before persisting.
     @IsIn(['ru', 'kz'])
-    locale!: BlogLocale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @MaxLength(255)

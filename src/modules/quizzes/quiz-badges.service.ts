@@ -122,7 +122,7 @@ export class QuizBadgesService {
                               version: Number(it.quiz.version ?? 1),
                               status: it.quiz.status,
                               translations: ((it.quiz.translations ?? []) as any[])
-                                  .filter((t) => t.locale === 'ru' || t.locale === 'kz')
+                                  .filter((t) => t.locale === 'kz')
                                   .map((t) => ({ locale: t.locale, title: t.title })),
                               question_count: Number(it.quiz._count?.questions ?? 0),
                           }
@@ -270,13 +270,12 @@ export class QuizBadgesService {
 
     private shapeRow(r: any) {
         const tlist = ((r.translations ?? []) as any[])
-            .filter((t) => t.locale === 'ru' || t.locale === 'kz');
+            .filter((t) => t.locale === 'kz');
         return {
             id: Number(r.id),
             is_active: !!r.is_active,
             quiz_category_id: r.quiz_category_id == null ? null : Number(r.quiz_category_id),
             translations: {
-                ru: tlist.find((t) => t.locale === 'ru')?.title ?? null,
                 kz: tlist.find((t) => t.locale === 'kz')?.title ?? null,
             },
             item_count: Number(r._count?.items ?? 0),

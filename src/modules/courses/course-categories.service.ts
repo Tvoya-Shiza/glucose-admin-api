@@ -43,14 +43,12 @@ export class CourseCategoriesService {
 
         const flat: CourseCategoryRowDto[] = rows.map((r) => {
             const ts = (r.translations ?? []) as Array<{ locale: string; title: string }>;
-            const ru = ts.find((t) => t.locale === 'ru');
             const kz = ts.find((t) => t.locale === 'kz');
             return {
                 id: Number(r.id),
                 parent_id: r.parent_id != null ? Number(r.parent_id) : null,
                 slug: r.slug,
                 icon: r.icon ?? null,
-                title_ru: ru?.title ?? null,
                 title_kz: kz?.title ?? null,
             };
         });
@@ -59,7 +57,6 @@ export class CourseCategoriesService {
             ? flat.filter((row) => {
                   const needle = query.q!.toLowerCase();
                   return (
-                      (row.title_ru?.toLowerCase().includes(needle) ?? false) ||
                       (row.title_kz?.toLowerCase().includes(needle) ?? false) ||
                       row.slug.toLowerCase().includes(needle)
                   );

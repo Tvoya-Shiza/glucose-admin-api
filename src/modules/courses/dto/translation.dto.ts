@@ -18,11 +18,13 @@ import { IsIn, IsOptional, IsString, Length, MaxLength } from 'class-validator';
  *     FileTranslations.description (handled by upsert-item.dto.ts; this DTO is reused only at the
  *     Webinar + WebinarChapter levels and at the FileTranslations level).
  */
-export type Locale = 'ru' | 'kz';
+export type Locale = 'kz';
 
 export class TranslationDto {
+    // 'ru' accepted for backward compatibility with older clients; service layer
+    // filters RU entries out before persisting. Only 'kz' is written to the DB.
     @IsIn(['ru', 'kz'])
-    locale!: Locale;
+    locale!: 'ru' | 'kz';
 
     @IsString()
     @Length(1, 255)

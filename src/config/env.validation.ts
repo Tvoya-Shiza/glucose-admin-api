@@ -67,6 +67,12 @@ class EnvironmentVariables {
     @IsString()
     UPLOAD_PUBLIC_URL_PREFIX?: string;
 
+    // 'true' to make Nest serve UPLOAD_BASE_DIR at UPLOAD_PUBLIC_URL_PREFIX directly.
+    // Dev/standalone only — in prod, nginx serves the directory and this stays unset/false.
+    @IsOptional()
+    @IsString()
+    UPLOAD_SERVE_STATIC?: string;
+
     // Phase 6 Plan 04 — force-confirm tokens for destructive quiz edits (QZ-06).
     // Distinct from JWT_ADMIN_SECRET / JWT_UPLOAD_SECRET so confused-deputy attempts
     // (presenting an admin Bearer or upload token as a force-confirm token) reject at

@@ -22,20 +22,22 @@ import type { QuizQuestionCountBucket } from './list-quizzes.dto';
 
 export type QuizRowStatus = 'active' | 'inactive';
 export type RowTranslationCompleteness = 'complete' | 'incomplete';
-export type RowLocale = 'ru' | 'kz';
+export type RowLocale = 'kz';
 
 export interface QuizRowCategoryRef {
     id: number;
-    title_ru: string | null;
+    title_kz: string | null;
 }
 
 export interface QuizRowBadgeRef {
     id: number;
-    title_ru: string | null;
+    title_kz: string | null;
 }
 
 export interface QuizRowDto {
     id: number;
+    /** KZ title from QuizTranslation join (locale='kz'). null when missing. */
+    title_kz: string | null;
     status: QuizRowStatus;
     /** version is the data-integrity guard from Phase 1.08 SCH-02. Surfaced so the
      *  UI can render a "v{n}" pill next to each row. */

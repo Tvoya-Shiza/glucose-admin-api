@@ -1,10 +1,14 @@
 import {
     Body,
     Controller,
+    Delete,
+    Get,
     Headers,
     HttpCode,
     HttpStatus,
+    Param,
     Post,
+    Query,
     UploadedFile,
     UseGuards,
     UseInterceptors,
@@ -17,16 +21,19 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { ListUploadsQueryDto } from './dto/list-uploads.dto';
 import { UploadTokenRequestDto } from './dto/upload-token.dto';
 import { UploadTokenGuard } from './upload-token.guard';
 import { UploadsService } from './uploads.service';
 
 /**
- * UploadsController — CRS-05 (Phase 5 Plan 04).
+ * UploadsController — Phase 5 Plan 04 (CRS-05) + Phase 5+ file-library extension.
  *
  * Routes:
- *   POST /admin-api/v1/admin/uploads/token   (admin/teacher; via BFF + admin Bearer)
- *   POST /admin-api/v1/admin/uploads/file    (BFF-BYPASS; X-Upload-Token credential)
+ *   POST   /admin-api/v1/admin/uploads/token  (admin/teacher; via BFF + admin Bearer)
+ *   POST   /admin-api/v1/admin/uploads/file   (BFF-BYPASS; X-Upload-Token credential)
+ *   GET    /admin-api/v1/admin/uploads        (admin/teacher/curator; list + filter)
+ *   DELETE /admin-api/v1/admin/uploads/:id    (admin/teacher; soft-delete + unlink)
  *
  * The /file endpoint deliberately does NOT use JwtGuard. The admin Bearer cookie
  * is intentionally NOT trusted on this route per CONTEXT D-13 — the browser hits
@@ -47,7 +54,7 @@ export class UploadsController {
     @Post('token')
     @UseGuards(JwtGuard, RolesGuard)
     @Roles('admin', 'teacher')
-    @Audit('courses.upload.token', 'file')
+    @Audit('uploads.token', 'file')
     @HttpCode(HttpStatus.OK)
     public issueToken(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: UploadTokenRequestDto) {
         return this.service.issueToken(actor, dto);
@@ -61,12 +68,25 @@ export class UploadsController {
             limits: { fileSize: 200 * 1024 * 1024 },
         }),
     )
-    @Audit('courses.upload.file', 'file')
+    @Audit('uploads.file', 'file')
     @HttpCode(HttpStatus.OK)
-    public acceptUpload(
-        @Headers('x-upload-token') headerToken: string,
-        @UploadedFile() file: Express.Multer.File,
-    ) {
+    public acceptUpload(@Headers('x-upload-token') headerToken: string, @UploadedFile() file: Express.Multer.File) {
         return this.service.acceptUpload(headerToken, file);
+    }
+
+    @Get()
+    @UseGuards(JwtGuard, RolesGuard)
+    @Roles('admin', 'teacher', 'curator')
+    public list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListUploadsQueryDto) {
+        return this.service.listUploads(actor, query);
+    }
+
+    @Delete(':id')
+    @UseGuards(JwtGuard, RolesGuard)
+    @Roles('admin', 'teacher')
+    @Audit('uploads.delete', 'upload')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    public async remove(@Param('id') id: string): Promise<void> {
+        await this.service.deleteUpload(id);
     }
 }

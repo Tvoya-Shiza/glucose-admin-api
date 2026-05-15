@@ -237,7 +237,7 @@ export class CoursesPreviewService {
 
         // Top-level translations.
         const translations: PreviewTranslationRow[] = (row.translations ?? [])
-            .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+            .filter((t: any) => t.locale === 'kz')
             .map((t: any) => ({
                 locale: t.locale as Locale,
                 title: t.title,
@@ -247,7 +247,7 @@ export class CoursesPreviewService {
         // Chapters + items.
         const chapters: PreviewChapter[] = (row.chapters as any[]).map((c: any) => {
             const cTranslations = (c.translations ?? [])
-                .filter((t: any) => t.locale === 'ru' || t.locale === 'kz')
+                .filter((t: any) => t.locale === 'kz')
                 .map((t: any) => ({ locale: t.locale as Locale, title: t.title }));
 
             const items: PreviewChapterItem[] = (c.items as any[]).map((it: any) => {
@@ -263,7 +263,7 @@ export class CoursesPreviewService {
                     if (f) {
                         const fTranslations: PreviewFileTranslation[] = (f.translations ?? [])
                             .filter(
-                                (t: any) => t.locale === 'ru' || t.locale === 'kz',
+                                (t: any) => t.locale === 'kz',
                             )
                             .map((t: any) => ({
                                 locale: t.locale as Locale,
