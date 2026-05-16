@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { FoldersController } from './folders/folders.controller';
+import { FoldersService } from './folders/folders.service';
 import { UploadTokenGuard } from './upload-token.guard';
 import { UploadsController } from './uploads.controller';
 import { UploadsService } from './uploads.service';
@@ -20,8 +22,8 @@ import { UploadsService } from './uploads.service';
  * AppModule so we don't list them as imports here.
  */
 @Module({
-    controllers: [UploadsController],
-    providers: [UploadsService, UploadTokenGuard],
-    exports: [],
+    controllers: [UploadsController, FoldersController],
+    providers: [UploadsService, UploadTokenGuard, FoldersService],
+    exports: [FoldersService],
 })
 export class UploadsModule {}

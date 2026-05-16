@@ -19,6 +19,7 @@ import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ListUploadsQueryDto, type ListUploadsResponseDto, type UploadAssetDto } from './dto/list-uploads.dto';
 import { UploadTokenRequestDto, UploadTokenResponseDto } from './dto/upload-token.dto';
+import { FoldersService } from './folders/folders.service';
 import {
     signUploadToken,
     verifyUploadToken,
@@ -70,6 +71,7 @@ export class UploadsService implements OnModuleInit {
         config: ConfigService,
         @InjectRedis() private readonly redis: Redis,
         private readonly prisma: PrismaService,
+        private readonly folders: FoldersService,
     ) {
         const s = config.get<string>('upload.secret') ?? process.env.JWT_UPLOAD_SECRET;
         if (!s || s.length < 32) {
@@ -97,7 +99,7 @@ export class UploadsService implements OnModuleInit {
         }
     }
 
-    issueToken(actor: AuthenticatedRequestUser, dto: UploadTokenRequestDto): UploadTokenResponseDto {
+    async issueToken(actor: AuthenticatedRequestUser, dto: UploadTokenRequestDto): Promise<UploadTokenResponseDto> {
         const cap = UploadsService.KIND_MAX_BYTES[dto.kind];
         if (cap === undefined) {
             throw new BadRequestException('upload.kind_not_allowed');
@@ -108,6 +110,18 @@ export class UploadsService implements OnModuleInit {
         if (!UploadsService.MIME_TO_EXT[dto.content_type]) {
             throw new BadRequestException('upload.content_type_not_allowed');
         }
+
+        // Phase 10 — resolve folder if requested. We pre-resolve at sign-time so
+        // a deleted/renamed folder is caught BEFORE the browser uploads a 200MB
+        // file, and so the claim carries an immutable snapshot of `folder_path`.
+        let folder_id: number | null = null;
+        let folder_path = '';
+        if (dto.folder_id != null) {
+            const resolved = await this.folders.resolveActiveFolderOrFail(dto.folder_id);
+            folder_id = resolved.id;
+            folder_path = resolved.path;
+        }
+
         const { token, expires_at } = signUploadToken(
             {
                 sub: actor.id,
@@ -115,6 +129,8 @@ export class UploadsService implements OnModuleInit {
                 kind: dto.kind,
                 size: dto.size,
                 content_type: dto.content_type,
+                folder_id,
+                folder_path,
             },
             this.secret,
             UploadsService.TOKEN_TTL_SECONDS,
@@ -197,26 +213,36 @@ export class UploadsService implements OnModuleInit {
         }
         const id = ulid();
         const filename = `${id}${ext}`;
-        const fullPath = path.join(this.baseDir, filename);
+        // Phase 10 — resolve destination directory from claim. Empty `folder_path`
+        // (legacy / root) writes to baseDir as before.
+        const folderPath = claims.folder_path ?? '';
+        const targetDir = folderPath === '' ? this.baseDir : path.join(this.baseDir, folderPath);
+        const fullPath = path.join(targetDir, filename);
 
         // Step 5: belt-and-braces path-traversal defense — even though id+ext are
-        // safe, verify the resolved path stays inside baseDir.
+        // safe, verify the resolved path stays inside baseDir. Folder slugs are
+        // already validated by FoldersService.slugify; this is a second line.
         const resolved = path.resolve(fullPath);
         const baseResolved = path.resolve(this.baseDir);
         if (!resolved.startsWith(baseResolved + path.sep)) {
             throw new InternalServerErrorException('upload.path_resolution_failed');
         }
 
-        // Step 6: write to disk. Multer is configured with memoryStorage on the
-        // controller, so file.buffer is populated.
+        // Step 6: ensure the destination directory exists, then write.
         try {
+            if (folderPath !== '') {
+                await fs.mkdir(targetDir, { recursive: true, mode: 0o750 });
+            }
             await fs.writeFile(fullPath, file.buffer, { mode: 0o640 });
         } catch (err) {
             this.logger.error(`upload write failed: ${(err as Error).message}`);
             throw new InternalServerErrorException('upload.write_failed');
         }
 
-        const file_url = `${this.publicUrlPrefix}/${filename}`;
+        const file_url =
+            folderPath === ''
+                ? `${this.publicUrlPrefix}/${filename}`
+                : `${this.publicUrlPrefix}/${folderPath}/${filename}`;
 
         // Step 7: register in upload_assets so the admin file-library can list/delete.
         // Failure here is non-fatal — the file is on disk + the audit row already
@@ -226,6 +252,7 @@ export class UploadsService implements OnModuleInit {
                 data: {
                     id,
                     actor_id: claims.sub,
+                    folder_id: claims.folder_id ?? null,
                     kind: claims.kind,
                     mime: claims.content_type,
                     size: file.size,
@@ -274,6 +301,14 @@ export class UploadsService implements OnModuleInit {
         if (query.q) {
             where.original_name = { contains: query.q };
         }
+        if (query.folder_id === 'root') {
+            where.folder_id = null;
+        } else if (query.folder_id !== undefined) {
+            const numericId = Number.parseInt(query.folder_id, 10);
+            if (Number.isFinite(numericId) && numericId > 0) {
+                where.folder_id = numericId;
+            }
+        }
 
         const [rows, total] = await Promise.all([
             this.prisma.uploadAsset.findMany({
@@ -281,6 +316,7 @@ export class UploadsService implements OnModuleInit {
                 orderBy: { created_at: 'desc' },
                 skip: (page - 1) * perPage,
                 take: perPage,
+                include: { folder: { select: { id: true, path: true } } },
             }),
             this.prisma.uploadAsset.count({ where }),
         ]);
@@ -288,6 +324,8 @@ export class UploadsService implements OnModuleInit {
         const data: UploadAssetDto[] = rows.map((row) => ({
             id: row.id,
             actor_id: row.actor_id,
+            folder_id: row.folder_id,
+            folder_path: row.folder?.path ?? null,
             kind: row.kind as UploadKind,
             mime: row.mime,
             size: row.size,
@@ -312,15 +350,20 @@ export class UploadsService implements OnModuleInit {
      * UI warns the user before calling this.
      */
     async deleteUpload(id: string): Promise<void> {
-        const row = await this.prisma.uploadAsset.findFirst({ where: { id, deleted_at: null } });
+        const row = await this.prisma.uploadAsset.findFirst({
+            where: { id, deleted_at: null },
+            include: { folder: { select: { path: true } } },
+        });
         if (!row) {
             throw new NotFoundException('upload.asset_not_found');
         }
 
+        // Phase 10 — disk path is baseDir + optional folder.path + filename.
         // Belt-and-braces path-traversal defense, mirroring acceptUpload.
-        // filename comes from DB and is always '<ulid>.<ext>' but resolve+startsWith
-        // catches any legacy/corrupted value before we touch the filesystem.
-        const fullPath = path.resolve(this.baseDir, row.filename);
+        const folderPath = row.folder?.path ?? '';
+        const fullPath = folderPath === ''
+            ? path.resolve(this.baseDir, row.filename)
+            : path.resolve(this.baseDir, folderPath, row.filename);
         const baseResolved = path.resolve(this.baseDir);
         if (!fullPath.startsWith(baseResolved + path.sep)) {
             throw new ForbiddenException('upload.path_resolution_failed');
@@ -341,6 +384,107 @@ export class UploadsService implements OnModuleInit {
                 this.logger.error(`upload ${id} unlink failed: ${(err as Error).message}`);
             }
         }
+    }
+
+    /**
+     * Phase 10 — move an upload to a different folder (or root).
+     *
+     * Atomically:
+     *   1. validates the target folder exists (or null = root)
+     *   2. computes new file_url + on-disk path
+     *   3. fs.rename inside a Prisma transaction so DB+disk stay consistent
+     *
+     * Idempotent at the API level: moving to the current folder is a no-op.
+     */
+    async moveFile(id: string, targetFolderId: number | null): Promise<UploadAssetDto> {
+        const row = await this.prisma.uploadAsset.findFirst({
+            where: { id, deleted_at: null },
+            include: { folder: { select: { id: true, path: true } } },
+        });
+        if (!row) {
+            throw new NotFoundException('upload.asset_not_found');
+        }
+
+        let targetPath = '';
+        let targetIdValue: number | null = null;
+        if (targetFolderId != null) {
+            const resolved = await this.folders.resolveActiveFolderOrFail(targetFolderId);
+            targetIdValue = resolved.id;
+            targetPath = resolved.path;
+        }
+
+        const currentPath = row.folder?.path ?? '';
+        if ((row.folder_id ?? null) === targetIdValue) {
+            return {
+                id: row.id,
+                actor_id: row.actor_id,
+                folder_id: row.folder_id,
+                folder_path: row.folder?.path ?? null,
+                kind: row.kind as UploadKind,
+                mime: row.mime,
+                size: row.size,
+                filename: row.filename,
+                file_url: row.file_url,
+                original_name: row.original_name,
+                created_at: row.created_at.toISOString(),
+            };
+        }
+
+        const oldFullPath = currentPath === ''
+            ? path.join(this.baseDir, row.filename)
+            : path.join(this.baseDir, currentPath, row.filename);
+        const newFullPath = targetPath === ''
+            ? path.join(this.baseDir, row.filename)
+            : path.join(this.baseDir, targetPath, row.filename);
+
+        const baseResolved = path.resolve(this.baseDir);
+        if (!path.resolve(newFullPath).startsWith(baseResolved + path.sep)) {
+            throw new InternalServerErrorException('upload.path_resolution_failed');
+        }
+
+        const newFileUrl =
+            targetPath === ''
+                ? `${this.publicUrlPrefix}/${row.filename}`
+                : `${this.publicUrlPrefix}/${targetPath}/${row.filename}`;
+
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const u = await tx.uploadAsset.update({
+                where: { id: row.id },
+                data: { folder_id: targetIdValue, file_url: newFileUrl },
+                include: { folder: { select: { id: true, path: true } } },
+            });
+            try {
+                if (targetPath !== '') {
+                    await fs.mkdir(path.dirname(newFullPath), { recursive: true, mode: 0o750 });
+                }
+                await fs.rename(oldFullPath, newFullPath);
+            } catch (err) {
+                const code = (err as NodeJS.ErrnoException).code;
+                if (code === 'ENOENT') {
+                    // File on disk is gone — DB row was already orphaned. Log + continue
+                    // so the move semantically completes; cleanup is a separate concern.
+                    this.logger.warn(`moveFile: file already missing on disk for ${row.id}`);
+                } else {
+                    this.logger.error(`moveFile rename failed (${oldFullPath} -> ${newFullPath}): ${(err as Error).message}`);
+                    throw new InternalServerErrorException('upload.move_failed');
+                }
+            }
+            return u;
+        });
+
+        return {
+            id: updated.id,
+            actor_id: updated.actor_id,
+            folder_id: updated.folder_id,
+            folder_path: updated.folder?.path ?? null,
+            kind: updated.kind as UploadKind,
+            mime: updated.mime,
+            size: updated.size,
+            filename: updated.filename,
+            file_url: updated.file_url,
+            original_name: updated.original_name,
+            created_at: updated.created_at.toISOString(),
+        };
     }
 
     /**

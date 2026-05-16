@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBooleanString, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsBooleanString, IsIn, IsInt, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import type { UploadKind } from '../upload-token.signer';
 
 /**
@@ -46,11 +46,28 @@ export class ListUploadsQueryDto {
     @IsInt()
     @Min(1)
     per_page?: number;
+
+    /**
+     * Phase 10 — folder scope.
+     *   - omitted    → no folder filter (lists across all folders)
+     *   - 'root'     → only files with folder_id IS NULL
+     *   - numeric id → only files in that exact folder
+     *
+     * Subtree listing (folder + all descendants) is intentionally NOT supported
+     * here; the UI navigates one folder at a time. Keeping the predicate to an
+     * equality filter lets the index `idx_upload_assets_folder` carry the load.
+     */
+    @IsOptional()
+    @IsString()
+    @Matches(/^(root|\d+)$/)
+    folder_id?: string;
 }
 
 export interface UploadAssetDto {
     id: string;
     actor_id: number;
+    folder_id: number | null;
+    folder_path: string | null; // denormalised for UI; null when folder_id is null
     kind: UploadKind;
     mime: string;
     size: number;

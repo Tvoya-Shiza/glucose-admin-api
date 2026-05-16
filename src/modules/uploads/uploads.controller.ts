@@ -7,6 +7,7 @@ import {
     HttpCode,
     HttpStatus,
     Param,
+    Patch,
     Post,
     Query,
     UploadedFile,
@@ -22,6 +23,7 @@ import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { ListUploadsQueryDto } from './dto/list-uploads.dto';
+import { MoveFileDto } from './dto/move-file.dto';
 import { UploadTokenRequestDto } from './dto/upload-token.dto';
 import { UploadTokenGuard } from './upload-token.guard';
 import { UploadsService } from './uploads.service';
@@ -79,6 +81,14 @@ export class UploadsController {
     @Roles('admin', 'teacher', 'curator')
     public list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListUploadsQueryDto) {
         return this.service.listUploads(actor, query);
+    }
+
+    @Patch(':id/move')
+    @UseGuards(JwtGuard, RolesGuard)
+    @Roles('admin', 'teacher')
+    @Audit('uploads.move', 'upload')
+    public move(@Param('id') id: string, @Body() dto: MoveFileDto) {
+        return this.service.moveFile(id, dto.folder_id ?? null);
     }
 
     @Delete(':id')

@@ -1552,6 +1552,7 @@ model AdminAuditLog {
 model UploadAsset {
   id            String    @id @db.VarChar(26)
   actor_id      Int
+  folder_id     Int?
   kind          String    @db.VarChar(16)
   mime          String    @db.VarChar(64)
   size          Int
@@ -1561,8 +1562,35 @@ model UploadAsset {
   created_at    DateTime  @default(now())
   deleted_at    DateTime?
 
+  folder        FileFolder? @relation("FolderUploads", fields: [folder_id], references: [id])
+
   @@index([actor_id, created_at], name: "idx_upload_assets_actor_ts")
   @@index([kind, created_at], name: "idx_upload_assets_kind_ts")
   @@index([deleted_at], name: "idx_upload_assets_deleted")
+  @@index([folder_id], name: "idx_upload_assets_folder")
   @@map("upload_assets")
+}
+
+// Phase 10 — Mirror of glucose-api/prisma/schema.prisma FileFolder.
+// Canonical schema + migration live in glucose-api. Mirror only here.
+// See glucose-api/prisma/migrations/phase-10-file-folders.MANUAL.sql.md.
+model FileFolder {
+  id         Int           @id @default(autoincrement())
+  parent_id  Int?
+  name       String        @db.VarChar(120)
+  slug       String        @db.VarChar(120)
+  path       String        @db.VarChar(512)
+  created_by Int
+  created_at DateTime      @default(now())
+  updated_at DateTime      @updatedAt
+  deleted_at DateTime?
+
+  parent     FileFolder?   @relation("FolderParent", fields: [parent_id], references: [id])
+  children   FileFolder[]  @relation("FolderParent")
+  uploads    UploadAsset[] @relation("FolderUploads")
+
+  @@unique([parent_id, slug], name: "uniq_file_folders_parent_slug")
+  @@index([path], name: "idx_file_folders_path")
+  @@index([deleted_at], name: "idx_file_folders_deleted")
+  @@map("file_folders")
 }

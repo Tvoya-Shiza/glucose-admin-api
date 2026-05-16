@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsString, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 /**
  * CRS-05 upload-token request + response.
@@ -43,6 +43,17 @@ export class UploadTokenRequestDto {
     @IsString()
     @IsIn(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'])
     content_type!: UploadContentType;
+
+    /**
+     * Phase 10 — optional destination folder. Omitted / null = root (legacy
+     * disk path `/static/courses/<ulid>.<ext>`). When set, the service stamps
+     * `folder_id` + `folder_path` into the token claim and writes the file
+     * into `baseDir/<folder.path>/<ulid>.<ext>`.
+     */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    folder_id?: number | null;
 }
 
 export interface UploadTokenResponseDto {

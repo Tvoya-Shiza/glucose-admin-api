@@ -31,6 +31,8 @@ export interface UploadTokenClaims {
     kind: UploadKind;
     size: number; // declared bytes
     content_type: string; // declared MIME
+    folder_id: number | null; // Phase 10 — destination folder, null = root
+    folder_path: string; // Phase 10 — slug path (resolved at sign-time); '' = root
     jti: string;
     iat: number;
     exp: number;
@@ -42,6 +44,8 @@ export interface SignUploadTokenInput {
     kind: UploadKind;
     size: number;
     content_type: string;
+    folder_id?: number | null;
+    folder_path?: string;
 }
 
 export interface SignUploadTokenResult {
@@ -60,6 +64,8 @@ export function signUploadToken(input: SignUploadTokenInput, secret: string, ttl
         kind: input.kind,
         size: input.size,
         content_type: input.content_type,
+        folder_id: input.folder_id ?? null,
+        folder_path: input.folder_path ?? '',
         jti,
         iat,
         exp,
@@ -89,6 +95,15 @@ export function verifyUploadToken(token: string, secret: string): UploadTokenCla
         typeof claims.exp !== 'number'
     ) {
         throw new Error('upload_token_invalid_claims');
+    }
+    // folder_id / folder_path are Phase-10 additions. Older tokens (pre-Phase-10)
+    // do not have these claims; default to root so legacy tokens keep working
+    // through their 5-min TTL. New tokens always carry both fields.
+    if (typeof claims.folder_id === 'undefined') {
+        (claims as UploadTokenClaims).folder_id = null;
+    }
+    if (typeof claims.folder_path === 'undefined') {
+        (claims as UploadTokenClaims).folder_path = '';
     }
     return claims as UploadTokenClaims;
 }
