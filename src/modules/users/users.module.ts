@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { UsersBulkController } from './users-bulk.controller';
 import { UsersBulkService } from './users-bulk.service';
 import { UsersCreateController } from './users-create.controller';
@@ -31,7 +32,7 @@ import { UsersRoleService } from './users-role.service';
  *   Worker offload to geonline-api-export deferred to Phase 9.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         UsersListController,
         UsersDetailController,

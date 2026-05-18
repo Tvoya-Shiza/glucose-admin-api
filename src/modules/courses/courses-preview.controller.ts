@@ -1,4 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -28,12 +30,13 @@ import { CoursesPreviewService } from './courses-preview.service';
  * the operator never confuses preview-mode for "I am the student now".
  */
 @Controller('admin-api/v1/admin/courses/:id/preview')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 @Roles('admin', 'teacher')
 export class CoursesPreviewController {
     constructor(private readonly svc: CoursesPreviewService) {}
 
     @Get()
+    @RequirePermission('courses.view')
     public async getPreview(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { PromocodesListController } from './promocodes-list.controller';
 import { PromocodesListService } from './promocodes-list.service';
 import { PromocodesDetailController } from './promocodes-detail.controller';
@@ -31,7 +32,7 @@ import { PromocodesCacheService } from './utils/promocodes-cache.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         PromocodesListController,
         PromocodesDetailController,

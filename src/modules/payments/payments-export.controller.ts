@@ -2,6 +2,8 @@ import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -32,12 +34,13 @@ import { PaymentsExportService } from './payments-export.service';
  * shape, but actor + ts + ip + ua suffice to track who exported and when.
  */
 @Controller('admin-api/v1/admin/payments')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class PaymentsExportController {
     constructor(private readonly exportService: PaymentsExportService) {}
 
     @Post('export')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('payments.export')
     @Audit('payments.export', 'kaspi_payment')
     @Throttle({ default: { limit: 5, ttl: 900_000 } })
     public async export(

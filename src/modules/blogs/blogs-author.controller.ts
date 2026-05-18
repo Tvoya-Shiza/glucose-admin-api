@@ -1,6 +1,8 @@
 import { Body, Controller, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
 import { apiResponse } from '../../common/utils/api-response';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -24,12 +26,13 @@ import { BlogsAuthorService } from './blogs-author.service';
  * BlogsDetailController, so Nest correctly routes here.
  */
 @Controller('admin-api/v1/admin/blogs')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class BlogsAuthorController {
     constructor(private readonly svc: BlogsAuthorService) {}
 
     @Patch(':id/author')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.edit')
     @Audit('blogs.changeAuthor', 'blog')
     public async changeAuthor(
         @CurrentUser() actor: AuthenticatedRequestUser,

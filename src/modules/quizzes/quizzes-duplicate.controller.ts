@@ -1,5 +1,7 @@
 import { Controller, HttpCode, HttpStatus, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -24,12 +26,13 @@ import { QuizzesDuplicateService } from './quizzes-duplicate.service';
  * shows up in the response body for human review.
  */
 @Controller('admin-api/v1/admin/quizzes')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesDuplicateController {
     constructor(private readonly svc: QuizzesDuplicateService) {}
 
     @Post(':id/duplicate')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.create')
     @Audit('quizzes.duplicate', 'quiz')
     @HttpCode(HttpStatus.OK)
     public async duplicate(

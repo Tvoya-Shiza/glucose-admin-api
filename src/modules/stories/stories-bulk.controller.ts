@@ -1,5 +1,7 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -21,12 +23,13 @@ import { StoriesBulkService } from './stories-bulk.service';
  * Plan 05 bulk-provision endpoint.
  */
 @Controller('admin-api/v1/admin/stories')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class StoriesBulkController {
     constructor(private readonly svc: StoriesBulkService) {}
 
     @Post('bulk-status')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('stories.publish')
     @Audit('stories.bulkStatus', 'story')
     @HttpCode(200)
     public async bulkStatus(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: BulkStatusDto) {

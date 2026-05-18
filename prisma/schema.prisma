@@ -299,14 +299,66 @@ model User {
 }
 
 model Role {
-  id         Int     @id @default(autoincrement()) @db.UnsignedInt
-  name       String  @db.VarChar(64)
-  is_admin   Boolean @default(false)
-  created_at Int     @db.UnsignedInt
+  id            Int     @id @default(autoincrement()) @db.UnsignedInt
+  name          String  @db.VarChar(64)
+  code          String  @unique @default("") @db.VarChar(64)
+  description   String? @db.VarChar(255)
+  is_admin      Boolean @default(false)
+  is_system     Boolean @default(false)
+  display_order Int     @default(1000) @db.UnsignedInt
+  created_at    Int     @db.UnsignedInt
+  updated_at    Int?    @db.UnsignedInt
 
-  users User[] @relation("RoleUsers")
+  users       User[]           @relation("RoleUsers")
+  permissions RolePermission[] @relation("RolePermissions")
 
   @@map("roles")
+}
+
+// Phase 11 — RBAC. Tables created by glucose-api/prisma/migrations/phase-11-rbac-permissions.draft.sql.
+// PascalCase model names + @@map for client API ergonomics (allowed under PRISMA.md "trim manually").
+model PermissionGroup {
+  id            Int          @id @default(autoincrement()) @db.UnsignedInt
+  code          String       @unique @db.VarChar(64)
+  name_ru       String       @db.VarChar(128)
+  name_kz       String       @db.VarChar(128)
+  display_order Int          @db.UnsignedInt
+  created_at    Int          @db.UnsignedInt
+
+  permissions Permission[] @relation("GroupPermissions")
+
+  @@map("permission_groups")
+}
+
+model Permission {
+  id            Int     @id @default(autoincrement()) @db.UnsignedInt
+  group_id      Int     @db.UnsignedInt
+  code          String  @unique @db.VarChar(96)
+  action        String  @db.VarChar(32)
+  name_ru       String  @db.VarChar(128)
+  name_kz       String  @db.VarChar(128)
+  description   String? @db.VarChar(255)
+  display_order Int     @db.UnsignedInt
+
+  group       PermissionGroup  @relation("GroupPermissions", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  role_grants RolePermission[] @relation("PermissionGrants")
+
+  @@index([group_id], map: "idx_permissions_group_id")
+  @@map("permissions")
+}
+
+model RolePermission {
+  role_id       Int  @db.UnsignedInt
+  permission_id Int  @db.UnsignedInt
+  granted_at    Int  @db.UnsignedInt
+  granted_by    Int? @db.UnsignedInt
+
+  permission Permission @relation("PermissionGrants", fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  role       Role       @relation("RolePermissions", fields: [role_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([role_id, permission_id])
+  @@index([permission_id], map: "idx_role_permissions_permission_id")
+  @@map("role_permissions")
 }
 
 model Group {

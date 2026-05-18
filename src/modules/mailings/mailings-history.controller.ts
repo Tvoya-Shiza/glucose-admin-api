@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -19,12 +21,13 @@ import { MailingsHistoryService } from './mailings-history.service';
  * The list shape itself is read-only — no audit row is written for browsing.
  */
 @Controller('admin-api/v1/admin/mailings')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class MailingsHistoryController {
     constructor(private readonly historySvc: MailingsHistoryService) {}
 
     @Get('history')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('mailings.history_view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Query() query: MailingsHistoryQueryDto,

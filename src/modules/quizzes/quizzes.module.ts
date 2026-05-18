@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { QuizzesListController } from './quizzes-list.controller';
 import { QuizzesListService } from './quizzes-list.service';
 import { QuizzesMutationsController } from './quizzes-mutations.controller';
@@ -40,7 +41,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
  * PrismaModule + RedisModule are global in AppModule.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         QuizzesListController,
         QuizzesMutationsController,

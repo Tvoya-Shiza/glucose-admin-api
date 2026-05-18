@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { BlogsListController } from './blogs-list.controller';
 import { BlogsListService } from './blogs-list.service';
 import { BlogsDetailController } from './blogs-detail.controller';
@@ -37,7 +38,7 @@ import { BlogsCacheService } from './utils/blogs-cache.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         BlogsListController,
         BlogsDetailController,

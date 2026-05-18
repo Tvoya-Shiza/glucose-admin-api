@@ -1,4 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -29,12 +31,13 @@ import { QuizzesDetailService } from './quizzes-detail.service';
  * on a course they don't own.
  */
 @Controller('admin-api/v1/admin/quizzes')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesDetailController {
     constructor(private readonly svc: QuizzesDetailService) {}
 
     @Get(':id')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async getDetail(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,

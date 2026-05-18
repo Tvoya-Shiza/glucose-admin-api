@@ -13,6 +13,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -39,25 +41,28 @@ import { QuizCategoriesService } from './quiz-categories.service';
  *   walks every controller and gates on this decoration.
  */
 @Controller('admin-api/v1/admin/quiz-categories')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizCategoriesController {
     constructor(private readonly svc: QuizCategoriesService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async list() {
         return this.svc.listAll();
     }
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.categories_manage')
     @Audit('quiz_categories.create', 'quiz_category')
     public async create(@Body() dto: UpsertCategoryDto) {
         return this.svc.create(dto);
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.categories_manage')
     @Audit('quiz_categories.update', 'quiz_category')
     public async update(
         @Param('id', ParseIntPipe) id: number,
@@ -67,7 +72,8 @@ export class QuizCategoriesController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.categories_manage')
     @Audit('quiz_categories.delete', 'quiz_category')
     @HttpCode(HttpStatus.OK)
     public async remove(

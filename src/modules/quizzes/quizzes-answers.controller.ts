@@ -12,6 +12,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -38,12 +40,13 @@ import { QuizzesAnswersService } from './quizzes-answers.service';
  * Audit (T-06-15): every mutation handler decorated.
  */
 @Controller('admin-api/v1/admin/quizzes/:quizId/questions/:questionId/answers')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesAnswersController {
     constructor(private readonly svc: QuizzesAnswersService) {}
 
     @Post()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.answer.create', 'quiz_answer')
     public async create(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -60,7 +63,8 @@ export class QuizzesAnswersController {
     }
 
     @Patch(':answerId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.answer.update', 'quiz_answer')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -79,7 +83,8 @@ export class QuizzesAnswersController {
     }
 
     @Delete(':answerId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.answer.delete', 'quiz_answer')
     @HttpCode(HttpStatus.OK)
     public async remove(

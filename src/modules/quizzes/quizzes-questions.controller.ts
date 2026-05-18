@@ -13,6 +13,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -42,12 +44,13 @@ import { QuizzesQuestionsService } from './quizzes-questions.service';
  * `npm run ci:audit-required` verifies decoration on every non-GET handler.
  */
 @Controller('admin-api/v1/admin/quizzes/:quizId/questions')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesQuestionsController {
     constructor(private readonly svc: QuizzesQuestionsService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('quizId', ParseIntPipe) quizId: number,
@@ -56,7 +59,8 @@ export class QuizzesQuestionsController {
     }
 
     @Post()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.question.create', 'quiz_question')
     public async create(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -67,7 +71,8 @@ export class QuizzesQuestionsController {
     }
 
     @Patch('reorder')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.question.reorder', 'quiz_question')
     public async reorder(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -78,7 +83,8 @@ export class QuizzesQuestionsController {
     }
 
     @Patch(':questionId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.question.update', 'quiz_question')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -95,7 +101,8 @@ export class QuizzesQuestionsController {
     }
 
     @Delete(':questionId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.question.delete', 'quiz_question')
     @HttpCode(HttpStatus.OK)
     public async remove(

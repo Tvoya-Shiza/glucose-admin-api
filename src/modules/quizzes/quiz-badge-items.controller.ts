@@ -11,6 +11,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -37,12 +39,13 @@ import { QuizBadgeItemsService } from './quiz-badge-items.service';
  *   - T-06-70: reorder pre-flight asserts every items[].id belongs to :badgeId path.
  */
 @Controller('admin-api/v1/admin/quiz-badges/:badgeId/items')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizBadgeItemsController {
     constructor(private readonly svc: QuizBadgeItemsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.item.create', 'quiz_badge_item')
     public async addItem(
         @Param('badgeId', ParseIntPipe) badgeId: number,
@@ -52,7 +55,8 @@ export class QuizBadgeItemsController {
     }
 
     @Patch('reorder')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.item.reorder', 'quiz_badge_item')
     @HttpCode(HttpStatus.OK)
     public async reorderItems(
@@ -63,7 +67,8 @@ export class QuizBadgeItemsController {
     }
 
     @Delete(':itemId')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.item.delete', 'quiz_badge_item')
     @HttpCode(HttpStatus.OK)
     public async removeItem(

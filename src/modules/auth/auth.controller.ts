@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { Audit, SkipAudit } from '../../common/audit/audit.decorator';
+import { PermissionsService } from '../access/permissions.service';
 import { Roles } from './decorators/roles.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtGuard } from './guards/jwt.guard';
@@ -33,6 +34,7 @@ export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly config: ConfigService,
+        private readonly permissions: PermissionsService,
     ) {}
 
     @Post('login')
@@ -102,10 +104,19 @@ export class AuthController {
     @Get('me')
     @Roles('admin', 'curator', 'teacher')
     async me(@CurrentUser() actor: AuthenticatedRequestUser) {
+        const is_super = actor.role_name === 'admin';
+        const permissions = await this.permissions.listEffectivePermissions({
+            id: actor.id,
+            role_name: actor.role_name,
+            role_id: actor.role_id,
+        });
         return apiResponse(1, 'me', 'admin.auth.me', {
             user_id: actor.id,
             email: actor.email,
             role_name: actor.role_name,
+            role_id: actor.role_id,
+            is_super,
+            permissions,
         });
     }
 

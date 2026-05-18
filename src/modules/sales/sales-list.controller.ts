@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -23,12 +25,13 @@ import { SalesListService } from './sales-list.service';
  * trip the requirement) — no decorator needed here.
  */
 @Controller('admin-api/v1/admin/sales')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class SalesListController {
     constructor(private readonly listService: SalesListService) {}
 
     @Get()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('sales.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListSalesDto) {
         return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
     }

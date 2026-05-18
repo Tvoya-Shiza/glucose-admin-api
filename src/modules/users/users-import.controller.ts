@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -25,12 +27,13 @@ import { UsersImportService } from './users-import.service';
  * Audit: `@Audit('users.import', 'user')` — `ci:audit-required` enforces.
  */
 @Controller('admin-api/v1/admin/users')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class UsersImportController {
     constructor(private readonly importService: UsersImportService) {}
 
     @Post('import')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.import')
     @Audit('users.import', 'user')
     public async import(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: ImportUsersDto) {
         return this.importService.import({ id: actor.id, role_name: actor.role_name }, dto);

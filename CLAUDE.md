@@ -10,6 +10,19 @@ NEVER run `prisma migrate dev` or `prisma migrate deploy` here. Migrations live 
 
 See PRISMA.md for the full workflow.
 
+## RBAC (Phase 11)
+
+Permissions are managed at runtime through `/access/roles` UI. Three core roles (`admin`/`curator`/`teacher`) plus optional custom roles. `code='admin'` is super-bypass — `PermissionsService.can()` returns true unconditionally for admins, no `role_permissions` rows are written for them.
+
+Gating an endpoint:
+```ts
+@Roles('admin', 'curator')
+@RequirePermission('users.create')          // optional; default-pass if omitted
+@Audit('user.create', 'user')
+```
+
+Full reference + how-to: [docs/access-control.md](./docs/access-control.md).
+
 ## Code style
 
 Mirrors glucose-api:

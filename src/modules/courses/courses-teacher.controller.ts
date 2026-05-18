@@ -1,5 +1,7 @@
 import { Body, Controller, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -28,12 +30,13 @@ import { CoursesTeacherService } from './courses-teacher.service';
  *   - Service validates the user exists with role_name='teacher' and is NOT soft-deleted.
  */
 @Controller('admin-api/v1/admin/courses')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class CoursesTeacherController {
     constructor(private readonly svc: CoursesTeacherService) {}
 
     @Patch(':id/teacher')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.teacher.change', 'webinar')
     public async changeTeacher(
         @CurrentUser() actor: AuthenticatedRequestUser,

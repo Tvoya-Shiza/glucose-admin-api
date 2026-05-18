@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -16,12 +18,13 @@ import { BlogsListService } from './blogs-list.service';
  * via BLOG_SCOPE_RULES (default-deny `id IN ()` if @Roles is somehow bypassed).
  */
 @Controller('admin-api/v1/admin/blogs')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class BlogsListController {
     constructor(private readonly svc: BlogsListService) {}
 
     @Get()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListBlogsDto) {
         return this.svc.list({ id: actor.id, role_name: actor.role_name }, query);
     }

@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -27,12 +29,13 @@ import { QuizzesResultsService } from './quizzes-results.service';
  * a thin pass-through.
  */
 @Controller('admin-api/v1/admin/quiz-results')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesResultsController {
     constructor(private readonly svc: QuizzesResultsService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.results_view')
     public async listResults(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Query() filters: ListResultsDto,

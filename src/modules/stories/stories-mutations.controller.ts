@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { apiResponse } from '../../common/utils/api-response';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -34,12 +36,13 @@ import { StoriesMutationsService } from './stories-mutations.service';
  * `ci:audit-required` enforces.
  */
 @Controller('admin-api/v1/admin/stories')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class StoriesMutationsController {
     constructor(private readonly svc: StoriesMutationsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('stories.create')
     @Audit('stories.create', 'story')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: UpsertStoryDto) {
         const data = await this.svc.create({ id: actor.id, role_name: actor.role_name }, dto);
@@ -47,7 +50,8 @@ export class StoriesMutationsController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('stories.edit')
     @Audit('stories.update', 'story')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -59,7 +63,8 @@ export class StoriesMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('stories.delete')
     @Audit('stories.delete', 'story')
     @HttpCode(HttpStatus.OK)
     public async remove(

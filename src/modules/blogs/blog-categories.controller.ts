@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { apiResponse } from '../../common/utils/api-response';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -37,25 +39,28 @@ import { BlogCategoriesService } from './blog-categories.service';
  * StoryCategory and AdvertisementCategory. CRUD shape omits slug.
  */
 @Controller('admin-api/v1/admin/blogs/categories')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class BlogCategoriesController {
     constructor(private readonly svc: BlogCategoriesService) {}
 
     @Get()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.view')
     public async list() {
         return this.svc.list();
     }
 
     @Get(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.view')
     public async getDetail(@Param('id', ParseIntPipe) id: number) {
         const data = await this.svc.getDetail(id);
         return apiResponse(1, 'ok', 'blogs.category.fetched', data);
     }
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.categories_manage')
     @Audit('blogs.category.create', 'blog_category')
     public async create(@Body() dto: UpsertBlogCategoryDto) {
         const data = await this.svc.create(dto);
@@ -63,7 +68,8 @@ export class BlogCategoriesController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.categories_manage')
     @Audit('blogs.category.update', 'blog_category')
     public async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertBlogCategoryDto) {
         const data = await this.svc.update(id, dto);
@@ -71,7 +77,8 @@ export class BlogCategoriesController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.categories_manage')
     @Audit('blogs.category.delete', 'blog_category')
     @HttpCode(HttpStatus.OK)
     public async remove(@Param('id', ParseIntPipe) id: number) {

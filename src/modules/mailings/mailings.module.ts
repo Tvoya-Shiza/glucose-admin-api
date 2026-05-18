@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { MailingsHistoryController } from './mailings-history.controller';
 import { MailingsHistoryService } from './mailings-history.service';
 import { MailingsSendController } from './mailings-send.controller';
@@ -18,7 +19,7 @@ import { MailingsCacheService } from './utils/mailings-cache.service';
  * without an explicit import here. PrismaModule + RedisModule are also @Global.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [MailingsSendController, MailingsHistoryController],
     providers: [MailerService, MailingsSendService, MailingsHistoryService, MailingsCacheService],
     exports: [MailerService],

@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -26,12 +28,13 @@ import { QuizzesListService } from './quizzes-list.service';
  * curators continues to render a real 200 response.
  */
 @Controller('admin-api/v1/admin/quizzes')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesListController {
     constructor(private readonly listService: QuizzesListService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListQuizzesDto) {
         return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
     }

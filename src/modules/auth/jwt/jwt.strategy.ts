@@ -7,6 +7,7 @@ import type { RoleName } from '@shared/roles';
 export interface AdminJwtPayload {
     sub: number;
     role_name: RoleName;
+    role_id: number;
     email: string | null;
     jti?: string; // present on refresh tokens, absent on access tokens
     iat?: number;
@@ -16,6 +17,7 @@ export interface AdminJwtPayload {
 export interface AuthenticatedRequestUser {
     id: number;
     role_name: RoleName;
+    role_id: number;
     email: string | null;
 }
 
@@ -45,7 +47,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     async validate(payload: AdminJwtPayload): Promise<AuthenticatedRequestUser> {
-        if (!payload?.sub || !payload?.role_name) {
+        if (!payload?.sub || !payload?.role_name || typeof payload.role_id !== 'number') {
             throw new UnauthorizedException('invalid_token_payload');
         }
         // Reject if a refresh token is presented at a Bearer-protected route.
@@ -56,6 +58,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         return {
             id: payload.sub,
             role_name: payload.role_name,
+            role_id: payload.role_id,
             email: payload.email ?? null,
         };
     }

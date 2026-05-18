@@ -14,6 +14,7 @@ import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { CronLockModule } from './common/decorators/cron-lock.module';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
+import { AccessModule } from './modules/access/access.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AudienceModule } from './modules/audience/audience.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -52,6 +53,10 @@ import { PrismaModule } from './prisma/prisma.module';
         RedisModule,
         CronLockModule,
         AuthModule,
+        // Phase 11 — RBAC (roles + permissions matrix). AccessModule exports
+        // PermissionsService so AuthController.me can list effective permissions
+        // and the global PermissionGuard can inject it.
+        AccessModule,
         HealthModule,
         UsersModule,
         GroupsModule,
@@ -91,6 +96,9 @@ import { PrismaModule } from './prisma/prisma.module';
     providers: [
         AppService,
         { provide: APP_GUARD, useClass: ThrottlerGuard },
+        // PermissionGuard is applied controller-locally via @UseGuards so it runs
+        // AFTER JwtGuard fills req.user (global guards run before controller-level,
+        // which left req.user undefined and tripped the 'unauthenticated' branch).
         // AuditInterceptor runs after ThrottlerGuard so throttled requests are
         // never audited (they're 429 before reaching the handler).
         { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

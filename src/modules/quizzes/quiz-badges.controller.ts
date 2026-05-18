@@ -12,6 +12,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -36,38 +38,43 @@ import { QuizBadgesService } from './quiz-badges.service';
  *   walks every controller and gates on this decoration.
  */
 @Controller('admin-api/v1/admin/quiz-badges')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizBadgesController {
     constructor(private readonly svc: QuizBadgesService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async list() {
         return this.svc.listAll();
     }
 
     @Get(':id')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.view')
     public async detail(@Param('id', ParseIntPipe) id: number) {
         return this.svc.getDetail(id);
     }
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.create', 'quiz_badge')
     public async create(@Body() dto: UpsertBadgeDto) {
         return this.svc.create(dto);
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.update', 'quiz_badge')
     public async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertBadgeDto) {
         return this.svc.update(id, dto);
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.badges_manage')
     @Audit('quiz_badges.delete', 'quiz_badge')
     @HttpCode(HttpStatus.OK)
     public async remove(@Param('id', ParseIntPipe) id: number) {

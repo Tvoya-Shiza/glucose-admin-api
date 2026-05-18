@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { PushAudienceController } from './push-audience.controller';
 import { PushBroadcastController } from './push-broadcast.controller';
 import { PushBroadcastService } from './push-broadcast.service';
@@ -27,7 +28,7 @@ import { PushCacheService } from './utils/push-cache.service';
  * ConfigModule is global (registered in AppModule).
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         PushAudienceController,
         PushBroadcastController,

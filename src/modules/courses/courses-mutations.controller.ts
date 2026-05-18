@@ -11,6 +11,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -37,19 +39,21 @@ import { CoursesMutationsService } from './courses-mutations.service';
  * `scripts/ci-audit-decorator-check.cjs` enforces this on non-GET endpoints.
  */
 @Controller('admin-api/v1/admin/courses')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class CoursesMutationsController {
     constructor(private readonly svc: CoursesMutationsService) {}
 
     @Post()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.create')
     @Audit('courses.create', 'webinar')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: CreateCourseDto) {
         return this.svc.create({ id: actor.id, role_name: actor.role_name }, dto);
     }
 
     @Patch(':id')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.update', 'webinar')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -60,7 +64,8 @@ export class CoursesMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.delete')
     @Audit('courses.delete', 'webinar')
     @HttpCode(HttpStatus.OK)
     public async remove(

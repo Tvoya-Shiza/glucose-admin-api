@@ -1,5 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
 import { apiResponse } from '../../common/utils/api-response';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -17,12 +19,13 @@ import { BlogsDetailService } from './blogs-detail.service';
  * routes first, so `:id` here will not swallow `/categories`.
  */
 @Controller('admin-api/v1/admin/blogs')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class BlogsDetailController {
     constructor(private readonly svc: BlogsDetailService) {}
 
     @Get(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.view')
     public async getDetail(@Param('id', ParseIntPipe) id: number) {
         const data = await this.svc.getDetail(id);
         return apiResponse(1, 'ok', 'blogs.fetched', data);

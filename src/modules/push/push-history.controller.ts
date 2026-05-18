@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -23,12 +25,13 @@ import { PushHistoryService } from './push-history.service';
  * The list shape itself is read-only — no audit row is written for browsing.
  */
 @Controller('admin-api/v1/admin/push')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class PushHistoryController {
     constructor(private readonly historySvc: PushHistoryService) {}
 
     @Get('history')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.history_view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Query() query: PushHistoryQueryDto,

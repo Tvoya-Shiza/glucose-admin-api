@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { apiResponse } from '../../common/utils/api-response';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -37,12 +39,13 @@ import { BlogsMutationsService } from './blogs-mutations.service';
  * to keep this surface focused on profile-shape mutations.
  */
 @Controller('admin-api/v1/admin/blogs')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class BlogsMutationsController {
     constructor(private readonly svc: BlogsMutationsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.create')
     @Audit('blogs.create', 'blog')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: UpsertBlogDto) {
         const data = await this.svc.create({ id: actor.id, role_name: actor.role_name }, dto);
@@ -50,7 +53,8 @@ export class BlogsMutationsController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.edit')
     @Audit('blogs.update', 'blog')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -62,7 +66,8 @@ export class BlogsMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('blogs.delete')
     @Audit('blogs.delete', 'blog')
     @HttpCode(HttpStatus.OK)
     public async remove(

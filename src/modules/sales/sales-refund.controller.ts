@@ -1,6 +1,8 @@
 import { Body, Controller, HttpCode, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
 import { apiResponse } from '../../common/utils/api-response';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -32,13 +34,14 @@ import { SalesRefundService } from './sales-refund.service';
  * and surfaces a localized "already refunded" toast.
  */
 @Controller('admin-api/v1/admin/sales')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class SalesRefundController {
     constructor(private readonly refundService: SalesRefundService) {}
 
     @Post(':id/refund')
     @HttpCode(200)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('payments.refund')
     @Audit('sales.refund', 'sale')
     public async refund(
         @CurrentUser() actor: AuthenticatedRequestUser,

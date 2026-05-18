@@ -1,5 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -24,13 +26,14 @@ import { MailingsSendService } from './mailings-send.service';
  * rule, T-08-05-03).
  */
 @Controller('admin-api/v1/admin/mailings')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class MailingsSendController {
     constructor(private readonly sendSvc: MailingsSendService) {}
 
     @Post('send')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('mailings.create')
     @Audit('mail.send', 'mailing_log')
     public async send(
         @CurrentUser() actor: AuthenticatedRequestUser,

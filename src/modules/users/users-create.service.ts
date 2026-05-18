@@ -71,42 +71,18 @@ export class UsersCreateService {
             if (dup) throw new ConflictException('users.mobile_taken');
         }
 
-        // 3. Resolve role_id. Three-step lookup with a self-healing fallback because
-        //    the runtime DB seed is incomplete (only some Role rows present):
-        //      a. Role table by name — happiest path.
-        //      b. Any existing User with this role_name discriminator — reuse their role_id.
-        //         Matches how the rest of the system uses User.role_name as the RBAC source.
-        //      c. Create the missing Role row. The Role table is a tiny lookup (4 expected
-        //         names), not user data, so it's safe to upsert. Without this step a
-        //         partially-seeded DB blocks all user creates indefinitely.
-        let resolvedRoleId: number | null = null;
+        // 3. Resolve role_id via Role.code (canonical discriminator that matches
+        //    User.role_name semantics). The previous version looked up by Role.name
+        //    (Russian display label "Администратор") and self-healed missing rows,
+        //    which produced duplicate Role rows with empty code on partial seeds.
         const roleRow = await this.prisma.role.findFirst({
-            where: { name: dto.role_name },
+            where: { code: dto.role_name },
             select: { id: true },
         });
-        if (roleRow) {
-            resolvedRoleId = Number(roleRow.id);
+        if (!roleRow) {
+            throw new BadRequestException('users.role_not_found');
         }
-        if (resolvedRoleId == null) {
-            const sample = await this.prisma.user.findFirst({
-                where: { role_name: dto.role_name, deleted_at: null },
-                select: { role_id: true },
-            });
-            if (sample) resolvedRoleId = Number(sample.role_id);
-        }
-        if (resolvedRoleId == null) {
-            // Self-heal: create the missing Role row. is_admin true only for 'admin'.
-            const created = await this.prisma.role.create({
-                data: {
-                    name: dto.role_name,
-                    is_admin: dto.role_name === 'admin',
-                    created_at: Math.floor(Date.now() / 1000),
-                },
-                select: { id: true },
-            });
-            resolvedRoleId = Number(created.id);
-            this.logger.warn(`auto-created missing Role row name=${dto.role_name} id=${resolvedRoleId}`);
-        }
+        const resolvedRoleId = Number(roleRow.id);
 
         // 4. Hash password (when provided).
         const password = dto.password ? await bcrypt.hash(dto.password, UsersCreateService.BCRYPT_COST) : null;

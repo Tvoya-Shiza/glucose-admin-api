@@ -22,6 +22,7 @@ export interface LoginResultOk {
     ok: true;
     user_id: number;
     role_name: RoleName;
+    role_id: number;
     email: string | null;
     tokens: TokenPair;
 }
@@ -51,6 +52,7 @@ export class AuthService {
                 email: true,
                 password: true,
                 role_name: true,
+                role_id: true,
                 status: true,
             },
         });
@@ -85,12 +87,13 @@ export class AuthService {
         }
 
         const role = user.role_name as RoleName;
-        const tokens = await this.issueTokenPair(user.id, role, user.email ?? null);
+        const tokens = await this.issueTokenPair(user.id, role, user.role_id, user.email ?? null);
 
         return {
             ok: true,
             user_id: user.id,
             role_name: role,
+            role_id: user.role_id,
             email: user.email ?? null,
             tokens,
         };
@@ -118,7 +121,7 @@ export class AuthService {
         // Re-validate user — role/status may have changed since issuance.
         const user = await this.prisma.user.findUnique({
             where: { id: payload.sub },
-            select: { id: true, email: true, role_name: true, status: true, deleted_at: true },
+            select: { id: true, email: true, role_name: true, role_id: true, status: true, deleted_at: true },
         });
         if (!user || user.deleted_at !== null || user.status !== 'active') {
             // Clean up the stale jti so it can't be re-used.
@@ -136,7 +139,7 @@ export class AuthService {
         // Atomic rotate (AUTH-03): DEL old + SET new in MULTI/EXEC.
         await this.refreshRepo.rotate(payload.jti, newJti, user.id, refreshTtlSec);
 
-        return this.issueTokenPair(user.id, user.role_name as RoleName, user.email ?? null, newJti);
+        return this.issueTokenPair(user.id, user.role_name as RoleName, user.role_id, user.email ?? null, newJti);
     }
 
     public async logout(refreshToken: string | null): Promise<void> {
@@ -156,13 +159,14 @@ export class AuthService {
     public async validateUser(userId: number): Promise<AuthenticatedRequestUser | null> {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, email: true, role_name: true, status: true, deleted_at: true },
+            select: { id: true, email: true, role_name: true, role_id: true, status: true, deleted_at: true },
         });
         if (!user || user.deleted_at !== null || user.status !== 'active') return null;
         if (!STAFF_ROLES.includes(user.role_name as RoleName)) return null;
         return {
             id: user.id,
             role_name: user.role_name as RoleName,
+            role_id: user.role_id,
             email: user.email ?? null,
         };
     }
@@ -170,6 +174,7 @@ export class AuthService {
     private async issueTokenPair(
         userId: number,
         roleName: RoleName,
+        roleId: number,
         email: string | null,
         existingJti?: string,
     ): Promise<TokenPair> {
@@ -183,11 +188,13 @@ export class AuthService {
         const accessPayload: AdminJwtPayload = {
             sub: userId,
             role_name: roleName,
+            role_id: roleId,
             email,
         };
         const refreshPayload: AdminJwtPayload = {
             sub: userId,
             role_name: roleName,
+            role_id: roleId,
             email,
             jti,
         };

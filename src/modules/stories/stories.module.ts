@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { StoriesListController } from './stories-list.controller';
 import { StoriesListService } from './stories-list.service';
 import { StoriesDetailController } from './stories-detail.controller';
@@ -28,7 +29,7 @@ import { StoriesCacheService } from './utils/stories-cache.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         StoriesListController,
         StoriesDetailController,

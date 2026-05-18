@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { BannersListController } from './banners-list.controller';
 import { BannersListService } from './banners-list.service';
 import { BannersDetailController } from './banners-detail.controller';
@@ -30,7 +31,7 @@ import { BannersCacheService } from './utils/banners-cache.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         BannersListController,
         BannersDetailController,

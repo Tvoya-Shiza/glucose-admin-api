@@ -126,6 +126,7 @@ export class UploadsService implements OnModuleInit {
             {
                 sub: actor.id,
                 role: actor.role_name,
+                role_id: actor.role_id,
                 kind: dto.kind,
                 size: dto.size,
                 content_type: dto.content_type,

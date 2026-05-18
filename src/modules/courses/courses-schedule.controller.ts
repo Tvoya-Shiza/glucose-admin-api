@@ -14,6 +14,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -44,12 +46,13 @@ import { CoursesScheduleService } from './courses-schedule.service';
  * Audit: 3 audited handlers (create / update / delete). GET is exempt.
  */
 @Controller('admin-api/v1/admin/courses/:id/schedules')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class CoursesScheduleController {
     constructor(private readonly svc: CoursesScheduleService) {}
 
     @Get()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) courseId: number,
@@ -59,7 +62,8 @@ export class CoursesScheduleController {
     }
 
     @Post()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.schedule.create', 'webinar_chapter_schedule')
     @HttpCode(HttpStatus.OK)
     public async create(
@@ -71,7 +75,8 @@ export class CoursesScheduleController {
     }
 
     @Patch(':scheduleId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.schedule.update', 'webinar_chapter_schedule')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -88,7 +93,8 @@ export class CoursesScheduleController {
     }
 
     @Delete(':scheduleId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.schedule.delete', 'webinar_chapter_schedule')
     @HttpCode(HttpStatus.OK)
     public async delete(

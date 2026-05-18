@@ -1,5 +1,7 @@
 import { Body, Controller, Param, ParseIntPipe, Patch, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -24,12 +26,13 @@ import { GroupsSupervisorService } from './groups-supervisor.service';
  *   - positive int = User.id; service validates the user is staff
  */
 @Controller('admin-api/v1/admin/groups')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class GroupsSupervisorController {
     constructor(private readonly svc: GroupsSupervisorService) {}
 
     @Patch(':id/supervisor')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
     @Audit('groups.supervisor.change', 'group')
     public async change(
         @CurrentUser() actor: AuthenticatedRequestUser,

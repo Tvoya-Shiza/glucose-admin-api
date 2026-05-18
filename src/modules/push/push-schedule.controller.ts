@@ -10,6 +10,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -37,13 +39,14 @@ import { PushScheduleService } from './push-schedule.service';
  * admin-api convention; AuditInterceptor.resolveEntityId picks the string up.
  */
 @Controller('admin-api/v1/admin/push')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class PushScheduleController {
     constructor(private readonly scheduleSvc: PushScheduleService) {}
 
     @Post('schedule')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.schedule')
     @Audit('push.schedule', 'scheduled_push')
     public async schedule(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -53,7 +56,8 @@ export class PushScheduleController {
     }
 
     @Get('scheduled')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Query() query: PushScheduledListQueryDto,
@@ -63,7 +67,8 @@ export class PushScheduleController {
 
     @Post('scheduled/:id/cancel')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.schedule')
     @Audit('push.schedule.cancel', 'scheduled_push')
     public async cancel(
         @CurrentUser() actor: AuthenticatedRequestUser,

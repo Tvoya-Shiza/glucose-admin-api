@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -25,12 +27,13 @@ import { UsersBulkService } from './users-bulk.service';
  * Audit: `@Audit('users.bulkProvision', 'sale')` — `ci:audit-required` enforces.
  */
 @Controller('admin-api/v1/admin/users')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class UsersBulkController {
     constructor(private readonly bulkService: UsersBulkService) {}
 
     @Post('bulk-provision')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.edit')
     @Audit('users.bulkProvision', 'sale')
     public async provision(
         @CurrentUser() actor: AuthenticatedRequestUser,

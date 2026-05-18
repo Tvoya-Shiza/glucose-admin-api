@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { GroupsDetailController } from './groups-detail.controller';
 import { GroupsDetailService } from './groups-detail.service';
 import { GroupsListController } from './groups-list.controller';
@@ -23,7 +24,7 @@ import { GroupsSupervisorService } from './groups-supervisor.service';
  *   bulk add/remove members + member-progress aggregates (GRP-03 + GRP-06).
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         GroupsListController,
         GroupsMutationsController,

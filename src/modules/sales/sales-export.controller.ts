@@ -2,6 +2,8 @@ import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -32,12 +34,13 @@ import { SalesExportService } from './sales-export.service';
  * captured in audit shape; actor + ts suffice to track who exported and when.
  */
 @Controller('admin-api/v1/admin/sales')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class SalesExportController {
     constructor(private readonly exportService: SalesExportService) {}
 
     @Post('export')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('sales.export')
     @Audit('sales.export', 'sale')
     @Throttle({ default: { limit: 5, ttl: 900_000 } })
     public async export(

@@ -11,6 +11,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit, SkipAudit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -36,19 +38,21 @@ import { GroupsMutationsService } from './groups-mutations.service';
  * non-GET handlers.
  */
 @Controller('admin-api/v1/admin/groups')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class GroupsMutationsController {
     constructor(private readonly svc: GroupsMutationsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.create')
     @Audit('groups.create', 'group')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: CreateGroupDto) {
         return this.svc.create({ id: actor.id, role_name: actor.role_name }, dto);
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
     @Audit('groups.update', 'group')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -59,7 +63,8 @@ export class GroupsMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.delete')
     @Audit('groups.delete', 'group')
     @HttpCode(HttpStatus.OK)
     public async remove(@CurrentUser() actor: AuthenticatedRequestUser, @Param('id', ParseIntPipe) id: number) {
@@ -67,7 +72,8 @@ export class GroupsMutationsController {
     }
 
     @Post(':id/cascade-preview')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.delete')
     @SkipAudit('cascade-preview is a read-only inspection masquerading as POST due to body shape; the actual delete is audited via @Audit("groups.delete","group")')
     @HttpCode(HttpStatus.OK)
     public async cascadePreview(

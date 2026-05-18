@@ -1,5 +1,7 @@
 import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -26,12 +28,13 @@ import { UsersDetailService } from './users-detail.service';
  * setGlobalPrefix'd; the prefix is embedded per controller per Plan 02 deviation #2).
  */
 @Controller('admin-api/v1/admin/users')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class UsersDetailController {
     constructor(private readonly detailService: UsersDetailService) {}
 
     @Get(':id')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.view')
     public async detail(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,
@@ -41,6 +44,7 @@ export class UsersDetailController {
 
     @Get(':id/activity')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.view')
     public async activity(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,
@@ -55,6 +59,7 @@ export class UsersDetailController {
 
     @Patch(':id/profile')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.edit')
     @Audit('users.update', 'user')
     public async patchProfile(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -65,7 +70,8 @@ export class UsersDetailController {
     }
 
     @Patch(':id/memberships')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.edit')
     @Audit('users.memberships', 'user')
     public async patchMemberships(
         @CurrentUser() actor: AuthenticatedRequestUser,

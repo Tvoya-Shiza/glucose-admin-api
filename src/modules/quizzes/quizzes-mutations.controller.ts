@@ -11,6 +11,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -37,19 +39,21 @@ import { QuizzesMutationsService } from './quizzes-mutations.service';
  * Audit (T-06-15): every handler decorated. CI lint enforces this on non-GET endpoints.
  */
 @Controller('admin-api/v1/admin/quizzes')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesMutationsController {
     constructor(private readonly svc: QuizzesMutationsService) {}
 
     @Post()
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.create')
     @Audit('quizzes.create', 'quiz')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: CreateQuizDto) {
         return this.svc.create({ id: actor.id, role_name: actor.role_name }, dto);
     }
 
     @Patch(':id')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.edit')
     @Audit('quizzes.update', 'quiz')
     public async update(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -60,7 +64,8 @@ export class QuizzesMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.delete')
     @Audit('quizzes.delete', 'quiz')
     @HttpCode(HttpStatus.OK)
     public async remove(

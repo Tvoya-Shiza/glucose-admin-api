@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -26,12 +28,13 @@ import { CoursesListService } from './courses-list.service';
  * with a real 200 response. AdminNav already hides the link for curators per Plan 01.
  */
 @Controller('admin-api/v1/admin/courses')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class CoursesListController {
     constructor(private readonly listService: CoursesListService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListCoursesDto) {
         return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
     }

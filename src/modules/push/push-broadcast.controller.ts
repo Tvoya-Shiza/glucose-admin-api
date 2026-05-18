@@ -1,6 +1,8 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -25,7 +27,7 @@ import { PushBroadcastService } from './push-broadcast.service';
  * audience_hash + counts ONLY (D-17 GDPR rule, T-08-03-03).
  */
 @Controller('admin-api/v1/admin/push')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class PushBroadcastController {
     constructor(private readonly broadcastSvc: PushBroadcastService) {}
 
@@ -37,7 +39,8 @@ export class PushBroadcastController {
      */
     @Post('broadcast')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.create')
     @Audit('push.broadcast', 'push_notification_log')
     public async broadcast(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -60,7 +63,8 @@ export class PushBroadcastController {
      */
     @Post('test')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.create')
     @Audit('push.test', 'push_notification_log')
     public async test(
         @CurrentUser() actor: AuthenticatedRequestUser,

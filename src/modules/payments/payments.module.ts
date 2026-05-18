@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { PaymentsDetailController } from './payments-detail.controller';
 import { PaymentsDetailService } from './payments-detail.service';
 import { PaymentsExportController } from './payments-export.controller';
@@ -27,7 +28,7 @@ import { PaymentsListService } from './payments-list.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [PaymentsListController, PaymentsDetailController, PaymentsExportController],
     providers: [PaymentsListService, PaymentsDetailService, PaymentsExportService],
     exports: [PaymentsListService, PaymentsDetailService, PaymentsExportService],

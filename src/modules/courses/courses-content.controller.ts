@@ -11,6 +11,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -40,7 +42,7 @@ import { CoursesContentService } from './courses-content.service';
  * Audit: 7 audited handlers (1 reorder + 3 chapter + 3 item).
  */
 @Controller('admin-api/v1/admin/courses')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class CoursesContentController {
     constructor(private readonly svc: CoursesContentService) {}
 
@@ -49,7 +51,8 @@ export class CoursesContentController {
     // ---------------------------------------------------------------------
 
     @Patch(':id/reorder')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.reorder', 'webinar')
     @HttpCode(HttpStatus.OK)
     public async reorder(
@@ -65,7 +68,8 @@ export class CoursesContentController {
     // ---------------------------------------------------------------------
 
     @Post(':id/chapters')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.chapter.create', 'webinar_chapter')
     @HttpCode(HttpStatus.OK)
     public async createChapter(
@@ -77,7 +81,8 @@ export class CoursesContentController {
     }
 
     @Patch(':id/chapters/:chapterId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.chapter.update', 'webinar_chapter')
     public async updateChapter(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -89,7 +94,8 @@ export class CoursesContentController {
     }
 
     @Delete(':id/chapters/:chapterId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.chapter.delete', 'webinar_chapter')
     @HttpCode(HttpStatus.OK)
     public async deleteChapter(
@@ -105,7 +111,8 @@ export class CoursesContentController {
     // ---------------------------------------------------------------------
 
     @Post(':id/items')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.item.create', 'webinar_chapter_item')
     @HttpCode(HttpStatus.OK)
     public async createItem(
@@ -117,7 +124,8 @@ export class CoursesContentController {
     }
 
     @Patch(':id/items/:itemId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.item.update', 'webinar_chapter_item')
     public async updateItem(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -129,7 +137,8 @@ export class CoursesContentController {
     }
 
     @Delete(':id/items/:itemId')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('courses.edit')
     @Audit('courses.item.delete', 'webinar_chapter_item')
     @HttpCode(HttpStatus.OK)
     public async deleteItem(

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { CoursesListController } from './courses-list.controller';
 import { CoursesListService } from './courses-list.service';
 import { CoursesMutationsController } from './courses-mutations.controller';
@@ -37,7 +38,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
  * so we don't need to import them here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [
         CoursesListController,
         CoursesMutationsController,

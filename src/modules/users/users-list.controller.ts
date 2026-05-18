@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -20,12 +22,13 @@ import { UsersListService } from './users-list.service';
  * narrowed in the service via USER_SCOPE_RULES.
  */
 @Controller('admin-api/v1/admin/users')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class UsersListController {
     constructor(private readonly listService: UsersListService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListUsersDto) {
         return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
     }

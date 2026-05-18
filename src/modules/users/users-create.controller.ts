@@ -1,5 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -21,12 +23,13 @@ import { UsersCreateService } from './users-create.service';
  * on every non-GET handler.
  */
 @Controller('admin-api/v1/admin/users')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class UsersCreateController {
     constructor(private readonly createService: UsersCreateService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.create')
     @Audit('users.create', 'user')
     public async create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: CreateUserDto) {
         return this.createService.create({ id: actor.id, role_name: actor.role_name }, dto);

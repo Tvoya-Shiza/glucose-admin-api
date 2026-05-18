@@ -1,4 +1,6 @@
 import { Controller, Get, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -19,12 +21,13 @@ import { SalesDetailService } from './sales-detail.service';
  * Audit posture: GET exempt from @Audit lint (only mutations require it).
  */
 @Controller('admin-api/v1/admin/sales')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class SalesDetailController {
     constructor(private readonly detailService: SalesDetailService) {}
 
     @Get(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('sales.view')
     public async get(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,

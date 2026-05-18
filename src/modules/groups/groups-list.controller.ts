@@ -1,4 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -26,12 +28,13 @@ import { GroupsListService } from './groups-list.service';
  * to any group') for non-admin actors.
  */
 @Controller('admin-api/v1/admin/groups')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class GroupsListController {
     constructor(private readonly listService: GroupsListService) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListGroupsDto) {
         return this.listService.list({ id: actor.id, role_name: actor.role_name }, query);
     }

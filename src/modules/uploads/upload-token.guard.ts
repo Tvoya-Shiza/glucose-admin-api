@@ -51,6 +51,7 @@ export class UploadTokenGuard implements CanActivate {
             const user: AuthenticatedRequestUser = {
                 id: claims.sub,
                 role_name: claims.role as RoleName,
+                role_id: claims.role_id,
                 email: null,
             };
             req.user = user;

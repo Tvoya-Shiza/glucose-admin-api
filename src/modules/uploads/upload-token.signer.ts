@@ -28,6 +28,7 @@ export type UploadKind = 'image' | 'video' | 'cover';
 export interface UploadTokenClaims {
     sub: number; // actor.id
     role: string; // actor.role_name
+    role_id: number; // actor.role_id — Phase 11; required by PermissionGuard
     kind: UploadKind;
     size: number; // declared bytes
     content_type: string; // declared MIME
@@ -41,6 +42,7 @@ export interface UploadTokenClaims {
 export interface SignUploadTokenInput {
     sub: number;
     role: string;
+    role_id: number;
     kind: UploadKind;
     size: number;
     content_type: string;
@@ -61,6 +63,7 @@ export function signUploadToken(input: SignUploadTokenInput, secret: string, ttl
     const payload = {
         sub: input.sub,
         role: input.role,
+        role_id: input.role_id,
         kind: input.kind,
         size: input.size,
         content_type: input.content_type,
@@ -104,6 +107,13 @@ export function verifyUploadToken(token: string, secret: string): UploadTokenCla
     }
     if (typeof claims.folder_path === 'undefined') {
         (claims as UploadTokenClaims).folder_path = '';
+    }
+    // role_id is a Phase-11 addition. Tokens issued pre-Phase-11 lack it; default to 0
+    // so legacy tokens through their 5-min TTL still verify, but PermissionGuard will
+    // deny any permission check (no role has id=0). Upload endpoints typically don't
+    // require granular permission checks anyway.
+    if (typeof claims.role_id !== 'number') {
+        (claims as UploadTokenClaims).role_id = 0;
     }
     return claims as UploadTokenClaims;
 }

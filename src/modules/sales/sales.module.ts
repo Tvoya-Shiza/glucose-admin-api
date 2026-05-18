@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AccessModule } from '../access/access.module';
 import { SalesDetailController } from './sales-detail.controller';
 import { SalesDetailService } from './sales-detail.service';
 import { SalesExportController } from './sales-export.controller';
@@ -29,7 +30,7 @@ import { SalesRefundService } from './sales-refund.service';
  * are needed here.
  */
 @Module({
-    imports: [],
+    imports: [AccessModule],
     controllers: [SalesListController, SalesDetailController, SalesRefundController, SalesExportController],
     providers: [SalesListService, SalesDetailService, SalesRefundService, SalesExportService],
     exports: [SalesListService, SalesDetailService, SalesRefundService, SalesExportService],

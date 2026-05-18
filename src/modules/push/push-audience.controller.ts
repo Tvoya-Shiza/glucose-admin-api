@@ -1,5 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -28,13 +30,14 @@ import { AudienceShapeDto } from '../audience/dto/audience-preview.dto';
  * into admin previews when an admin posts the same filter.
  */
 @Controller('admin-api/v1/admin/push')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class PushAudienceController {
     constructor(private readonly audience: AudienceService) {}
 
     @Post('audience-preview')
     @HttpCode(HttpStatus.OK)
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.view')
     @Audit('push.audience-preview', 'audience')
     public async preview(@CurrentUser() actor: AuthenticatedRequestUser, @Body() body: AudienceShapeDto) {
         return this.audience.preview(body, { id: actor.id, role_name: actor.role_name });

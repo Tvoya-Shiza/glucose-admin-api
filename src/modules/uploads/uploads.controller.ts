@@ -17,6 +17,8 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { Audit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -54,8 +56,9 @@ export class UploadsController {
     constructor(private readonly service: UploadsService) {}
 
     @Post('token')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
     @Audit('uploads.token', 'file')
     @HttpCode(HttpStatus.OK)
     public issueToken(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: UploadTokenRequestDto) {
@@ -77,23 +80,26 @@ export class UploadsController {
     }
 
     @Get()
-    @UseGuards(JwtGuard, RolesGuard)
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
     @Roles('admin', 'teacher', 'curator')
+    @RequirePermission('files.view')
     public list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListUploadsQueryDto) {
         return this.service.listUploads(actor, query);
     }
 
     @Patch(':id/move')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
     @Audit('uploads.move', 'upload')
     public move(@Param('id') id: string, @Body() dto: MoveFileDto) {
         return this.service.moveFile(id, dto.folder_id ?? null);
     }
 
     @Delete(':id')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.delete')
     @Audit('uploads.delete', 'upload')
     @HttpCode(HttpStatus.NO_CONTENT)
     public async remove(@Param('id') id: string): Promise<void> {

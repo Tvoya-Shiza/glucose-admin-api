@@ -12,6 +12,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit, SkipAudit } from '../../common/audit/audit.decorator';
+import { RequirePermission } from '../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
@@ -43,12 +45,13 @@ import { GroupsMembersService } from './groups-members.service';
  *   - GET    /:id/members           -> exempt (GET handler — audit lint ignores GETs)
  */
 @Controller('admin-api/v1/admin/groups')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class GroupsMembersController {
     constructor(private readonly svc: GroupsMembersService) {}
 
     @Get(':id/members')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.view')
     public async list(
         @CurrentUser() actor: AuthenticatedRequestUser,
         @Param('id', ParseIntPipe) id: number,
@@ -58,7 +61,8 @@ export class GroupsMembersController {
     }
 
     @Post(':id/members')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
     @Audit('groups.members.add', 'group_user')
     public async bulkAdd(
         @CurrentUser() actor: AuthenticatedRequestUser,
@@ -69,7 +73,8 @@ export class GroupsMembersController {
     }
 
     @Delete(':id/members')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
     @Audit('groups.members.remove', 'group_user')
     @HttpCode(HttpStatus.OK)
     public async bulkRemove(
@@ -82,6 +87,7 @@ export class GroupsMembersController {
 
     @Post(':id/members/progress')
     @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.view')
     @SkipAudit('progress is a read masquerading as POST due to body shape; no mutation occurs')
     @HttpCode(HttpStatus.OK)
     public async progress(

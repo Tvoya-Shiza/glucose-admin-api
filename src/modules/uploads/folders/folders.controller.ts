@@ -12,6 +12,8 @@ import {
     UseGuards,
 } from '@nestjs/common';
 import { Audit } from '../../../common/audit/audit.decorator';
+import { RequirePermission } from '../../access/decorators/require-permission.decorator';
+import { PermissionGuard } from '../../access/guards/permission.guard';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { JwtGuard } from '../../auth/guards/jwt.guard';
@@ -41,22 +43,25 @@ export class FoldersController {
     constructor(private readonly service: FoldersService) {}
 
     @Get()
-    @UseGuards(JwtGuard, RolesGuard)
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
     @Roles('admin', 'teacher', 'curator')
+    @RequirePermission('files.view')
     public list() {
         return this.service.listFolders();
     }
 
     @Get(':id')
-    @UseGuards(JwtGuard, RolesGuard)
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
     @Roles('admin', 'teacher', 'curator')
+    @RequirePermission('files.view')
     public get(@Param('id', ParseIntPipe) id: number) {
         return this.service.getFolder(id);
     }
 
     @Post()
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
     @Audit('folders.create', 'folder')
     @HttpCode(HttpStatus.CREATED)
     public create(@CurrentUser() actor: AuthenticatedRequestUser, @Body() dto: CreateFolderDto) {
@@ -64,24 +69,27 @@ export class FoldersController {
     }
 
     @Patch(':id')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
     @Audit('folders.rename', 'folder')
     public rename(@Param('id', ParseIntPipe) id: number, @Body() dto: RenameFolderDto) {
         return this.service.renameFolder(id, dto);
     }
 
     @Patch(':id/move')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
     @Audit('folders.move', 'folder')
     public move(@Param('id', ParseIntPipe) id: number, @Body() dto: MoveFolderDto) {
         return this.service.moveFolder(id, dto);
     }
 
     @Delete(':id')
-    @UseGuards(JwtGuard, RolesGuard)
-    @Roles('admin', 'teacher')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.delete')
     @Audit('folders.delete', 'folder')
     @HttpCode(HttpStatus.NO_CONTENT)
     public async remove(@Param('id', ParseIntPipe) id: number): Promise<void> {
