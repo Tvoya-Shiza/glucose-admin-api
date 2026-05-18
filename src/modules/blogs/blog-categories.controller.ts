@@ -31,9 +31,11 @@ import { BlogCategoriesService } from './blog-categories.service';
  *   PATCH  /admin-api/v1/admin/blogs/categories/:id     -> apiResponse-wrapped
  *   DELETE /admin-api/v1/admin/blogs/categories/:id     -> apiResponse-wrapped (400 on in-use)
  *
- * Routing note: `/admin-api/v1/admin/blogs/categories` is a longer prefix than
- * `/admin-api/v1/admin/blogs/:id`, so Nest matches this controller first for any
- * `/categories` path. Verified by inspection (Plan 02 Stories pattern).
+ * Routing note: Nest matches routes in registration order (NOT by longest prefix).
+ * This controller MUST be registered in BlogsModule BEFORE BlogsDetailController
+ * (and any other `/admin/blogs/:id` controller) — otherwise GET /blogs/categories
+ * lands in `@Get(':id')` with id="categories" and ParseIntPipe throws 400.
+ * See blogs.module.ts controllers[] ordering.
  *
  * Schema-truth (Plan 01 lock): BlogCategory has NO `slug` column — diverges from
  * StoryCategory and AdvertisementCategory. CRUD shape omits slug.

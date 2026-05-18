@@ -40,12 +40,16 @@ import { BlogsCacheService } from './utils/blogs-cache.service';
 @Module({
     imports: [AccessModule],
     controllers: [
+        // BlogCategoriesController MUST come before any controller with @Get(':id')
+        // under /admin-api/v1/admin/blogs — Nest matches routes in registration order,
+        // not by longest prefix. Otherwise GET /blogs/categories falls into
+        // BlogsDetailController.@Get(':id'), where ParseIntPipe rejects "categories" with 400.
+        BlogCategoriesController,
         BlogsListController,
         BlogsDetailController,
         BlogsMutationsController,
         BlogsBulkController,
         BlogsAuthorController,
-        BlogCategoriesController,
     ],
     providers: [
         BlogsListService,
