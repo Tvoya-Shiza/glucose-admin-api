@@ -15,3 +15,8 @@ export const BANNERS_LIST_PREFIX = 'geonline-admin:banners:list';
 export const BANNERS_DETAIL_PREFIX = 'geonline-admin:banners:detail';
 export const BANNERS_CATEGORIES_PREFIX = 'geonline-admin:banners:categories';
 export const BANNERS_INVALIDATE_PATTERN = 'geonline-admin:banners:*';
+
+// Public glucose-api exposes this surface under the `advertisements` URL/namespace
+// (Prisma model name), not `banners`. Cross-namespace invalidate must target it
+// explicitly — otherwise public list (24h TTL) stays stale after admin mutations.
+export const BANNERS_PUBLIC_INVALIDATE_PATTERN = 'geonline:advertisements:*';

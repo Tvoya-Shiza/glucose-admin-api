@@ -4,7 +4,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ChangeBlogAuthorDto } from './dto/change-author.dto';
 import { BlogsDetailService, type BlogDetail } from './blogs-detail.service';
 import { BlogsCacheService } from './utils/blogs-cache.service';
-import { BLOGS_INVALIDATE_PATTERN } from './utils/blogs-cache';
+import { BLOGS_INVALIDATE_PATTERN, BLOGS_PUBLIC_INVALIDATE_PATTERN } from './utils/blogs-cache';
 
 /**
  * BLG-03 — blog author reassignment (Plan 04 / D-11).
@@ -91,6 +91,7 @@ export class BlogsAuthorService {
         ]);
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
 
         this.logger.log(
             `changeAuthor committed blog=${blogId} actor=${actor.id} role=${actor.role_name} ` +

@@ -6,7 +6,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { BLOG_SCOPE_RULES } from './blogs.scope';
 import { BulkStatusDto } from './dto/bulk-status.dto';
 import { BlogsCacheService } from './utils/blogs-cache.service';
-import { BLOGS_INVALIDATE_PATTERN } from './utils/blogs-cache';
+import { BLOGS_INVALIDATE_PATTERN, BLOGS_PUBLIC_INVALIDATE_PATTERN } from './utils/blogs-cache';
 
 /**
  * BLG-04 — Plan 04 Task 1 bulk-status service (D-12).
@@ -137,6 +137,7 @@ export class BlogsBulkService {
         }
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
 
         this.logger.log(
             `bulkStatus committed bulk_op_id=${bulk_op_id} actor=${actor.id} role=${actor.role_name} ` +

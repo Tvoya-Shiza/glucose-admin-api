@@ -4,7 +4,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { UpsertBlogDto } from './dto/upsert-blog.dto';
 import { BlogsDetailService, type BlogDetail } from './blogs-detail.service';
 import { BlogsCacheService } from './utils/blogs-cache.service';
-import { BLOGS_INVALIDATE_PATTERN } from './utils/blogs-cache';
+import { BLOGS_INVALIDATE_PATTERN, BLOGS_PUBLIC_INVALIDATE_PATTERN } from './utils/blogs-cache';
 import { sanitizeBlogHtmlServer } from './utils/sanitize-html-server';
 
 /**
@@ -106,6 +106,7 @@ export class BlogsMutationsService {
         });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(Number(created.id));
     }
 
@@ -190,6 +191,7 @@ export class BlogsMutationsService {
         });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(id);
     }
 
@@ -204,6 +206,7 @@ export class BlogsMutationsService {
         await this.prisma.blog.delete({ where: { id } });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return { id, deleted: true };
     }
 }

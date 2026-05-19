@@ -6,7 +6,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { STORY_SCOPE_RULES } from './stories.scope';
 import { BulkStatusDto } from './dto/bulk-status.dto';
 import { StoriesCacheService } from './utils/stories-cache.service';
-import { STORIES_INVALIDATE_PATTERN } from './utils/stories-cache';
+import { STORIES_INVALIDATE_PATTERN, STORIES_PUBLIC_INVALIDATE_PATTERN } from './utils/stories-cache';
 
 /**
  * STY-03 — Plan 02 Task 2 bulk-status service (D-07).
@@ -144,6 +144,7 @@ export class StoriesBulkService {
         }
 
         await this.cache.invalidate(STORIES_INVALIDATE_PATTERN);
+        await this.cache.invalidate(STORIES_PUBLIC_INVALIDATE_PATTERN);
 
         this.logger.log(
             `bulkStatus committed bulk_op_id=${bulk_op_id} actor=${actor.id} role=${actor.role_name} ` +

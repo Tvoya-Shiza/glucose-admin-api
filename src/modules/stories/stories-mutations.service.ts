@@ -4,7 +4,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { UpsertStoryDto } from './dto/upsert-story.dto';
 import { StoriesDetailService, type StoryDetail } from './stories-detail.service';
 import { StoriesCacheService } from './utils/stories-cache.service';
-import { STORIES_INVALIDATE_PATTERN } from './utils/stories-cache';
+import { STORIES_INVALIDATE_PATTERN, STORIES_PUBLIC_INVALIDATE_PATTERN } from './utils/stories-cache';
 
 /**
  * STY-01 — story create / update / hard-delete (Plan 02 Task 1).
@@ -92,6 +92,7 @@ export class StoriesMutationsService {
         });
 
         await this.cache.invalidate(STORIES_INVALIDATE_PATTERN);
+        await this.cache.invalidate(STORIES_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(Number(created.id));
     }
 
@@ -166,6 +167,7 @@ export class StoriesMutationsService {
         });
 
         await this.cache.invalidate(STORIES_INVALIDATE_PATTERN);
+        await this.cache.invalidate(STORIES_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(id);
     }
 
@@ -180,6 +182,7 @@ export class StoriesMutationsService {
         await this.prisma.story.delete({ where: { id } });
 
         await this.cache.invalidate(STORIES_INVALIDATE_PATTERN);
+        await this.cache.invalidate(STORIES_PUBLIC_INVALIDATE_PATTERN);
         return { id, deleted: true };
     }
 }

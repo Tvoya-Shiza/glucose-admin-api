@@ -6,7 +6,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { BANNER_SCOPE_RULES } from './banners.scope';
 import { BulkStatusDto } from './dto/bulk-status.dto';
 import { BannersCacheService } from './utils/banners-cache.service';
-import { BANNERS_INVALIDATE_PATTERN } from './utils/banners-cache';
+import { BANNERS_INVALIDATE_PATTERN, BANNERS_PUBLIC_INVALIDATE_PATTERN } from './utils/banners-cache';
 
 /**
  * BAN-03 — Plan 03 bulk-status service (D-08).
@@ -147,6 +147,7 @@ export class BannersBulkService {
         }
 
         await this.cache.invalidate(BANNERS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BANNERS_PUBLIC_INVALIDATE_PATTERN);
 
         this.logger.log(
             `bulkStatus committed bulk_op_id=${bulk_op_id} actor=${actor.id} role=${actor.role_name} ` +

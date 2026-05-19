@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertBlogCategoryDto } from './dto/upsert-blog-category.dto';
 import { BlogsCacheService } from './utils/blogs-cache.service';
-import { BLOGS_INVALIDATE_PATTERN } from './utils/blogs-cache';
+import { BLOGS_INVALIDATE_PATTERN, BLOGS_PUBLIC_INVALIDATE_PATTERN } from './utils/blogs-cache';
 
 /**
  * BLG-02 — BlogCategory CRUD (Plan 04).
@@ -92,6 +92,7 @@ export class BlogCategoriesService {
         });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return this.getDetail(Number(created.id));
     }
 
@@ -109,6 +110,7 @@ export class BlogCategoriesService {
         });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return this.getDetail(id);
     }
 
@@ -128,6 +130,7 @@ export class BlogCategoriesService {
         await this.prisma.blogCategory.delete({ where: { id } });
 
         await this.cache.invalidate(BLOGS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BLOGS_PUBLIC_INVALIDATE_PATTERN);
         return { id, deleted: true };
     }
 

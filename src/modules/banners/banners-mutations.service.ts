@@ -4,7 +4,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { UpsertBannerDto } from './dto/upsert-banner.dto';
 import { BannersDetailService, type BannerDetail } from './banners-detail.service';
 import { BannersCacheService } from './utils/banners-cache.service';
-import { BANNERS_INVALIDATE_PATTERN } from './utils/banners-cache';
+import { BANNERS_INVALIDATE_PATTERN, BANNERS_PUBLIC_INVALIDATE_PATTERN } from './utils/banners-cache';
 
 /**
  * BAN-01 — banner create / update / hard-delete (Plan 03 Task 1).
@@ -95,6 +95,7 @@ export class BannersMutationsService {
         });
 
         await this.cache.invalidate(BANNERS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BANNERS_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(Number(created.id));
     }
 
@@ -168,6 +169,7 @@ export class BannersMutationsService {
         });
 
         await this.cache.invalidate(BANNERS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BANNERS_PUBLIC_INVALIDATE_PATTERN);
         return this.detailSvc.getDetail(id);
     }
 
@@ -182,6 +184,7 @@ export class BannersMutationsService {
         await this.prisma.advertisement.delete({ where: { id } });
 
         await this.cache.invalidate(BANNERS_INVALIDATE_PATTERN);
+        await this.cache.invalidate(BANNERS_PUBLIC_INVALIDATE_PATTERN);
         return { id, deleted: true };
     }
 }
