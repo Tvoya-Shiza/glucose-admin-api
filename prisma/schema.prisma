@@ -1646,3 +1646,266 @@ model FileFolder {
   @@index([deleted_at], name: "idx_file_folders_deleted")
   @@map("file_folders")
 }
+
+// =====================================================================
+// Phase 12 — Mini-Trello (kanban boards) for admin panel.
+//
+// Coordination tool for admins / curators / teachers / custom roles. Admins
+// (or anyone with `boards.create`) own multiple boards; each board has its
+// own custom columns and tasks. Tasks have a SHARED status (one card moves
+// across columns for everyone, no per-user copies), a polymorphic assignee
+// list (user / role / group / everyone), optional deadline, priority, free
+// description, mini-checklists, file attachments (via the existing
+// `upload_assets` registry — no duplicate Files model), flat comments, and
+// a per-task activity feed.
+//
+// Soft-references to `users.id` (creator_id, added_by, author_id,
+// uploaded_by, completed_by, actor_id, user_id) intentionally do NOT carry
+// FK constraints — matches the legacy `actor_id` / `created_by` pattern
+// used by `admin_audit_logs`, `upload_assets`, and `file_folders`. Hard FKs
+// live only between kanban_* tables themselves (cascade-safe on
+// board/task delete).
+//
+// `admin_notifications` is generic (not kanban-only) so it can carry
+// future categories — kept here for proximity to the first consumers.
+// =====================================================================
+
+enum KanbanBoardStatus {
+  active
+  archived
+}
+
+enum KanbanBoardMemberRole {
+  owner
+  editor
+  viewer
+}
+
+enum KanbanTaskPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum KanbanAssigneeType {
+  user
+  role
+  group
+  everyone
+}
+
+enum KanbanTaskActivityAction {
+  created
+  title_changed
+  description_changed
+  column_changed
+  position_changed
+  priority_changed
+  due_at_changed
+  assignee_added
+  assignee_removed
+  comment_added
+  comment_deleted
+  attachment_added
+  attachment_removed
+  checklist_added
+  checklist_completed
+  checklist_uncompleted
+  checklist_removed
+  completed
+  reopened
+  archived
+  restored
+}
+
+enum AdminNotificationCategory {
+  task_assigned
+  task_unassigned
+  task_due_soon
+  task_overdue
+  task_comment
+  task_column_changed
+  task_completed
+  board_invited
+}
+
+model KanbanBoard {
+  id          Int               @id @default(autoincrement())
+  creator_id  Int
+  name        String            @db.VarChar(128)
+  description String?           @db.Text
+  color       String?           @db.VarChar(16)
+  status      KanbanBoardStatus @default(active)
+  created_at  Int               @db.UnsignedInt
+  updated_at  Int?              @db.UnsignedInt
+  deleted_at  Int?              @db.UnsignedInt
+
+  columns KanbanColumn[]      @relation("KanbanBoardColumns")
+  members KanbanBoardMember[] @relation("KanbanBoardMembers")
+  tasks   KanbanTask[]        @relation("KanbanBoardTasks")
+
+  @@index([creator_id], name: "idx_kanban_boards_creator")
+  @@index([status, deleted_at], name: "idx_kanban_boards_status_deleted")
+  @@map("kanban_boards")
+}
+
+model KanbanBoardMember {
+  id         Int                   @id @default(autoincrement())
+  board_id   Int
+  user_id    Int
+  role       KanbanBoardMemberRole @default(editor)
+  added_by   Int
+  created_at Int                   @db.UnsignedInt
+
+  board KanbanBoard @relation("KanbanBoardMembers", fields: [board_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([board_id, user_id], name: "uniq_kanban_board_members_board_user")
+  @@index([user_id], name: "idx_kanban_board_members_user")
+  @@map("kanban_board_members")
+}
+
+model KanbanColumn {
+  id             Int     @id @default(autoincrement())
+  board_id       Int
+  name           String  @db.VarChar(64)
+  color          String? @db.VarChar(16)
+  position       Int     @db.UnsignedInt
+  wip_limit      Int?    @db.UnsignedInt
+  is_done_column Boolean @default(false)
+  created_at     Int     @db.UnsignedInt
+  updated_at     Int?    @db.UnsignedInt
+  deleted_at     Int?    @db.UnsignedInt
+
+  board KanbanBoard  @relation("KanbanBoardColumns", fields: [board_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  tasks KanbanTask[] @relation("KanbanColumnTasks")
+
+  @@index([board_id, position], name: "idx_kanban_columns_board_position")
+  @@index([deleted_at], name: "idx_kanban_columns_deleted")
+  @@map("kanban_columns")
+}
+
+model KanbanTask {
+  id           BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  board_id     Int
+  column_id    Int
+  creator_id   Int
+  title        String             @db.VarChar(255)
+  description  String?            @db.Text
+  position     Int                @db.UnsignedInt
+  priority     KanbanTaskPriority @default(medium)
+  due_at       Int?               @db.UnsignedInt
+  completed_at Int?               @db.UnsignedInt
+  created_at   Int                @db.UnsignedInt
+  updated_at   Int?               @db.UnsignedInt
+  deleted_at   Int?               @db.UnsignedInt
+
+  board       KanbanBoard               @relation("KanbanBoardTasks", fields: [board_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  column      KanbanColumn              @relation("KanbanColumnTasks", fields: [column_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  assignees   KanbanTaskAssignee[]      @relation("KanbanTaskAssignees")
+  comments    KanbanTaskComment[]       @relation("KanbanTaskComments")
+  checklist   KanbanTaskChecklistItem[] @relation("KanbanTaskChecklist")
+  attachments KanbanTaskAttachment[]    @relation("KanbanTaskAttachments")
+  activity    KanbanTaskActivity[]      @relation("KanbanTaskActivity")
+
+  @@index([board_id, column_id, position], name: "idx_kanban_tasks_board_column_position")
+  @@index([creator_id, created_at], name: "idx_kanban_tasks_creator_ts")
+  @@index([due_at], name: "idx_kanban_tasks_due_at")
+  @@index([deleted_at], name: "idx_kanban_tasks_deleted")
+  @@map("kanban_tasks")
+}
+
+model KanbanTaskAssignee {
+  id            Int                @id @default(autoincrement())
+  task_id       BigInt             @db.UnsignedBigInt
+  assignee_type KanbanAssigneeType
+  assignee_id   Int? // user_id / role_id / group_id; NULL for `everyone` sentinel row
+  assigned_by   Int
+  created_at    Int                @db.UnsignedInt
+
+  task KanbanTask @relation("KanbanTaskAssignees", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([task_id, assignee_type, assignee_id], name: "uniq_kanban_task_assignees_task_type_id")
+  @@index([assignee_type, assignee_id], name: "idx_kanban_task_assignees_type_id")
+  @@map("kanban_task_assignees")
+}
+
+model KanbanTaskComment {
+  id         BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  task_id    BigInt @db.UnsignedBigInt
+  author_id  Int
+  content    String @db.Text
+  created_at Int    @db.UnsignedInt
+  updated_at Int?   @db.UnsignedInt
+  deleted_at Int?   @db.UnsignedInt
+
+  task KanbanTask @relation("KanbanTaskComments", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([task_id, created_at], name: "idx_kanban_task_comments_task_ts")
+  @@index([author_id, created_at], name: "idx_kanban_task_comments_author_ts")
+  @@index([deleted_at], name: "idx_kanban_task_comments_deleted")
+  @@map("kanban_task_comments")
+}
+
+model KanbanTaskChecklistItem {
+  id           Int     @id @default(autoincrement())
+  task_id      BigInt  @db.UnsignedBigInt
+  title        String  @db.VarChar(255)
+  is_done      Boolean @default(false)
+  position     Int     @db.UnsignedInt
+  completed_by Int?
+  completed_at Int?    @db.UnsignedInt
+  created_at   Int     @db.UnsignedInt
+  updated_at   Int?    @db.UnsignedInt
+
+  task KanbanTask @relation("KanbanTaskChecklist", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([task_id, position], name: "idx_kanban_task_checklist_task_position")
+  @@map("kanban_task_checklist_items")
+}
+
+model KanbanTaskAttachment {
+  id              Int    @id @default(autoincrement())
+  task_id         BigInt @db.UnsignedBigInt
+  upload_asset_id String @db.VarChar(26)
+  uploaded_by     Int
+  created_at      Int    @db.UnsignedInt
+
+  task KanbanTask @relation("KanbanTaskAttachments", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([task_id, upload_asset_id], name: "uniq_kanban_task_attachments_task_asset")
+  @@index([upload_asset_id], name: "idx_kanban_task_attachments_asset")
+  @@map("kanban_task_attachments")
+}
+
+model KanbanTaskActivity {
+  id         BigInt                   @id @default(autoincrement()) @db.UnsignedBigInt
+  task_id    BigInt                   @db.UnsignedBigInt
+  actor_id   Int
+  action     KanbanTaskActivityAction
+  payload    Json?
+  created_at Int                      @db.UnsignedInt
+
+  task KanbanTask @relation("KanbanTaskActivity", fields: [task_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([task_id, created_at], name: "idx_kanban_task_activity_task_ts")
+  @@index([actor_id, created_at], name: "idx_kanban_task_activity_actor_ts")
+  @@map("kanban_task_activity")
+}
+
+// Generic in-app notification feed for the admin panel. Not kanban-specific
+// — first consumers are Phase 12 task events, future phases can add their
+// own `category` values without schema changes (payload is Json).
+model AdminNotification {
+  id         BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id    Int
+  category   AdminNotificationCategory
+  payload    Json
+  is_read    Boolean                   @default(false)
+  read_at    Int?                      @db.UnsignedInt
+  created_at Int                       @db.UnsignedInt
+
+  @@index([user_id, is_read, created_at], name: "idx_admin_notifications_user_unread_ts")
+  @@index([user_id, created_at], name: "idx_admin_notifications_user_ts")
+  @@map("admin_notifications")
+}

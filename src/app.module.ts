@@ -21,10 +21,12 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { BlogsModule } from './modules/blogs/blogs.module';
+import { BoardsModule } from './modules/boards/boards.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailingsModule } from './modules/mailings/mailings.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { PushModule } from './modules/push/push.module';
@@ -91,6 +93,12 @@ import { PrismaModule } from './prisma/prisma.module';
         // under /admin-api/v1/admin/audit; admin sees all rows, curator/teacher narrow
         // to their own actor_id (D-02 + D-24, server-enforced via AUDIT_READ_SCOPE_RULES).
         AuditModule,
+        // Phase 12 — kanban boards (mini-Trello). RBAC via `boards.*` / `tasks.*`
+        // permission groups; per-board data scope via kanban_board_members.
+        // NotificationsModule is @Global so it must be imported before any
+        // feature module that emits notifications.
+        NotificationsModule,
+        BoardsModule,
     ],
     controllers: [AppController],
     providers: [

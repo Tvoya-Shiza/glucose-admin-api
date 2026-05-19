@@ -233,6 +233,35 @@ const CATALOG: SeedGroup[] = [
             { action: 'manage', display_order: 10, name_ru: 'Управление ролями и правами', name_kz: 'Рөлдер мен құқықтарды басқару' },
         ],
     },
+    {
+        code: 'boards',
+        display_order: 1600,
+        name_ru: 'Доски задач',
+        name_kz: 'Тапсырмалар тақтасы',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'manage_members', display_order: 50, name_ru: 'Управление участниками', name_kz: 'Қатысушыларды басқару' },
+            { action: 'manage_columns', display_order: 60, name_ru: 'Настройка колонок', name_kz: 'Бағандарды баптау' },
+        ],
+    },
+    {
+        code: 'tasks',
+        display_order: 1700,
+        name_ru: 'Задачи',
+        name_kz: 'Тапсырмалар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'assign', display_order: 50, name_ru: 'Назначение исполнителей', name_kz: 'Орындаушыларды тағайындау' },
+            { action: 'comment', display_order: 60, name_ru: 'Комментирование', name_kz: 'Пікір қалдыру' },
+            { action: 'complete', display_order: 70, name_ru: 'Закрытие задач', name_kz: 'Тапсырмаларды жабу' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
@@ -275,6 +304,11 @@ const CORE_ROLES: SeedRole[] = [
             'quizzes.results_view',
             'files.view',
             'files.create',
+            'boards.view',
+            'tasks.view',
+            'tasks.edit',
+            'tasks.comment',
+            'tasks.complete',
         ],
     },
     {
@@ -297,6 +331,10 @@ const CORE_ROLES: SeedRole[] = [
             'quizzes.results_view',
             'files.view',
             'files.create',
+            'boards.view',
+            'tasks.view',
+            'tasks.comment',
+            'tasks.complete',
         ],
     },
 ];
