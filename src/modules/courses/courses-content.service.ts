@@ -436,6 +436,7 @@ export class CoursesContentService {
                     chapter_id: dto.chapter_id,
                 };
                 if (typeof dto.order === 'number') data.order = dto.order;
+                if (typeof dto.is_required === 'boolean') data.is_required = dto.is_required;
                 await tx.webinarChapterItem.update({ where: { id: chapterItemId }, data });
             } else {
                 // Auto-assign order if not provided.
@@ -455,6 +456,7 @@ export class CoursesContentService {
                         type: dto.type,
                         item_id: fileId,
                         order: nextOrder,
+                        is_required: dto.is_required !== false,
                         created_at: now,
                     },
                     select: { id: true },
@@ -502,7 +504,7 @@ export class CoursesContentService {
                 status: true,
                 translations: { select: { locale: true, title: true } },
                 items: {
-                    select: { id: true, type: true, order: true, item_id: true },
+                    select: { id: true, type: true, order: true, item_id: true, is_required: true },
                     orderBy: [{ order: 'asc' }, { id: 'asc' }],
                 },
             },
@@ -525,6 +527,7 @@ export class CoursesContentService {
                 type: it.type,
                 order: it.order == null ? null : Number(it.order),
                 item_id: Number(it.item_id),
+                is_required: it.is_required !== false,
                 file: null,
                 quiz: null,
                 assignment: null,
@@ -536,7 +539,7 @@ export class CoursesContentService {
     private async readItemDto(tx: PrismaService, itemId: number): Promise<ChapterItemDto> {
         const row: any = await tx.webinarChapterItem.findFirst({
             where: { id: itemId },
-            select: { id: true, type: true, order: true, item_id: true },
+            select: { id: true, type: true, order: true, item_id: true, is_required: true },
         });
         if (!row) throw new NotFoundException('items.not_in_course');
 
@@ -600,6 +603,7 @@ export class CoursesContentService {
             type: row.type,
             order: row.order == null ? null : Number(row.order),
             item_id: Number(row.item_id),
+            is_required: row.is_required !== false,
             file,
             quiz,
             assignment,

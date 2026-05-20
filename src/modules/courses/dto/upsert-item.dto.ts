@@ -3,6 +3,7 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsIn,
     IsInt,
     IsOptional,
@@ -138,4 +139,17 @@ export class UpsertItemDto {
     @ValidateNested({ each: true })
     @Type(() => TranslationDto)
     translations?: TranslationDto[];
+
+    /**
+     * Phase 16 — per-item "counts toward completion" flag.
+     * `true` (default): the item is counted in `total` and `completed` when the
+     * user-API computes course progress. `false`: optional/bonus item — visible
+     * and unlockable, but excluded from the completion fraction.
+     *
+     * Lives on `WebinarChapterItem` (not on Files/Quizzes/Assignment) because the
+     * same quiz can be wired into two courses with different obligation policies.
+     */
+    @IsOptional()
+    @IsBoolean()
+    is_required?: boolean;
 }

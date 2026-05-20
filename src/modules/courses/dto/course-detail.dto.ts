@@ -81,6 +81,8 @@ export interface ChapterItemDto {
     type: ChapterItemType;
     order: number | null;
     item_id: number;
+    /** Phase 16 — `true` means the item counts toward course completion. */
+    is_required: boolean;
     file: ChapterItemFileRef | null;
     quiz: ChapterItemQuizRef | null;
     assignment: ChapterItemAssignmentRef | null;
@@ -125,6 +127,8 @@ export interface CourseDetailDto {
     certificate: boolean;
     /** Phase 13: paid course flag. When true, `pricing` is non-null. */
     is_paid: boolean;
+    /** Phase 16: strict completion check toggle. Independent of `is_paid`. */
+    strict_progress: boolean;
     /** Single price record. Array on schema; for v1 only one entry is surfaced. */
     pricing: CoursePricing | null;
     start_date: number | null;

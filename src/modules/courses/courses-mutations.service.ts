@@ -119,6 +119,7 @@ export class CoursesMutationsService {
                     image_cover: dto.image_cover ?? '',
                     thumbnail: dto.thumbnail ?? '',
                     is_paid: dto.is_paid === true,
+                    strict_progress: dto.strict_progress === true,
                     created_at: now,
                 },
                 select: { id: true },
@@ -184,6 +185,7 @@ export class CoursesMutationsService {
         if (dto.category_id === null) data.category_id = null;
         else if (typeof dto.category_id === 'number') data.category_id = dto.category_id;
         if (typeof dto.is_paid === 'boolean') data.is_paid = dto.is_paid;
+        if (typeof dto.strict_progress === 'boolean') data.strict_progress = dto.strict_progress;
 
         const kzTranslations = Array.isArray(dto.translations)
             ? dto.translations.filter((t) => t.locale === 'kz')
@@ -337,6 +339,7 @@ export class CoursesMutationsService {
                 capacity: true,
                 certificate: true,
                 is_paid: true,
+                strict_progress: true,
                 start_date: true,
                 duration: true,
                 position: true,
@@ -388,6 +391,7 @@ export class CoursesMutationsService {
             capacity: row.capacity == null ? null : Number(row.capacity),
             certificate: !!row.certificate,
             is_paid: !!row.is_paid,
+            strict_progress: !!row.strict_progress,
             pricing:
                 row.is_paid && Array.isArray(row.prices) && row.prices.length > 0
                     ? {

@@ -86,4 +86,14 @@ export class UpdateCourseDto {
     @IsInt()
     @Min(1)
     access_days?: number;
+
+    /**
+     * Phase 16 — toggle strict completion check for the course.
+     * Independent of `is_paid`: a paid course can opt out of strictness, and a free
+     * course can opt in. Admin-client defaults the checkbox from `is_paid` for UX,
+     * but the field is honoured as sent.
+     */
+    @IsOptional()
+    @IsBoolean()
+    strict_progress?: boolean;
 }

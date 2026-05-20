@@ -104,6 +104,7 @@ export class CoursesDetailService {
                 capacity: true,
                 certificate: true,
                 is_paid: true,
+                strict_progress: true,
                 prices: { select: { id: true, price: true, access_days: true }, orderBy: { id: 'asc' }, take: 1 },
                 start_date: true,
                 duration: true,
@@ -132,6 +133,7 @@ export class CoursesDetailService {
                                 type: true,
                                 order: true,
                                 item_id: true,
+                                is_required: true,
                                 // Plan 05 will join Files / Quizzes / WebinarAssignment via item_id;
                                 // for Plan 03, surface only the raw item_id — UI labels by `type`.
                             },
@@ -199,6 +201,7 @@ export class CoursesDetailService {
                 type: it.type as 'file' | 'quiz' | 'assignment',
                 order: it.order == null ? null : Number(it.order),
                 item_id: Number(it.item_id),
+                is_required: it.is_required !== false,
                 // Plan 03 surfaces the raw item_id only — Plan 05 will hydrate file/quiz/assignment refs.
                 file: null,
                 quiz: null,
@@ -239,6 +242,7 @@ export class CoursesDetailService {
             capacity: row.capacity == null ? null : Number(row.capacity),
             certificate: !!row.certificate,
             is_paid: !!row.is_paid,
+            strict_progress: !!row.strict_progress,
             pricing:
                 row.is_paid && Array.isArray(row.prices) && row.prices.length > 0
                     ? {

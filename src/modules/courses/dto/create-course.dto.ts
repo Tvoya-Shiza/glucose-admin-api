@@ -94,4 +94,14 @@ export class CreateCourseDto {
     @IsInt()
     @Min(1)
     access_days?: number;
+
+    /**
+     * Phase 16 — strict completion check.
+     * When `true`, the user-API treats `is_required` items as gating course completion
+     * and surfaces an `is_strict_required` flag on progress responses. When `false`
+     * (default), progress is computed permissively as before Phase 16.
+     */
+    @IsOptional()
+    @IsBoolean()
+    strict_progress?: boolean;
 }
