@@ -26,6 +26,7 @@ import {
     type UploadKind,
     type UploadTokenClaims,
 } from './upload-token.signer';
+import type { UploadContentType } from '@shared/uploads';
 
 /**
  * UploadsService — CRS-05 (Phase 5 Plan 04).
@@ -55,6 +56,8 @@ export class UploadsService implements OnModuleInit {
         image: 10 * 1024 * 1024,
         cover: 10 * 1024 * 1024,
         video: 200 * 1024 * 1024,
+        // Phase 14 — documents (assignment attachments + future doc uploads).
+        document: 50 * 1024 * 1024,
     };
 
     private static readonly MIME_TO_EXT: Record<string, string> = {
@@ -63,6 +66,39 @@ export class UploadsService implements OnModuleInit {
         'image/webp': '.webp',
         'video/mp4': '.mp4',
         'video/webm': '.webm',
+        // Phase 14 — documents.
+        'application/pdf': '.pdf',
+        'application/msword': '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.ms-excel': '.xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/vnd.ms-powerpoint': '.ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+        'text/plain': '.txt',
+        'application/zip': '.zip',
+    };
+
+    /**
+     * Per-kind MIME allowlist. Token issuance scopes `allowed_content_types`
+     * by kind, and the upload handler verifies `claims.content_type` is in the
+     * kind's allowlist before persisting. Prevents `kind=image` + a PDF body
+     * from being accepted as an image asset.
+     */
+    private static readonly MIME_BY_KIND: Record<UploadKind, ReadonlyArray<string>> = {
+        image: ['image/jpeg', 'image/png', 'image/webp'],
+        cover: ['image/jpeg', 'image/png', 'image/webp'],
+        video: ['video/mp4', 'video/webm'],
+        document: [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'text/plain',
+            'application/zip',
+        ],
     };
 
     private static readonly TOKEN_TTL_SECONDS = 300;
@@ -110,6 +146,12 @@ export class UploadsService implements OnModuleInit {
         if (!UploadsService.MIME_TO_EXT[dto.content_type]) {
             throw new BadRequestException('upload.content_type_not_allowed');
         }
+        // Per-kind MIME allowlist (Phase 14): catches a 'kind=image' token with a PDF
+        // body BEFORE upload starts, instead of letting it through to acceptUpload.
+        const kindMimes = UploadsService.MIME_BY_KIND[dto.kind];
+        if (!kindMimes || !kindMimes.includes(dto.content_type)) {
+            throw new BadRequestException('upload.content_type_not_allowed_for_kind');
+        }
 
         // Phase 10 — resolve folder if requested. We pre-resolve at sign-time so
         // a deleted/renamed folder is caught BEFORE the browser uploads a 200MB
@@ -141,7 +183,9 @@ export class UploadsService implements OnModuleInit {
             token,
             expires_at,
             max_size: cap,
-            allowed_content_types: Object.keys(UploadsService.MIME_TO_EXT),
+            // Phase 14: narrow to the kind's allowlist so the browser's <input accept>
+            // attribute matches what the token actually permits.
+            allowed_content_types: kindMimes as UploadContentType[],
         };
     }
 

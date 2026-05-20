@@ -103,6 +103,8 @@ export class CoursesDetailService {
                 thumbnail: true,
                 capacity: true,
                 certificate: true,
+                is_paid: true,
+                prices: { select: { id: true, price: true, access_days: true }, orderBy: { id: 'asc' }, take: 1 },
                 start_date: true,
                 duration: true,
                 position: true,
@@ -236,6 +238,14 @@ export class CoursesDetailService {
             thumbnail: row.thumbnail ?? '',
             capacity: row.capacity == null ? null : Number(row.capacity),
             certificate: !!row.certificate,
+            is_paid: !!row.is_paid,
+            pricing:
+                row.is_paid && Array.isArray(row.prices) && row.prices.length > 0
+                    ? {
+                          price: String(row.prices[0].price),
+                          access_days: Number(row.prices[0].access_days),
+                      }
+                    : null,
             start_date: row.start_date == null ? null : Number(row.start_date),
             duration: row.duration == null ? null : Number(row.duration),
             position: row.position == null ? null : Number(row.position),

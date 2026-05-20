@@ -23,7 +23,7 @@ import * as jwt from 'jsonwebtoken';
 const ALG: jwt.Algorithm = 'HS256';
 const KID = 'upload-v1';
 
-export type UploadKind = 'image' | 'video' | 'cover';
+export type UploadKind = 'image' | 'video' | 'cover' | 'document';
 
 export interface UploadTokenClaims {
     sub: number; // actor.id

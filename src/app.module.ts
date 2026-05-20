@@ -30,6 +30,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { PushModule } from './modules/push/push.module';
+import { AssignmentsModule } from './modules/assignments/assignments.module';
+import { SchedulesModule } from './modules/schedules/schedules.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
@@ -67,6 +69,9 @@ import { PrismaModule } from './prisma/prisma.module';
         // POST /file, GET /uploads, DELETE /uploads/:id.
         UploadsModule,
         QuizzesModule,
+        AssignmentsModule,
+        // Phase 15 — Lesson schedules (calendar of curator+group events).
+        SchedulesModule,
         // Phase 7 — marketing surfaces (admin-only per D-20; empty skeletons in Plan 01,
         // controllers + services land in Plans 02-05).
         StoriesModule,

@@ -53,12 +53,16 @@ export interface CourseDetailCategoryRef {
     title_kz: string | null;
 }
 
+export type FileAccessibility = 'free' | 'paid';
+
 export interface ChapterItemFileRef {
     id: number;
     file_type: string;
     storage: string;
     file: string;
     volume: string;
+    /** Phase 13 — per-item access gate. */
+    accessibility: FileAccessibility;
 }
 
 export interface ChapterItemQuizRef {
@@ -102,6 +106,12 @@ export interface CourseCounts {
 
 export type CourseType = 'webinar' | 'course' | 'text_lesson';
 
+export interface CoursePricing {
+    /** Decimal as string for arbitrary precision (Decimal(15,3) on schema). */
+    price: string;
+    access_days: number;
+}
+
 export interface CourseDetailDto {
     id: number;
     slug: string;
@@ -113,6 +123,10 @@ export interface CourseDetailDto {
     thumbnail: string;
     capacity: number | null;
     certificate: boolean;
+    /** Phase 13: paid course flag. When true, `pricing` is non-null. */
+    is_paid: boolean;
+    /** Single price record. Array on schema; for v1 only one entry is surfaced. */
+    pricing: CoursePricing | null;
     start_date: number | null;
     duration: number | null;
     position: number | null;

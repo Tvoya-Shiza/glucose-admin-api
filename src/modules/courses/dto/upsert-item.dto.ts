@@ -116,6 +116,16 @@ export class UpsertItemDto {
     order?: number;
 
     /**
+     * Phase 13 — content-level access toggle.
+     * Only honored when type='file' — maps to Files.accessibility ('free' | 'paid').
+     * IGNORED when type='quiz' or 'assignment' (those are gated by course `is_paid`
+     * + purchase, not per-item).
+     */
+    @IsOptional()
+    @IsIn(['free', 'paid'])
+    accessibility?: 'free' | 'paid';
+
+    /**
      * Only honored when type='file' — maps to FileTranslations (per-locale
      * title + description). description holds sanitized Tiptap HTML when
      * the linked Files row is a rich-text item (file_type='text/html').

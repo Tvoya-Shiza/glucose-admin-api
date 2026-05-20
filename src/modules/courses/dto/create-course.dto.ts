@@ -3,8 +3,10 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsIn,
     IsInt,
+    IsNumber,
     IsOptional,
     IsString,
     Length,
@@ -70,4 +72,26 @@ export class CreateCourseDto {
     @ValidateNested({ each: true })
     @Type(() => TranslationDto)
     translations!: TranslationDto[];
+
+    /**
+     * Pricing — Phase 13 (`is_paid` flag).
+     * When `is_paid=true`, `price` and `access_days` are required at the service layer.
+     * When `is_paid=false`, both are ignored (and any existing WebinarPrices row is
+     * cleaned up on update).
+     */
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    @Min(0)
+    price?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    access_days?: number;
 }

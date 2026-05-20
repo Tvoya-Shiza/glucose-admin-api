@@ -327,7 +327,9 @@ export class CoursesContentService {
                             file: dto.file_url ?? '',
                             file_type: dto.file_type ?? 'text/html',
                             volume: String(dto.volume ?? '0'),
-                            accessibility: 'free',
+                            // Phase 13: content-level access toggle. Defaults to 'free' so the
+                            // first lesson is reachable to non-purchased students out of the box.
+                            accessibility: dto.accessibility ?? 'free',
                             status: 'active',
                             created_at: now,
                         },
@@ -351,6 +353,7 @@ export class CoursesContentService {
                     if (dto.file_url !== undefined) fileData.file = dto.file_url;
                     if (dto.file_type !== undefined) fileData.file_type = dto.file_type;
                     if (dto.volume !== undefined) fileData.volume = String(dto.volume);
+                    if (dto.accessibility !== undefined) fileData.accessibility = dto.accessibility;
                     if (Object.keys(fileData).length > 0) {
                         fileData.updated_at = now;
                         await tx.files.update({ where: { id: fileId }, data: fileData });
@@ -401,12 +404,26 @@ export class CoursesContentService {
                 }
                 fileId = dto.item_id;
             } else if (dto.type === 'assignment') {
+                // Assignments are creatable as standalone (webinar_id/chapter_id
+                // nullable on schema). Accept either:
+                //   1) An assignment already bound to THIS course (webinar_id=courseId).
+                //   2) An unbound assignment (webinar_id IS NULL) — we back-fill the
+                //      binding here so the student-side flow can derive course → purchase.
                 const a: any = await tx.webinarAssignment.findFirst({
-                    where: { id: dto.item_id, webinar_id: courseId },
-                    select: { id: true },
+                    where: {
+                        id: dto.item_id,
+                        OR: [{ webinar_id: courseId }, { webinar_id: null }],
+                    },
+                    select: { id: true, webinar_id: true, chapter_id: true },
                 });
                 if (!a) {
                     throw new NotFoundException('items.assignment_not_found');
+                }
+                if (a.webinar_id == null || a.chapter_id == null) {
+                    await tx.webinarAssignment.update({
+                        where: { id: a.id },
+                        data: { webinar_id: courseId, chapter_id: dto.chapter_id },
+                    });
                 }
                 fileId = dto.item_id;
             }
@@ -538,6 +555,7 @@ export class CoursesContentService {
                     storage: true,
                     file: true,
                     volume: true,
+                    accessibility: true,
                     translations: { select: { locale: true, title: true, description: true } },
                 },
             });
@@ -548,6 +566,7 @@ export class CoursesContentService {
                     storage: f.storage,
                     file: f.file,
                     volume: f.volume,
+                    accessibility: f.accessibility,
                 };
                 translations = (f.translations ?? [])
                     .filter((t: any) => t.locale === 'kz')

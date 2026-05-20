@@ -55,6 +55,21 @@ export class CoursesMutationsService {
         private readonly cache: CoursesCacheService,
     ) {}
 
+    /**
+     * Validates pricing inputs at service entry.
+     * When is_paid=true → require price>0 and access_days>0.
+     * When is_paid=false → ignore price/access_days (no error).
+     */
+    private validatePricing(dto: { is_paid?: boolean; price?: number; access_days?: number }): void {
+        if (dto.is_paid !== true) return;
+        if (typeof dto.price !== 'number' || dto.price <= 0) {
+            throw new BadRequestException('courses.price_required');
+        }
+        if (typeof dto.access_days !== 'number' || dto.access_days <= 0) {
+            throw new BadRequestException('courses.access_days_required');
+        }
+    }
+
     /** CRS-01 create. */
     public async create(actor: ScopeActor, dto: CreateCourseDto): Promise<CourseDetailDto> {
         // T-05-10: teacher creating on behalf of someone else -> 403.
@@ -65,6 +80,8 @@ export class CoursesMutationsService {
             // Defensive — controller @Roles already excludes curator.
             throw new ForbiddenException('courses.forbidden_scope');
         }
+
+        this.validatePricing(dto);
 
         // Validate target teacher exists and has role_name='teacher'.
         const teacher: any = await this.prisma.user.findFirst({
@@ -101,6 +118,7 @@ export class CoursesMutationsService {
                     category_id: typeof dto.category_id === 'number' ? dto.category_id : null,
                     image_cover: dto.image_cover ?? '',
                     thumbnail: dto.thumbnail ?? '',
+                    is_paid: dto.is_paid === true,
                     created_at: now,
                 },
                 select: { id: true },
@@ -118,6 +136,18 @@ export class CoursesMutationsService {
                 });
             }
 
+            // Phase 13: insert pricing row when paid. validatePricing has already
+            // confirmed price + access_days are positive numbers.
+            if (dto.is_paid === true) {
+                await tx.webinarPrices.create({
+                    data: {
+                        webinar_id: Number(w.id),
+                        price: dto.price as number,
+                        access_days: dto.access_days as number,
+                    },
+                });
+            }
+
             return w;
         });
 
@@ -130,6 +160,8 @@ export class CoursesMutationsService {
     /** CRS-01 update. Partial PATCH; translations upserted by locale (no @@unique). */
     public async update(actor: ScopeActor, id: number, dto: UpdateCourseDto): Promise<CourseDetailDto> {
         const existing = await this.assertScope(actor, id);
+
+        this.validatePricing(dto);
 
         // category_id existence (optional — null clears).
         if (typeof dto.category_id === 'number' && dto.category_id > 0) {
@@ -151,14 +183,16 @@ export class CoursesMutationsService {
         if (typeof dto.thumbnail === 'string') data.thumbnail = dto.thumbnail;
         if (dto.category_id === null) data.category_id = null;
         else if (typeof dto.category_id === 'number') data.category_id = dto.category_id;
+        if (typeof dto.is_paid === 'boolean') data.is_paid = dto.is_paid;
 
         const kzTranslations = Array.isArray(dto.translations)
             ? dto.translations.filter((t) => t.locale === 'kz')
             : [];
         const hasField = Object.keys(data).length > 0;
         const hasTranslations = kzTranslations.length > 0;
+        const handlePricing = dto.is_paid !== undefined;
 
-        if (!hasField && !hasTranslations) {
+        if (!hasField && !hasTranslations && !handlePricing) {
             // No-op — return current state.
             return this.readDetail(id);
         }
@@ -170,6 +204,40 @@ export class CoursesMutationsService {
             } else {
                 // bump updated_at on translation-only edits
                 await tx.webinar.update({ where: { id: existing.id }, data: { updated_at: now } });
+            }
+
+            // Phase 13 pricing cascade:
+            //   is_paid=true  → upsert exactly one WebinarPrices row (delete extras, replace the
+            //                   first one or insert if none exists).
+            //   is_paid=false → delete all WebinarPrices rows for this webinar.
+            if (handlePricing) {
+                if (dto.is_paid === false) {
+                    await tx.webinarPrices.deleteMany({ where: { webinar_id: existing.id } });
+                } else {
+                    const existingPrices = await tx.webinarPrices.findMany({
+                        where: { webinar_id: existing.id },
+                        select: { id: true },
+                        orderBy: { id: 'asc' },
+                    });
+                    if (existingPrices.length === 0) {
+                        await tx.webinarPrices.create({
+                            data: {
+                                webinar_id: existing.id,
+                                price: dto.price as number,
+                                access_days: dto.access_days as number,
+                            },
+                        });
+                    } else {
+                        const [head, ...rest] = existingPrices;
+                        await tx.webinarPrices.update({
+                            where: { id: head.id },
+                            data: { price: dto.price as number, access_days: dto.access_days as number },
+                        });
+                        if (rest.length > 0) {
+                            await tx.webinarPrices.deleteMany({ where: { id: { in: rest.map((r) => r.id) } } });
+                        }
+                    }
+                }
             }
 
             if (hasTranslations) {
@@ -268,6 +336,7 @@ export class CoursesMutationsService {
                 thumbnail: true,
                 capacity: true,
                 certificate: true,
+                is_paid: true,
                 start_date: true,
                 duration: true,
                 position: true,
@@ -277,6 +346,7 @@ export class CoursesMutationsService {
                 teacher: { select: { id: true, full_name: true, email: true } },
                 category: { select: { id: true, slug: true } },
                 translations: { select: { locale: true, title: true, description: true } },
+                prices: { select: { id: true, price: true, access_days: true }, orderBy: { id: 'asc' }, take: 1 },
                 _count: { select: { chapters: true } },
             },
         });
@@ -317,6 +387,14 @@ export class CoursesMutationsService {
             thumbnail: row.thumbnail ?? '',
             capacity: row.capacity == null ? null : Number(row.capacity),
             certificate: !!row.certificate,
+            is_paid: !!row.is_paid,
+            pricing:
+                row.is_paid && Array.isArray(row.prices) && row.prices.length > 0
+                    ? {
+                          price: String(row.prices[0].price),
+                          access_days: Number(row.prices[0].access_days),
+                      }
+                    : null,
             start_date: row.start_date == null ? null : Number(row.start_date),
             duration: row.duration == null ? null : Number(row.duration),
             position: row.position == null ? null : Number(row.position),

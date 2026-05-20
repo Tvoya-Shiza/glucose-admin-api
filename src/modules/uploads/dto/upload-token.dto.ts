@@ -24,16 +24,35 @@ import { IsIn, IsInt, IsOptional, IsString, Min } from 'class-validator';
  *   - Antivirus scanning DEFERRED (CONTEXT D-16) — meta logged av_scanned: false.
  */
 
-export type UploadKind = 'image' | 'video' | 'cover';
-export type UploadContentType =
-    | 'image/jpeg'
-    | 'image/png'
-    | 'image/webp'
-    | 'video/mp4'
-    | 'video/webm';
+// Re-export shared-types so existing imports of these types from this DTO
+// continue to compile while the canonical definition lives in
+// `@shared/uploads`. New code should import from `@shared/uploads` directly.
+export type { UploadKind, UploadContentType } from '@shared/uploads';
+import type { UploadKind, UploadContentType } from '@shared/uploads';
+
+// Class-validator needs literal arrays at decorator-evaluation time. These
+// MUST stay in lockstep with the canonical unions in `@shared/uploads`.
+const UPLOAD_KIND_VALUES = ['image', 'video', 'cover', 'document'] as const;
+const UPLOAD_CONTENT_TYPE_VALUES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    // Phase 14 — documents.
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'application/zip',
+] as const;
 
 export class UploadTokenRequestDto {
-    @IsIn(['image', 'video', 'cover'])
+    @IsIn(UPLOAD_KIND_VALUES)
     kind!: UploadKind;
 
     @IsInt()
@@ -41,7 +60,7 @@ export class UploadTokenRequestDto {
     size!: number;
 
     @IsString()
-    @IsIn(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'])
+    @IsIn(UPLOAD_CONTENT_TYPE_VALUES)
     content_type!: UploadContentType;
 
     /**

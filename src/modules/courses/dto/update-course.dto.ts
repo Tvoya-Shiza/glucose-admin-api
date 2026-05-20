@@ -3,8 +3,10 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsIn,
     IsInt,
+    IsNumber,
     IsOptional,
     IsString,
     Length,
@@ -63,4 +65,25 @@ export class UpdateCourseDto {
     @ValidateNested({ each: true })
     @Type(() => TranslationDto)
     translations?: TranslationDto[];
+
+    /**
+     * Pricing — Phase 13. When toggled true the service requires price + access_days
+     * and creates/updates a single WebinarPrices row. When toggled false the service
+     * removes any existing WebinarPrices rows for the course (idempotent).
+     */
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    @Min(0)
+    price?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    access_days?: number;
 }

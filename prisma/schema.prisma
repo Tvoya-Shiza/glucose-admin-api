@@ -263,6 +263,9 @@ model User {
   student_assignment_histories    WebinarAssignmentHistory[] @relation("StudentAssignmentHistory")
   teacher_chapter_schedules       WebinarChapterSchedule[]   @relation("TeacherChapterSchedule")
 
+  lesson_schedules_as_curator LessonSchedule[] @relation("LessonScheduleCurator")
+  lesson_schedules_created    LessonSchedule[] @relation("LessonScheduleCreator")
+
   group_users             GroupUser[]          @relation("GroupUsers")
   created_groups          Group[]              @relation("GroupCreator")
   supervised_groups       Group[]              @relation("GroupSupervisor")
@@ -372,6 +375,7 @@ model Group {
   supervisor        User?                    @relation("GroupSupervisor", fields: [supervisor_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   members           GroupUser[]              @relation("GroupMembers")
   chapter_schedules WebinarChapterSchedule[] @relation("ScheduleGroup")
+  lesson_schedules  LessonSchedule[]         @relation("LessonScheduleGroup")
   notifications     Notification[]           @relation("NotificationGroup")
 
   @@map("groups")
@@ -879,6 +883,7 @@ model Webinar {
   image_cover String        @db.VarChar(255)
   capacity    Int?          @db.UnsignedInt
   certificate Boolean       @default(false)
+  is_paid     Boolean       @default(false)
   status      WebinarStatus @default(pending)
   position    Int?          @db.UnsignedInt
   created_at  Int
@@ -907,6 +912,8 @@ model Webinar {
   assignments   WebinarAssignment[] @relation("WebinarAssignments")
   notifications Notification[]      @relation("WebinarNotifications")
   order_items   OrderItem[]
+
+  lesson_schedules LessonSchedule[] @relation("LessonScheduleCourse")
 
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
@@ -1127,8 +1134,8 @@ model RewardAccounting {
 model WebinarAssignment {
   id                   Int                     @id @default(autoincrement()) @db.UnsignedInt
   creator_id           Int                     @db.UnsignedInt
-  webinar_id           Int                     @db.UnsignedInt
-  chapter_id           Int                     @db.UnsignedInt
+  webinar_id           Int?                    @db.UnsignedInt
+  chapter_id           Int?                    @db.UnsignedInt
   grade                Int?                    @db.UnsignedInt
   pass_grade           Int?                    @db.UnsignedInt
   deadline             Int?                    @db.UnsignedInt
@@ -1142,9 +1149,9 @@ model WebinarAssignment {
   history      WebinarAssignmentHistory[]     @relation("WebinarAssignmentHistory")
   attachments  WebinarAssignmentAttachment[]  @relation("WebinarAssignmentAttachments")
 
-  webinar Webinar        @relation("WebinarAssignments", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  chapter WebinarChapter @relation("WebinarAssignments", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  creator User           @relation("AssignmentCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar Webinar?        @relation("WebinarAssignments", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter WebinarChapter? @relation("WebinarAssignments", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User            @relation("AssignmentCreator", fields: [creator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@map("webinar_assignments")
 }
@@ -1908,4 +1915,64 @@ model AdminNotification {
   @@index([user_id, is_read, created_at], name: "idx_admin_notifications_user_unread_ts")
   @@index([user_id, created_at], name: "idx_admin_notifications_user_ts")
   @@map("admin_notifications")
+}
+
+// Phase 15 — Lesson schedules. See glucose-api/prisma/migrations/phase-15-lesson-schedules.MANUAL.sql.md
+// for the recipe. Polymorphic content references via (kind, ref_id) — no FK on ref_id.
+model LessonSchedule {
+  id          BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  curator_id  Int                  @db.UnsignedInt
+  group_id    Int                  @db.UnsignedInt
+  course_id   Int?                 @db.UnsignedInt
+  start_at    Int                  @db.UnsignedInt
+  end_at      Int                  @db.UnsignedInt
+  description String?              @db.Text
+  status      LessonScheduleStatus @default(scheduled)
+  created_by  Int                  @db.UnsignedInt
+  created_at  Int                  @db.UnsignedInt
+  updated_at  Int?                 @db.UnsignedInt
+  deleted_at  Int?                 @db.UnsignedInt
+
+  curator User                 @relation("LessonScheduleCurator", fields: [curator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group   Group                @relation("LessonScheduleGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  course  Webinar?             @relation("LessonScheduleCourse", fields: [course_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  creator User                 @relation("LessonScheduleCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  items   LessonScheduleItem[] @relation("LessonScheduleItems")
+
+  @@index([curator_id, start_at], name: "idx_lesson_schedules_curator_start")
+  @@index([group_id, start_at], name: "idx_lesson_schedules_group_start")
+  @@index([course_id, start_at], name: "idx_lesson_schedules_course_start")
+  @@index([start_at, end_at], name: "idx_lesson_schedules_range")
+  @@index([status, deleted_at], name: "idx_lesson_schedules_status_deleted")
+  @@map("lesson_schedules")
+}
+
+model LessonScheduleItem {
+  id          BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  schedule_id BigInt                 @db.UnsignedBigInt
+  kind        LessonScheduleItemKind
+  ref_id      Int                    @db.UnsignedInt
+  position    Int                    @default(0) @db.UnsignedInt
+  created_at  Int                    @db.UnsignedInt
+
+  schedule LessonSchedule @relation("LessonScheduleItems", fields: [schedule_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@index([schedule_id, position], name: "idx_lesson_schedule_items_schedule_pos")
+  @@index([kind, ref_id], name: "idx_lesson_schedule_items_kind_ref")
+  @@map("lesson_schedule_items")
+}
+
+enum LessonScheduleStatus {
+  draft
+  scheduled
+  in_progress
+  completed
+  cancelled
+}
+
+enum LessonScheduleItemKind {
+  lesson
+  quiz
+  assignment
+  file
 }
