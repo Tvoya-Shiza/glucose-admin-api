@@ -484,6 +484,8 @@ model Region {
 
   translations RegionTranslation[]
 
+  universities University[] @relation("UniversityCity")
+
   @@map("regions")
 }
 
@@ -1977,4 +1979,85 @@ enum LessonScheduleItemKind {
   quiz
   assignment
   file
+}
+
+//* Phase 17 — Universities & Specialties
+model University {
+  id                      Int     @id @default(autoincrement()) @db.UnsignedInt
+  unik                    String  @unique @db.VarChar(32)
+  city_id                 Int?    @db.UnsignedInt
+  website                 String? @db.VarChar(255)
+  phone                   String? @db.VarChar(64)
+  email                   String? @db.VarChar(160)
+  instagram               String? @db.VarChar(120)
+  address                 String? @db.VarChar(255)
+  has_dormitory           Boolean @default(false)
+  has_military_department Boolean @default(false)
+  title_kk                String  @db.VarChar(255)
+  short_desc_kk           String? @db.VarChar(1024)
+  full_desc_kk            String? @db.Text
+  icon_asset_id           String? @db.VarChar(26)
+  image_asset_id          String? @db.VarChar(26)
+  created_at              Int     @db.UnsignedInt
+  updated_at              Int?    @db.UnsignedInt
+  deleted_at              Int?    @db.UnsignedInt
+
+  city        Region?               @relation("UniversityCity", fields: [city_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  specialties UniversitySpecialty[]
+
+  @@index([deleted_at])
+  @@index([city_id])
+  @@map("universities")
+}
+
+model Specialty {
+  id         Int    @id @default(autoincrement()) @db.UnsignedInt
+  code       String @unique @db.VarChar(32)
+  title_kk   String @db.VarChar(255)
+  created_at Int    @db.UnsignedInt
+  updated_at Int?   @db.UnsignedInt
+  deleted_at Int?   @db.UnsignedInt
+
+  links UniversitySpecialty[]
+
+  @@index([deleted_at])
+  @@map("specialties")
+}
+
+model UniversitySpecialty {
+  id              Int     @id @default(autoincrement()) @db.UnsignedInt
+  university_id   Int     @db.UnsignedInt
+  specialty_id    Int     @db.UnsignedInt
+  has_rural_quota Boolean @default(false)
+  short_desc_kk   String? @db.VarChar(1024)
+  full_desc_kk    String? @db.Text
+  created_at      Int     @db.UnsignedInt
+  updated_at      Int?    @db.UnsignedInt
+  deleted_at      Int?    @db.UnsignedInt
+
+  university      University      @relation(fields: [university_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  specialty       Specialty       @relation(fields: [specialty_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  admission_stats AdmissionStat[]
+
+  @@unique([university_id, specialty_id], name: "uniq_university_specialty")
+  @@index([deleted_at])
+  @@index([specialty_id])
+  @@map("university_specialties")
+}
+
+model AdmissionStat {
+  id                      Int  @id @default(autoincrement()) @db.UnsignedInt
+  university_specialty_id Int  @db.UnsignedInt
+  year                    Int  @db.UnsignedSmallInt
+  grants_count            Int? @db.UnsignedInt
+  threshold               Int? @db.UnsignedSmallInt
+  threshold_rural         Int? @db.UnsignedSmallInt
+  created_at              Int  @db.UnsignedInt
+  updated_at              Int? @db.UnsignedInt
+
+  link UniversitySpecialty @relation(fields: [university_specialty_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([university_specialty_id, year], name: "uniq_admission_us_year")
+  @@index([year])
+  @@map("admission_stats")
 }

@@ -289,6 +289,46 @@ const CATALOG: SeedGroup[] = [
             { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
         ],
     },
+    {
+        code: 'universities',
+        display_order: 2000,
+        name_ru: 'Университеты',
+        name_kz: 'Университеттер',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'import', display_order: 50, name_ru: 'Импорт', name_kz: 'Импорт' },
+            { action: 'export', display_order: 60, name_ru: 'Экспорт', name_kz: 'Экспорт' },
+        ],
+    },
+    {
+        code: 'specialties',
+        display_order: 2100,
+        name_ru: 'Специальности',
+        name_kz: 'Мамандықтар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'import', display_order: 50, name_ru: 'Импорт', name_kz: 'Импорт' },
+            { action: 'export', display_order: 60, name_ru: 'Экспорт', name_kz: 'Экспорт' },
+        ],
+    },
+    {
+        code: 'admission_stats',
+        display_order: 2200,
+        name_ru: 'Приёмные показатели',
+        name_kz: 'Қабылдау көрсеткіштері',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'edit', display_order: 20, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'import', display_order: 30, name_ru: 'Импорт', name_kz: 'Импорт' },
+            { action: 'export', display_order: 40, name_ru: 'Экспорт', name_kz: 'Экспорт' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
@@ -339,6 +379,9 @@ const CORE_ROLES: SeedRole[] = [
             'tasks.edit',
             'tasks.comment',
             'tasks.complete',
+            'universities.view',
+            'specialties.view',
+            'admission_stats.view',
         ],
     },
     {

@@ -36,6 +36,7 @@ import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StoriesModule } from './modules/stories/stories.module';
+import { UniversitiesModule } from './modules/universities/universities.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -104,6 +105,10 @@ import { PrismaModule } from './prisma/prisma.module';
         // feature module that emits notifications.
         NotificationsModule,
         BoardsModule,
+        // Phase 17 — Universities & Specialties catalog. Three sub-domains share one
+        // module: universities (vuz), specialties (directory), university_specialties
+        // (M-M links), admission_stats (per-link, per-year).
+        UniversitiesModule,
     ],
     controllers: [AppController],
     providers: [
