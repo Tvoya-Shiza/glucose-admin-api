@@ -14,6 +14,8 @@ import { CoursesTeacherController } from './courses-teacher.controller';
 import { CoursesTeacherService } from './courses-teacher.service';
 import { CoursesPreviewController } from './courses-preview.controller';
 import { CoursesPreviewService } from './courses-preview.service';
+import { CoursesProgressController } from './courses-progress.controller';
+import { CoursesProgressService } from './courses-progress.service';
 import { CourseCategoriesController } from './course-categories.controller';
 import { CourseCategoriesService } from './course-categories.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
@@ -47,6 +49,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CoursesScheduleController,
         CoursesTeacherController,
         CoursesPreviewController,
+        CoursesProgressController,
         CourseCategoriesController,
     ],
     providers: [
@@ -57,6 +60,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CoursesScheduleService,
         CoursesTeacherService,
         CoursesPreviewService,
+        CoursesProgressService,
         CourseCategoriesService,
         CoursesCacheService,
     ],

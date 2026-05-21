@@ -22,12 +22,14 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { BlogsModule } from './modules/blogs/blogs.module';
 import { BoardsModule } from './modules/boards/boards.module';
+import { CourseAccessModule } from './modules/course-access/course-access.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailingsModule } from './modules/mailings/mailings.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { ProgressOverridesModule } from './modules/progress-overrides/progress-overrides.module';
 import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { PushModule } from './modules/push/push.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
@@ -109,6 +111,13 @@ import { PrismaModule } from './prisma/prisma.module';
         // module: universities (vuz), specialties (directory), university_specialties
         // (M-M links), admission_stats (per-link, per-year).
         UniversitiesModule,
+        // Phase 18 — Group → Course access (Feature A) + per-course Accessors list
+        // (Feature C). Skeleton in PR-2 (single _status stub returning 501);
+        // full surface lands in PR-3 / PR-5.
+        CourseAccessModule,
+        // Phase 18 — Per-item content unlock overrides (Feature B1, "Контроль
+        // прогресса"). Skeleton in PR-2; full CRUD lands in PR-6.
+        ProgressOverridesModule,
     ],
     controllers: [AppController],
     providers: [

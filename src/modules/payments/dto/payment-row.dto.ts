@@ -34,7 +34,10 @@ export class PaymentRowDto {
 
 export class PaymentRelatedSaleDto {
     id!: number;
-    buyer_id!: number;
+    /** Phase 18 — nullable since Sale.buyer_id is now nullable; group-scoped sales are
+     *  filtered out at query time (no Kaspi trace possible), so this is `number` in
+     *  practice but typed nullable to match the schema and survive defensive null branches. */
+    buyer_id!: number | null;
     webinar_id!: number | null;
     created_at!: number;
     /** Decimal-as-string, nullable. */

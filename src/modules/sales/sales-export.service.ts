@@ -35,10 +35,19 @@ import { SALE_SCOPE_RULES } from './sales.scope';
  */
 interface ExportRow {
     id: number;
-    buyer_id: number;
+    /**
+     * Phase 18 — discriminator:
+     *   - 'user'  → direct (per-user) sale; buyer_* populated, group_id NULL.
+     *   - 'group' → group-scoped grant; group_id populated, buyer_* NULL.
+     */
+    target_type: 'user' | 'group';
+    /** Synthetic display label: buyer full_name (or fallback) for users, group.name for groups. */
+    target_label: string | null;
+    buyer_id: number | null;
     buyer_full_name: string | null;
     buyer_email: string | null;
     buyer_mobile: string | null;
+    group_id: number | null;
     type: 'webinar' | 'quiz' | 'quiz_badge' | null;
     payment_method: 'credit' | 'payment_channel' | 'subscribe' | 'group_access' | null;
     amount: string;
@@ -61,10 +70,13 @@ export class SalesExportService {
 
     public static readonly COLUMNS: Array<{ key: keyof ExportRow; header: string }> = [
         { key: 'id', header: 'id' },
+        { key: 'target_type', header: 'target_type' },
+        { key: 'target_label', header: 'target_label' },
         { key: 'buyer_id', header: 'buyer_id' },
         { key: 'buyer_full_name', header: 'buyer_full_name' },
         { key: 'buyer_email', header: 'buyer_email' },
         { key: 'buyer_mobile', header: 'buyer_mobile' },
+        { key: 'group_id', header: 'group_id' },
         { key: 'type', header: 'type' },
         { key: 'payment_method', header: 'payment_method' },
         { key: 'amount', header: 'amount' },
@@ -118,6 +130,8 @@ export class SalesExportService {
                 quiz_id: true,
                 quiz_badge_id: true,
                 buyer: { select: { full_name: true, email: true, mobile: true } },
+                group_id: true,
+                group: { select: { name: true } },
                 webinar: {
                     select: {
                         translations: {
@@ -150,24 +164,34 @@ export class SalesExportService {
             take: SalesExportService.MAX_ROWS,
         });
 
-        return raw.map((r) => ({
-            id: Number(r.id),
-            buyer_id: Number(r.buyer_id),
-            buyer_full_name: r.buyer?.full_name ?? null,
-            buyer_email: r.buyer?.email ?? null,
-            buyer_mobile: r.buyer?.mobile ?? null,
-            type: r.type ?? null,
-            payment_method: r.payment_method ?? null,
-            amount: r.amount?.toString() ?? '0',
-            total_amount: r.total_amount?.toString() ?? null,
-            manual_added: !!r.manual_added,
-            created_at: Number(r.created_at),
-            refund_at: r.refund_at ?? null,
-            webinar_id: r.webinar_id ?? null,
-            quiz_id: r.quiz_id ?? null,
-            quiz_badge_id: r.quiz_badge_id ?? null,
-            product_label: this.listService.deriveProductLabel(r),
-        }));
+        return raw.map((r) => {
+            const target_type: 'user' | 'group' = r.group_id !== null && r.group_id !== undefined ? 'group' : 'user';
+            const target_label =
+                target_type === 'group'
+                    ? r.group?.name ?? null
+                    : r.buyer?.full_name ?? r.buyer?.email ?? r.buyer?.mobile ?? null;
+            return {
+                id: Number(r.id),
+                target_type,
+                target_label,
+                buyer_id: r.buyer_id ?? null,
+                buyer_full_name: r.buyer?.full_name ?? null,
+                buyer_email: r.buyer?.email ?? null,
+                buyer_mobile: r.buyer?.mobile ?? null,
+                group_id: r.group_id ?? null,
+                type: r.type ?? null,
+                payment_method: r.payment_method ?? null,
+                amount: r.amount?.toString() ?? '0',
+                total_amount: r.total_amount?.toString() ?? null,
+                manual_added: !!r.manual_added,
+                created_at: Number(r.created_at),
+                refund_at: r.refund_at ?? null,
+                webinar_id: r.webinar_id ?? null,
+                quiz_id: r.quiz_id ?? null,
+                quiz_badge_id: r.quiz_badge_id ?? null,
+                product_label: this.listService.deriveProductLabel(r),
+            };
+        });
     }
 
     /**

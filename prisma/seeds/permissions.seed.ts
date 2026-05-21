@@ -329,6 +329,28 @@ const CATALOG: SeedGroup[] = [
             { action: 'export', display_order: 40, name_ru: 'Экспорт', name_kz: 'Экспорт' },
         ],
     },
+    {
+        code: 'course_access',
+        display_order: 2300,
+        name_ru: 'Доступы к курсам',
+        name_kz: 'Курстарға қол жеткізу',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'grant', display_order: 20, name_ru: 'Выдача доступа', name_kz: 'Қол жеткізуді беру' },
+            { action: 'revoke', display_order: 30, name_ru: 'Отзыв доступа', name_kz: 'Қайтарып алу' },
+            { action: 'extend', display_order: 40, name_ru: 'Продление', name_kz: 'Ұзарту' },
+        ],
+    },
+    {
+        code: 'progress_overrides',
+        display_order: 2400,
+        name_ru: 'Открытие уроков',
+        name_kz: 'Сабақтарды ашу',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'manage', display_order: 20, name_ru: 'Управление', name_kz: 'Басқару' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
@@ -382,6 +404,8 @@ const CORE_ROLES: SeedRole[] = [
             'universities.view',
             'specialties.view',
             'admission_stats.view',
+            'course_access.view',
+            'progress_overrides.view',
         ],
     },
     {

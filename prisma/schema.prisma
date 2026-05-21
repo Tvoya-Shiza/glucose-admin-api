@@ -290,6 +290,9 @@ model User {
   promocode_usages      PromocodeUsage[]                  @relation("PromocodeUsageUser")
   course_learnings      CourseLearning[]                  @relation("CourseLearningUser")
 
+  course_content_overrides         CourseContentOverride[] @relation("UserContentOverrides")
+  granted_course_content_overrides CourseContentOverride[] @relation("AdminGrantedContentOverrides")
+
   push_notification_logs PushNotificationLog[]
 
   scheduled_pushes_created   ScheduledPush[] @relation("ScheduledPushCreator")
@@ -377,6 +380,8 @@ model Group {
   chapter_schedules WebinarChapterSchedule[] @relation("ScheduleGroup")
   lesson_schedules  LessonSchedule[]         @relation("LessonScheduleGroup")
   notifications     Notification[]           @relation("NotificationGroup")
+  sales             Sale[]                   @relation("GroupSales")
+  content_overrides CourseContentOverride[]  @relation("GroupContentOverrides")
 
   @@map("groups")
 }
@@ -773,7 +778,8 @@ model QuizBadgeResult {
 model Sale {
   id                       Int            @id @default(autoincrement())
   seller_id                Int?           @db.UnsignedInt
-  buyer_id                 Int            @db.UnsignedInt
+  buyer_id                 Int?           @db.UnsignedInt
+  group_id                 Int?           @db.UnsignedInt
   order_id                 Int?           @db.UnsignedInt
   webinar_id               Int?           @db.UnsignedInt
   quiz_id                  Int?           @db.UnsignedInt
@@ -795,10 +801,12 @@ model Sale {
   quiz       Quizzes?   @relation("QuizSales", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   quiz_badge QuizBadge? @relation("QuizBadgeSales", fields: [quiz_badge_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   seller     User?      @relation("SaleSeller", fields: [seller_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  buyer      User       @relation("SaleBuyer", fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  buyer      User?      @relation("SaleBuyer", fields: [buyer_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group      Group?     @relation("GroupSales", fields: [group_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
   order      Order?     @relation("OrderSales", fields: [order_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
 
   @@index([buyer_id, webinar_id], name: "idx_sales_buyer_webinar")
+  @@index([group_id, webinar_id], name: "idx_sales_group_webinar")
   @@index([created_at], name: "idx_sales_created_at")
   @@map("sales")
 }
@@ -916,7 +924,8 @@ model Webinar {
   notifications Notification[]      @relation("WebinarNotifications")
   order_items   OrderItem[]
 
-  lesson_schedules LessonSchedule[] @relation("LessonScheduleCourse")
+  lesson_schedules  LessonSchedule[]        @relation("LessonScheduleCourse")
+  content_overrides CourseContentOverride[] @relation("WebinarContentOverrides")
 
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
@@ -1036,11 +1045,53 @@ model WebinarChapterItem {
   is_required Boolean                @default(true)
   created_at  Int
 
-  webinar_chapter WebinarChapter           @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  creator         User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  schedules       WebinarChapterSchedule[] @relation("WebinarChapterSchedule")
+  webinar_chapter   WebinarChapter           @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator           User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  schedules         WebinarChapterSchedule[] @relation("WebinarChapterSchedule")
+  content_overrides CourseContentOverride[]  @relation("ItemContentOverrides")
 
   @@map("webinar_chapter_items")
+}
+
+/// Phase 19 — per-item content unlock gates.
+///
+/// Granted by an admin to either a single user OR a single group (xor — enforced
+/// at the application layer in progress-overrides.service.ts; a DB-level CHECK
+/// would conflict with the CASCADE FKs per MySQL 8 error 3823). The two composite
+/// UNIQUE indexes (uniq_cco_user_course_item, uniq_cco_group_course_item) also
+/// prevent duplicate grants per (target, course, item). When evaluating "can view
+/// item N": course access exists AND (strict_progress=false OR previous items
+/// completed OR a matching override row exists).
+///
+/// NEVER writes to CourseLearning.passed — pure access gate.
+///
+/// expires_at is NULL for perpetual unlocks. When set, view-time check ignores
+/// rows past their expiry.
+model CourseContentOverride {
+  id                  Int     @id @default(autoincrement()) @db.UnsignedInt
+  user_id             Int?
+  group_id            Int?    @db.UnsignedInt
+  webinar_id          Int
+  item_id             Int
+  granted_by_admin_id Int?
+  note                String? @db.VarChar(255)
+  created_at          Int     @db.UnsignedInt
+  expires_at          Int?    @db.UnsignedInt
+
+  user             User?              @relation("UserContentOverrides", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group            Group?             @relation("GroupContentOverrides", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  webinar          Webinar            @relation("WebinarContentOverrides", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  item             WebinarChapterItem @relation("ItemContentOverrides", fields: [item_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  granted_by_admin User?              @relation("AdminGrantedContentOverrides", fields: [granted_by_admin_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@unique([user_id, webinar_id, item_id], name: "uniq_cco_user_course_item")
+  @@unique([group_id, webinar_id, item_id], name: "uniq_cco_group_course_item")
+  @@index([webinar_id])
+  @@index([item_id])
+  @@index([user_id, webinar_id], name: "idx_cco_user_course")
+  @@index([group_id, webinar_id], name: "idx_cco_group_course")
+  @@index([expires_at])
+  @@map("course_content_overrides")
 }
 
 model WebinarQuiz {

@@ -97,6 +97,7 @@ export class SalesListService {
                     quiz_id: true,
                     quiz_badge_id: true,
                     buyer: { select: { id: true, full_name: true, email: true, mobile: true } },
+                    group: { select: { id: true, name: true } },
                     webinar: {
                         select: {
                             translations: {
@@ -133,12 +134,15 @@ export class SalesListService {
 
         const out: SaleRowDto[] = rows.map((r: any) => ({
             id: Number(r.id),
-            buyer: {
-                id: Number(r.buyer?.id ?? 0),
-                full_name: r.buyer?.full_name ?? null,
-                email: r.buyer?.email ?? null,
-                mobile: r.buyer?.mobile ?? null,
-            },
+            buyer: r.buyer
+                ? {
+                      id: Number(r.buyer.id),
+                      full_name: r.buyer.full_name ?? null,
+                      email: r.buyer.email ?? null,
+                      mobile: r.buyer.mobile ?? null,
+                  }
+                : null,
+            group: r.group ? { id: Number(r.group.id), name: r.group.name } : null,
             seller_id: r.seller_id ?? null,
             type: r.type ?? null,
             payment_method: r.payment_method ?? null,

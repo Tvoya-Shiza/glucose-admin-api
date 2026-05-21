@@ -24,9 +24,24 @@ export class SaleBuyerRefDto {
     mobile!: string | null;
 }
 
+/**
+ * Phase 18 — group-scoped sale rows carry a `group` ref instead of a `buyer`.
+ * Either `buyer` or `group` is set (enforced by `chk_sales_buyer_or_group`
+ * CHECK constraint); both may co-exist on the same row only for sales
+ * representing per-user group-purchase records (legacy education repo pattern,
+ * not used here).
+ */
+export class SaleGroupRefDto {
+    id!: number;
+    name!: string;
+}
+
 export class SaleRowDto {
     id!: number;
-    buyer!: SaleBuyerRefDto;
+    /** NULL when the sale is a group-scoped grant (Phase 18); `group` is set instead. */
+    buyer!: SaleBuyerRefDto | null;
+    /** NULL for direct (per-user) sales; populated for Phase 18 group grants. */
+    group!: SaleGroupRefDto | null;
     seller_id!: number | null;
     type!: 'webinar' | 'quiz' | 'quiz_badge' | null;
     payment_method!: 'credit' | 'payment_channel' | 'subscribe' | 'group_access' | null;

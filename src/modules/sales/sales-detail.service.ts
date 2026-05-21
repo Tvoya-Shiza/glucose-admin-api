@@ -61,6 +61,7 @@ export class SalesDetailService {
                 created_at: true,
                 refund_at: true,
                 buyer: { select: { id: true, full_name: true, email: true, mobile: true } },
+                group: { select: { id: true, name: true } },
                 webinar: {
                     select: {
                         translations: {
@@ -98,18 +99,24 @@ export class SalesDetailService {
         // Best-effort payment trace: KaspiPayment.account == Sale.buyer_id.
         // No FK; match is heuristic. Same approach Phase 9 Plan 02 uses for
         // PaymentsDetailService.related_sales.
-        const trace: any[] = await this.prisma.kaspiPayment.findMany({
-            where: { account: row.buyer_id },
-            select: {
-                id: true,
-                txn_id: true,
-                txn_date: true,
-                sum: true,
-                status: true,
-            },
-            orderBy: { txn_date: 'desc' },
-            take: SalesDetailService.PAYMENT_TRACE_LIMIT,
-        });
+        //
+        // Phase 18: group-scoped sales (buyer_id IS NULL) have no payment trace
+        // by definition — they are admin-manual grants, not Kaspi transactions.
+        const trace: any[] =
+            row.buyer_id === null || row.buyer_id === undefined
+                ? []
+                : await this.prisma.kaspiPayment.findMany({
+                      where: { account: row.buyer_id },
+                      select: {
+                          id: true,
+                          txn_id: true,
+                          txn_date: true,
+                          sum: true,
+                          status: true,
+                      },
+                      orderBy: { txn_date: 'desc' },
+                      take: SalesDetailService.PAYMENT_TRACE_LIMIT,
+                  });
 
         const product_label =
             row.type === 'webinar'
@@ -122,12 +129,15 @@ export class SalesDetailService {
 
         return {
             id: Number(row.id),
-            buyer: {
-                id: Number(row.buyer?.id ?? row.buyer_id),
-                full_name: row.buyer?.full_name ?? null,
-                email: row.buyer?.email ?? null,
-                mobile: row.buyer?.mobile ?? null,
-            },
+            buyer: row.buyer
+                ? {
+                      id: Number(row.buyer.id),
+                      full_name: row.buyer.full_name ?? null,
+                      email: row.buyer.email ?? null,
+                      mobile: row.buyer.mobile ?? null,
+                  }
+                : null,
+            group: row.group ? { id: Number(row.group.id), name: row.group.name } : null,
             seller_id: row.seller_id ?? null,
             type: row.type ?? null,
             payment_method: row.payment_method ?? null,

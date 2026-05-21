@@ -45,8 +45,14 @@ export class PaymentsDetailService {
         // Best-effort related Sale rows — match by KaspiPayment.account == User.id.
         // No FK constraint exists between the two tables; if account does not map
         // to a real user, related is `[]`.
+        //
+        // Phase 18: explicitly filter `buyer_id IS NOT NULL`. Group-scoped sales
+        // (group_id set, buyer_id NULL) have no Kaspi payment trace by definition
+        // — admin-manual grants are not Kaspi transactions. Without this guard
+        // a payment whose `account` happens to be 0/NULL would loud-match every
+        // group sale.
         const related = await this.prisma.sale.findMany({
-            where: { buyer_id: row.account },
+            where: { buyer_id: row.account, AND: { buyer_id: { not: null } } },
             select: {
                 id: true,
                 buyer_id: true,
@@ -77,7 +83,7 @@ export class PaymentsDetailService {
             data10: row.data10 ?? null,
             related_sales: related.map((s: any) => ({
                 id: Number(s.id),
-                buyer_id: Number(s.buyer_id),
+                buyer_id: s.buyer_id !== null && s.buyer_id !== undefined ? Number(s.buyer_id) : null,
                 webinar_id: s.webinar_id ?? null,
                 created_at: Number(s.created_at),
                 total_amount: s.total_amount?.toString() ?? null,
