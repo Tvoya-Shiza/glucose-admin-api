@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, ParseIntPipe, Post, Res, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { Audit } from '../../common/audit/audit.decorator';
@@ -9,7 +9,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
-import { ExportUsersDto } from './dto/export-users.dto';
+import { ExportUserDetailDto, ExportUsersDto } from './dto/export-users.dto';
 import { UsersExportService } from './users-export.service';
 
 /**
@@ -64,6 +64,48 @@ export class UsersExportController {
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         );
         res.setHeader('Content-Disposition', `attachment; filename="users-${ts}.xlsx"`);
+        res.send(buf);
+    }
+
+    /**
+     * Per-user audit report — profile + course access + quiz access + recent payments
+     * in a single XLSX (4 sheets) or sectioned CSV. Scope is enforced inside the
+     * detail/quizzes services (404 on out-of-scope id).
+     *
+     * Throttle: 10 calls / 15 min / IP — lighter than bulk export (5/15min) because
+     * the surface targets a single user rather than the full filtered list.
+     */
+    @Post(':id/export')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('users.export')
+    @Audit('users.exportDetail', 'user')
+    @Throttle({ default: { limit: 10, ttl: 900_000 } })
+    public async exportDetail(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: ExportUserDetailDto,
+        @Res() res: Response,
+    ): Promise<void> {
+        const bundle = await this.exportService.fetchUserDetailBundle(
+            { id: actor.id, role_name: actor.role_name },
+            id,
+        );
+        const ts = Math.floor(Date.now() / 1000);
+
+        if (dto.format === 'csv') {
+            const csv = this.exportService.detailToCsv(bundle);
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="user-${id}-${ts}.csv"`);
+            res.send(csv);
+            return;
+        }
+
+        const buf = await this.exportService.detailToXlsx(bundle);
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        );
+        res.setHeader('Content-Disposition', `attachment; filename="user-${id}-${ts}.xlsx"`);
         res.send(buf);
     }
 }

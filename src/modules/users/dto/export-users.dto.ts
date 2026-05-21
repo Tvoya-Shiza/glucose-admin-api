@@ -38,3 +38,12 @@ export class ExportUsersDto {
     @IsIn(['asc', 'desc'])
     order?: 'asc' | 'desc';
 }
+
+/**
+ * Body DTO for POST /admin-api/v1/admin/users/:id/export — single-user audit-friendly
+ * report combining profile + course access + quiz access + recent payments.
+ */
+export class ExportUserDetailDto {
+    @IsIn(['csv', 'xlsx'])
+    format!: 'csv' | 'xlsx';
+}

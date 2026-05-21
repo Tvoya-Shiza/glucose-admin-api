@@ -6,6 +6,8 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { USER_SCOPE_RULES } from './users.scope';
 import { normalizeKzPhone } from './utils/normalize-phone';
 import { ExportUsersDto } from './dto/export-users.dto';
+import { UsersDetailService } from './users-detail.service';
+import { UsersQuizzesService } from './users-quizzes.service';
 
 /**
  * USR-07 — export the filtered users list to CSV or XLSX (Plan 07).
@@ -65,7 +67,11 @@ export class UsersExportService {
         { key: 'school_id', header: 'school_id' },
     ];
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly detailService: UsersDetailService,
+        private readonly quizzesService: UsersQuizzesService,
+    ) {}
 
     /**
      * Resolve filter + scope + soft-delete predicates and fetch up to MAX_ROWS rows.
@@ -198,4 +204,247 @@ export class UsersExportService {
         const arrBuf = await wb.xlsx.writeBuffer();
         return Buffer.from(arrBuf as ArrayBuffer);
     }
+
+    /**
+     * Per-user audit report combining profile + course access + quiz access +
+     * recent payments. Uses `UsersDetailService.detail` + `UsersQuizzesService.list`
+     * (same scope check those services already enforce — out-of-scope ids return 404).
+     */
+    public async fetchUserDetailBundle(actor: ScopeActor, userId: number): Promise<UserDetailBundle> {
+        const [detail, quizzes] = await Promise.all([
+            this.detailService.detail(actor, userId),
+            this.quizzesService.list(actor, userId),
+        ]);
+        return { detail, quizzes };
+    }
+
+    public detailToCsv(bundle: UserDetailBundle): string {
+        const out: string[] = [];
+        const { detail, quizzes } = bundle;
+
+        // --- Section: Profile (key/value rows) ---
+        out.push('# Section: Profile');
+        out.push(['field', 'value'].map(csvEscape).join(','));
+        for (const [k, v] of profilePairs(detail)) {
+            out.push([csvEscape(k), csvEscape(v)].join(','));
+        }
+        out.push('');
+
+        // --- Section: Courses ---
+        out.push('# Section: Courses');
+        out.push(
+            ['sale_id', 'webinar_id', 'webinar_name', 'manual_added', 'access_days', 'created_at', 'refund_at']
+                .map(csvEscape)
+                .join(','),
+        );
+        for (const c of detail.course_access) {
+            out.push(
+                [
+                    c.sale_id,
+                    c.webinar_id ?? '',
+                    c.webinar_name ?? '',
+                    c.manual_added ? 'true' : 'false',
+                    c.access_days ?? '',
+                    c.created_at,
+                    c.refund_at ?? '',
+                ]
+                    .map(csvEscape)
+                    .join(','),
+            );
+        }
+        out.push('');
+
+        // --- Section: Tests (access) ---
+        out.push('# Section: Tests — access');
+        out.push(
+            ['sale_id', 'kind', 'quiz_id', 'quiz_badge_id', 'quiz_name', 'manual_added', 'access_days', 'created_at']
+                .map(csvEscape)
+                .join(','),
+        );
+        for (const t of quizzes.access) {
+            out.push(
+                [
+                    t.sale_id,
+                    t.kind,
+                    t.quiz_id ?? '',
+                    t.quiz_badge_id ?? '',
+                    t.quiz_name ?? '',
+                    t.manual_added ? 'true' : 'false',
+                    t.access_days ?? '',
+                    t.created_at,
+                ]
+                    .map(csvEscape)
+                    .join(','),
+            );
+        }
+        out.push('');
+
+        // --- Section: Tests (results) ---
+        out.push('# Section: Tests — results');
+        out.push(['result_id', 'quiz_id', 'quiz_name', 'status', 'user_grade', 'created_at'].map(csvEscape).join(','));
+        for (const r of quizzes.results) {
+            out.push(
+                [r.id, r.quiz_id, r.quiz_name ?? '', r.status, r.user_grade ?? '', r.created_at]
+                    .map(csvEscape)
+                    .join(','),
+            );
+        }
+        out.push('');
+
+        // --- Section: Payments ---
+        out.push('# Section: Payments');
+        out.push(['sale_id', 'amount', 'total_amount', 'created_at', 'refund_at'].map(csvEscape).join(','));
+        for (const p of detail.recent_payments) {
+            out.push(
+                [p.id, p.amount, p.total_amount ?? '', p.created_at, p.refund_at ?? ''].map(csvEscape).join(','),
+            );
+        }
+
+        return '﻿' + out.join('\n');
+    }
+
+    public async detailToXlsx(bundle: UserDetailBundle): Promise<Buffer> {
+        const { detail, quizzes } = bundle;
+        const wb = new ExcelJS.Workbook();
+
+        const profileWs = wb.addWorksheet('Profile');
+        profileWs.columns = [
+            { header: 'field', key: 'field', width: 22 },
+            { header: 'value', key: 'value', width: 48 },
+        ];
+        for (const [k, v] of profilePairs(detail)) {
+            profileWs.addRow({ field: k, value: v });
+        }
+        profileWs.getRow(1).font = { bold: true };
+
+        const coursesWs = wb.addWorksheet('Courses');
+        coursesWs.columns = [
+            { header: 'sale_id', key: 'sale_id', width: 12 },
+            { header: 'webinar_id', key: 'webinar_id', width: 12 },
+            { header: 'webinar_name', key: 'webinar_name', width: 40 },
+            { header: 'manual_added', key: 'manual_added', width: 14 },
+            { header: 'access_days', key: 'access_days', width: 12 },
+            { header: 'created_at', key: 'created_at', width: 14 },
+            { header: 'refund_at', key: 'refund_at', width: 14 },
+        ];
+        for (const c of detail.course_access) {
+            coursesWs.addRow({
+                sale_id: c.sale_id,
+                webinar_id: c.webinar_id ?? '',
+                webinar_name: c.webinar_name ?? '',
+                manual_added: c.manual_added,
+                access_days: c.access_days ?? '',
+                created_at: c.created_at,
+                refund_at: c.refund_at ?? '',
+            });
+        }
+        coursesWs.getRow(1).font = { bold: true };
+
+        const testsWs = wb.addWorksheet('Tests');
+        testsWs.columns = [
+            { header: 'section', key: 'section', width: 14 },
+            { header: 'id', key: 'id', width: 12 },
+            { header: 'kind', key: 'kind', width: 12 },
+            { header: 'quiz_id', key: 'quiz_id', width: 12 },
+            { header: 'quiz_badge_id', key: 'quiz_badge_id', width: 14 },
+            { header: 'quiz_name', key: 'quiz_name', width: 40 },
+            { header: 'status', key: 'status', width: 12 },
+            { header: 'manual_added', key: 'manual_added', width: 14 },
+            { header: 'access_days', key: 'access_days', width: 12 },
+            { header: 'user_grade', key: 'user_grade', width: 12 },
+            { header: 'created_at', key: 'created_at', width: 14 },
+        ];
+        for (const t of quizzes.access) {
+            testsWs.addRow({
+                section: 'access',
+                id: t.sale_id,
+                kind: t.kind,
+                quiz_id: t.quiz_id ?? '',
+                quiz_badge_id: t.quiz_badge_id ?? '',
+                quiz_name: t.quiz_name ?? '',
+                status: '',
+                manual_added: t.manual_added,
+                access_days: t.access_days ?? '',
+                user_grade: '',
+                created_at: t.created_at,
+            });
+        }
+        for (const r of quizzes.results) {
+            testsWs.addRow({
+                section: 'result',
+                id: r.id,
+                kind: 'quiz',
+                quiz_id: r.quiz_id,
+                quiz_badge_id: '',
+                quiz_name: r.quiz_name ?? '',
+                status: r.status,
+                manual_added: '',
+                access_days: '',
+                user_grade: r.user_grade ?? '',
+                created_at: r.created_at,
+            });
+        }
+        testsWs.getRow(1).font = { bold: true };
+
+        const paymentsWs = wb.addWorksheet('Payments');
+        paymentsWs.columns = [
+            { header: 'sale_id', key: 'sale_id', width: 12 },
+            { header: 'amount', key: 'amount', width: 16 },
+            { header: 'total_amount', key: 'total_amount', width: 16 },
+            { header: 'created_at', key: 'created_at', width: 14 },
+            { header: 'refund_at', key: 'refund_at', width: 14 },
+        ];
+        for (const p of detail.recent_payments) {
+            paymentsWs.addRow({
+                sale_id: p.id,
+                amount: p.amount,
+                total_amount: p.total_amount ?? '',
+                created_at: p.created_at,
+                refund_at: p.refund_at ?? '',
+            });
+        }
+        paymentsWs.getRow(1).font = { bold: true };
+
+        const arrBuf = await wb.xlsx.writeBuffer();
+        return Buffer.from(arrBuf as ArrayBuffer);
+    }
+}
+
+interface UserDetailBundle {
+    detail: Awaited<ReturnType<UsersDetailService['detail']>>;
+    quizzes: Awaited<ReturnType<UsersQuizzesService['list']>>;
+}
+
+function profilePairs(detail: UserDetailBundle['detail']): Array<[string, string | number | boolean | null]> {
+    return [
+        ['id', detail.id],
+        ['full_name', detail.full_name],
+        ['email', detail.email],
+        ['mobile', detail.mobile],
+        ['role_name', detail.role_name],
+        ['role_id', detail.role_id],
+        ['status', detail.status],
+        ['verified', detail.verified],
+        ['about', detail.about],
+        ['country_id', detail.country_id],
+        ['province_id', detail.province_id],
+        ['city_id', detail.city_id],
+        ['school_id', detail.school_id],
+        ['last_activity', detail.last_activity],
+        ['created_at', detail.created_at],
+        ['updated_at', detail.updated_at],
+    ];
+}
+
+/** Shared CSV escape with formula-injection defense (T-03-65). */
+function csvEscape(v: string | number | boolean | null | undefined): string {
+    if (v === null || v === undefined) return '';
+    let s = String(v);
+    if (s.length > 0 && (s[0] === '=' || s[0] === '+' || s[0] === '-' || s[0] === '@')) {
+        s = "'" + s;
+    }
+    if (/[",\n\r]/.test(s)) {
+        return '"' + s.replace(/"/g, '""') + '"';
+    }
+    return s;
 }
