@@ -1036,14 +1036,15 @@ model WebinarChapterTranslation {
 }
 
 model WebinarChapterItem {
-  id          Int                    @id @default(autoincrement())
-  user_id     Int                    @db.UnsignedInt
-  chapter_id  Int                    @db.UnsignedInt
-  item_id     Int                    @db.UnsignedInt
-  type        WebinarChapterItemType @default(file)
-  order       Int?                   @db.UnsignedInt
-  is_required Boolean                @default(true)
-  created_at  Int
+  id            Int                    @id @default(autoincrement())
+  user_id       Int                    @db.UnsignedInt
+  chapter_id    Int                    @db.UnsignedInt
+  item_id       Int                    @db.UnsignedInt
+  type          WebinarChapterItemType @default(file)
+  order         Int?                   @db.UnsignedInt
+  is_required   Boolean                @default(true)
+  accessibility FileAccessbility       @default(free)
+  created_at    Int
 
   webinar_chapter   WebinarChapter           @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   creator           User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)

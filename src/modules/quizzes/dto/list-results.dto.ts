@@ -37,6 +37,17 @@ export class ListResultsDto {
     @Min(1)
     badge_id?: number;
 
+    /**
+     * Narrow to attempts by users belonging to this group. Curator actors are
+     * additionally validated as the group's supervisor (silent default-deny on
+     * miss, mirroring teacher-with-no-webinars).
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    group_id?: number;
+
     @IsOptional()
     @Type(() => Number)
     @IsInt()

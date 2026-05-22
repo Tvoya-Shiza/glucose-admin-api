@@ -24,6 +24,7 @@ import type { GrantGroupAccessDto } from './dto/grant-group-access.dto';
 import type { GrantUserAccessDto } from './dto/grant-user-access.dto';
 import type { ListCourseAccessorsQueryDto } from './dto/list-course-accessors-query.dto';
 import type { ListGroupGrantsQueryDto } from './dto/list-group-grants-query.dto';
+import { CoursesProgressService } from '../courses/courses-progress.service';
 import { normalizeKzPhone } from '../users/utils/normalize-phone';
 
 /** Whole days from `nowSec` until `createdAt + accessDays * 86400`. Clamped to 0. */
@@ -71,7 +72,10 @@ export class CourseAccessService {
     public static readonly DEFAULT_PAGE_SIZE = 50;
     public static readonly MAX_PAGE_SIZE = 200;
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly progressService: CoursesProgressService,
+    ) {}
 
     // -----------------------------------------------------------------------
     // grantUserAccess — direct (per-user) grant
@@ -471,6 +475,7 @@ export class CourseAccessService {
                 days_remaining: s.access_days === null ? null : daysRemaining(Number(s.created_at), s.access_days, nowSec),
                 last_course_activity: null,
                 is_active: this.isSaleActive(Number(s.created_at), s.access_days, nowSec),
+                progress: { done: 0, total: 0, percent: 0 },
             });
         }
 
@@ -499,17 +504,27 @@ export class CourseAccessService {
                             : daysRemaining(Number(gs.created_at), gs.access_days, nowSec),
                     last_course_activity: null,
                     is_active: this.isSaleActive(Number(gs.created_at), gs.access_days, nowSec),
+                    progress: { done: 0, total: 0, percent: 0 },
                 });
             }
         }
 
-        // 5. Batch last_course_activity across 3 progress tables.
+        // 5. Batch last_course_activity across 3 progress tables, then aggregate
+        // per-user progress on REQUIRED course items. Two batched query bundles —
+        // bounded by accessor count (typically < 5000 per course).
         const userIds = Array.from(byUser.keys());
         if (userIds.length > 0) {
-            const activity = await this.fetchLastCourseActivity(courseId, userIds);
+            const [activity, progress] = await Promise.all([
+                this.fetchLastCourseActivity(courseId, userIds),
+                this.progressService.batchUserAggregates(courseId, userIds),
+            ]);
             for (const [uid, ts] of activity) {
                 const row = byUser.get(uid);
                 if (row) row.last_course_activity = ts;
+            }
+            for (const [uid, agg] of progress) {
+                const row = byUser.get(uid);
+                if (row) row.progress = agg;
             }
         }
 

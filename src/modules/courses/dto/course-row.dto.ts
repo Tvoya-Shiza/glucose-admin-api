@@ -27,6 +27,9 @@ export interface TeacherRef {
 export interface CategoryRef {
     id: number;
     slug: string;
+    /** KZ title from WebinarCategoryTranslations join (locale='kz'). null when missing —
+     *  table cells should fall back to `slug` so the row never renders blank. */
+    title_kz: string | null;
 }
 
 export interface CourseRowDto {

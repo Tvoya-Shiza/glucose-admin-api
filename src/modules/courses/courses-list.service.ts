@@ -133,7 +133,17 @@ export class CoursesListService {
                     created_at: true,
                     updated_at: true,
                     teacher: { select: { id: true, full_name: true } },
-                    category: { select: { id: true, slug: true } },
+                    category: {
+                        select: {
+                            id: true,
+                            slug: true,
+                            translations: {
+                                where: { locale: 'kz' },
+                                select: { title: true },
+                                take: 1,
+                            },
+                        },
+                    },
                     translations: { select: { locale: true, title: true } },
                     _count: { select: { chapters: true } },
                 },
@@ -158,7 +168,15 @@ export class CoursesListService {
                 teacher: r.teacher
                     ? { id: Number(r.teacher.id), full_name: r.teacher.full_name ?? null }
                     : null,
-                category: r.category ? { id: Number(r.category.id), slug: r.category.slug } : null,
+                category: r.category
+                    ? {
+                          id: Number(r.category.id),
+                          slug: r.category.slug,
+                          title_kz:
+                              (r.category.translations as Array<{ title: string | null }> | undefined)?.[0]
+                                  ?.title ?? null,
+                      }
+                    : null,
                 image_cover: r.image_cover ?? '',
                 translation_completeness: completeness.translation_completeness,
                 missing_locales: completeness.missing_locales,

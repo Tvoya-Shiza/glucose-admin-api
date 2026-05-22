@@ -72,6 +72,8 @@ export interface ChapterItemQuizRef {
 
 export interface ChapterItemAssignmentRef {
     id: number;
+    /** KZ title from WebinarAssignmentTranslation. Empty string when not translated. */
+    title: string;
 }
 
 export type ChapterItemType = 'file' | 'quiz' | 'assignment';
@@ -83,6 +85,12 @@ export interface ChapterItemDto {
     item_id: number;
     /** Phase 16 — `true` means the item counts toward course completion. */
     is_required: boolean;
+    /**
+     * Phase 20 — per-item content access gate. Applies to ALL types
+     * (file / quiz / assignment). For type='file' the underlying Files.accessibility
+     * is kept in sync with this value by the upsert path.
+     */
+    accessibility: FileAccessibility;
     file: ChapterItemFileRef | null;
     quiz: ChapterItemQuizRef | null;
     assignment: ChapterItemAssignmentRef | null;

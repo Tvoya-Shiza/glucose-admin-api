@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ListResultsDto } from './dto/list-results.dto';
-import { QUIZ_RESULT_SCOPE_RULES } from './quizzes.scope';
+import { buildResultsWhere } from './quizzes-results-where';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { createHash } from 'node:crypto';
 
@@ -132,68 +131,12 @@ export class QuizzesResultsService {
         const order: 'asc' | 'desc' = filters.order ?? 'desc';
         const skip = (page - 1) * page_size;
 
-        // ---- Build base WHERE from explicit filters ----
-        const where: any = {};
-
-        if (typeof filters.quiz_id === 'number') where.quiz_id = filters.quiz_id;
-        if (typeof filters.user_id === 'number') where.user_id = filters.user_id;
-        if (filters.status) where.status = filters.status;
-
-        if (typeof filters.date_from === 'number' || typeof filters.date_to === 'number') {
-            where.created_at = {};
-            if (typeof filters.date_from === 'number') where.created_at.gte = filters.date_from;
-            if (typeof filters.date_to === 'number') where.created_at.lte = filters.date_to;
+        // WHERE composition + RBAC scoping is centralized in buildResultsWhere
+        // so the stats endpoint can reuse the same predicate exactly.
+        const { where, shortCircuit } = await buildResultsWhere(actor, filters, this.prisma);
+        if (shortCircuit) {
+            return { rows: [], total: 0, page, page_size };
         }
-
-        const needle = filters.q?.trim();
-        if (needle && needle.length > 0) {
-            where.user = {
-                OR: [{ full_name: { contains: needle } }, { email: { contains: needle } }],
-            };
-        }
-
-        // ---- Resolve badge_id to quiz_ids if filter present (T-06-83) ----
-        if (typeof filters.badge_id === 'number') {
-            const items = await this.prisma.quizBadgeItem.findMany({
-                where: { quiz_badge_id: filters.badge_id },
-                select: { quiz_id: true },
-            });
-            const quizIds = items.map((i) => i.quiz_id);
-
-            if (typeof filters.quiz_id === 'number') {
-                if (!quizIds.includes(filters.quiz_id)) {
-                    // explicit quiz not in badge → empty
-                    return { rows: [], total: 0, page, page_size };
-                }
-                // explicit quiz_id already set on `where`; fall through.
-            } else {
-                where.quiz_id = quizIds.length > 0 ? { in: quizIds } : { in: [-1] };
-            }
-        }
-
-        // ---- Apply role scope ----
-        if (actor.role_name === 'curator') {
-            // buildScopeWhere works for curator (Plan 01 producer is correct).
-            const scopeWhere = buildScopeWhere(actor, QUIZ_RESULT_SCOPE_RULES) as Record<string, unknown>;
-            // Merge: curator's `user` predicate AND'd with any q-search `user` predicate.
-            if (where.user && (scopeWhere as any).user) {
-                where.user = { AND: [where.user, (scopeWhere as any).user] };
-                delete (scopeWhere as any).user;
-            }
-            Object.assign(where, scopeWhere);
-        } else if (actor.role_name === 'teacher') {
-            // ★ MANUAL TWO-STEP — see service header for rationale ★
-            const teacherWebinars = await this.prisma.webinar.findMany({
-                where: { teacher_id: actor.id },
-                select: { id: true },
-            });
-            if (teacherWebinars.length === 0) {
-                // default-deny: teacher with zero webinars sees nothing.
-                return { rows: [], total: 0, page, page_size };
-            }
-            where.webinar_id = { in: teacherWebinars.map((w) => w.id) };
-        }
-        // admin: no scope narrowing (rule omitted in QUIZ_RESULT_SCOPE_RULES).
 
         // ---- Total + rows in parallel ----
         const [total, rowsRaw] = await Promise.all([

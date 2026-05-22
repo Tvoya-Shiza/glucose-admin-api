@@ -171,6 +171,7 @@ export class CoursesPreviewService {
                           id: true,
                           file: true,
                           file_type: true,
+                          storage: true,
                           volume: true,
                           translations: {
                               select: { locale: true, title: true, description: true },
@@ -274,6 +275,7 @@ export class CoursesPreviewService {
                             id: Number(f.id),
                             file: f.file,
                             file_type: f.file_type,
+                            storage: String(f.storage ?? 'upload'),
                             volume: f.volume,
                             translations: fTranslations,
                         };

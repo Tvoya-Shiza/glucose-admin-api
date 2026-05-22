@@ -134,6 +134,8 @@ export class CoursesDetailService {
                                 order: true,
                                 item_id: true,
                                 is_required: true,
+                                // Phase 20 — per-item access gate, applies to all types.
+                                accessibility: true,
                                 // Plan 05 will join Files / Quizzes / WebinarAssignment via item_id;
                                 // for Plan 03, surface only the raw item_id — UI labels by `type`.
                             },
@@ -164,6 +166,74 @@ export class CoursesDetailService {
                 : await this.prisma.webinarChapterSchedule.count({
                       where: { webinar_chapter_item_id: { in: itemIds } },
                   });
+
+        // Hydrate file / quiz / assignment refs in 3 batched queries (no N+1).
+        // WebinarChapterItem.item_id is a polymorphic FK — there is no Prisma relation,
+        // so we group ids by type and run one query per ref type.
+        const fileItemIds = new Set<number>();
+        const quizItemIds = new Set<number>();
+        const assignmentItemIds = new Set<number>();
+        for (const c of row.chapters as any[]) {
+            for (const it of c.items as any[]) {
+                const refId = Number(it.item_id);
+                if (it.type === 'file') fileItemIds.add(refId);
+                else if (it.type === 'quiz') quizItemIds.add(refId);
+                else if (it.type === 'assignment') assignmentItemIds.add(refId);
+            }
+        }
+
+        const [files, quizzes, assignments] = await Promise.all([
+            fileItemIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.files.findMany({
+                      where: { id: { in: Array.from(fileItemIds) } },
+                      select: {
+                          id: true,
+                          file_type: true,
+                          storage: true,
+                          file: true,
+                          volume: true,
+                          accessibility: true,
+                          translations: {
+                              where: { locale: 'kz' },
+                              select: { locale: true, title: true, description: true },
+                              take: 1,
+                          },
+                      },
+                  }),
+            quizItemIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.quizzes.findMany({
+                      where: { id: { in: Array.from(quizItemIds) } },
+                      select: {
+                          id: true,
+                          translations: {
+                              where: { locale: 'kz' },
+                              select: { title: true },
+                              take: 1,
+                          },
+                      },
+                  }),
+            assignmentItemIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.webinarAssignment.findMany({
+                      where: { id: { in: Array.from(assignmentItemIds) } },
+                      select: {
+                          id: true,
+                          translations: {
+                              where: { locale: 'kz' },
+                              select: { title: true },
+                              take: 1,
+                          },
+                      },
+                  }),
+        ]);
+
+        const fileById = new Map<number, any>((files as any[]).map((f) => [Number(f.id), f]));
+        const quizById = new Map<number, any>((quizzes as any[]).map((q) => [Number(q.id), q]));
+        const assignmentById = new Map<number, any>(
+            (assignments as any[]).map((a) => [Number(a.id), a]),
+        );
 
         // Top-level translations.
         const translations: TranslationRowDto[] = (row.translations ?? [])
@@ -196,18 +266,59 @@ export class CoursesDetailService {
                     description: null, // schema has no description column on chapter translations
                 }));
 
-            const items: ChapterItemDto[] = (c.items as any[]).map((it: any) => ({
-                id: Number(it.id),
-                type: it.type as 'file' | 'quiz' | 'assignment',
-                order: it.order == null ? null : Number(it.order),
-                item_id: Number(it.item_id),
-                is_required: it.is_required !== false,
-                // Plan 03 surfaces the raw item_id only — Plan 05 will hydrate file/quiz/assignment refs.
-                file: null,
-                quiz: null,
-                assignment: null,
-                translations: [],
-            }));
+            const items: ChapterItemDto[] = (c.items as any[]).map((it: any) => {
+                const refId = Number(it.item_id);
+                let file: ChapterItemDto['file'] = null;
+                let quiz: ChapterItemDto['quiz'] = null;
+                let assignment: ChapterItemDto['assignment'] = null;
+                let itTranslations: TranslationRowDto[] = [];
+
+                if (it.type === 'file') {
+                    const f = fileById.get(refId);
+                    if (f) {
+                        file = {
+                            id: Number(f.id),
+                            file_type: f.file_type,
+                            storage: f.storage,
+                            file: f.file,
+                            volume: f.volume,
+                            accessibility: f.accessibility,
+                        };
+                        itTranslations = (f.translations ?? []).map((t: any) => ({
+                            locale: 'kz' as const,
+                            title: t.title,
+                            description: t.description ?? null,
+                        }));
+                    }
+                } else if (it.type === 'quiz') {
+                    const q = quizById.get(refId);
+                    if (q) {
+                        // Quizzes has no slug column — surface KZ translation title as label proxy.
+                        quiz = { id: Number(q.id), slug: q.translations?.[0]?.title ?? '' };
+                    }
+                } else if (it.type === 'assignment') {
+                    const a = assignmentById.get(refId);
+                    if (a) {
+                        assignment = {
+                            id: Number(a.id),
+                            title: a.translations?.[0]?.title ?? '',
+                        };
+                    }
+                }
+
+                return {
+                    id: Number(it.id),
+                    type: it.type as 'file' | 'quiz' | 'assignment',
+                    order: it.order == null ? null : Number(it.order),
+                    item_id: refId,
+                    is_required: it.is_required !== false,
+                    accessibility: (it.accessibility ?? 'free') as 'free' | 'paid',
+                    file,
+                    quiz,
+                    assignment,
+                    translations: itTranslations,
+                };
+            });
 
             return {
                 id: Number(c.id),

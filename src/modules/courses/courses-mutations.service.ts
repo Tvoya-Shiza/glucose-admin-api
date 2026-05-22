@@ -120,6 +120,8 @@ export class CoursesMutationsService {
                     thumbnail: dto.thumbnail ?? '',
                     is_paid: dto.is_paid === true,
                     strict_progress: dto.strict_progress === true,
+                    // Estimated study time in minutes. Optional — null/undefined = unknown.
+                    duration: typeof dto.duration === 'number' ? dto.duration : null,
                     created_at: now,
                 },
                 select: { id: true },
@@ -186,6 +188,9 @@ export class CoursesMutationsService {
         else if (typeof dto.category_id === 'number') data.category_id = dto.category_id;
         if (typeof dto.is_paid === 'boolean') data.is_paid = dto.is_paid;
         if (typeof dto.strict_progress === 'boolean') data.strict_progress = dto.strict_progress;
+        // `null` clears the duration, an integer sets it. `undefined` = leave as-is.
+        if (dto.duration === null) data.duration = null;
+        else if (typeof dto.duration === 'number') data.duration = dto.duration;
 
         const kzTranslations = Array.isArray(dto.translations)
             ? dto.translations.filter((t) => t.locale === 'kz')

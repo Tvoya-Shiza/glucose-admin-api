@@ -285,6 +285,7 @@ export class CoursesContentService {
             file_url?: string;
             file_type?: string;
             volume?: string | number;
+            storage?: string;
         },
         itemId?: number,
     ): Promise<ChapterItemDto> {
@@ -318,12 +319,14 @@ export class CoursesContentService {
             if (dto.type === 'file') {
                 if (!fileId || fileId === 0) {
                     // Create a fresh Files row. For rich-text-only items, file='' / file_type='text/html' / volume='0'.
+                    // For YouTube / Vimeo / external embeds the client passes storage='youtube'|'vimeo'|'iframe'
+                    // so the user-API can render with the right player. Defaults to 'upload' for binary uploads.
                     const file: any = await tx.files.create({
                         data: {
                             creator_id: actor.id,
                             webinar_id: courseId,
                             chapter_id: dto.chapter_id,
-                            storage: 'upload',
+                            storage: (dto.storage ?? 'upload') as any,
                             file: dto.file_url ?? '',
                             file_type: dto.file_type ?? 'text/html',
                             volume: String(dto.volume ?? '0'),
@@ -353,6 +356,7 @@ export class CoursesContentService {
                     if (dto.file_url !== undefined) fileData.file = dto.file_url;
                     if (dto.file_type !== undefined) fileData.file_type = dto.file_type;
                     if (dto.volume !== undefined) fileData.volume = String(dto.volume);
+                    if (dto.storage !== undefined) fileData.storage = dto.storage;
                     if (dto.accessibility !== undefined) fileData.accessibility = dto.accessibility;
                     if (Object.keys(fileData).length > 0) {
                         fileData.updated_at = now;
@@ -429,6 +433,10 @@ export class CoursesContentService {
             }
 
             // Create or update WebinarChapterItem.
+            //
+            // Phase 20: `accessibility` is now an item-level column. We write it
+            // for ALL types (file/quiz/assignment). For `type='file'` the value is
+            // ALSO mirrored onto Files.accessibility above (legacy gate path).
             if (chapterItemId) {
                 const data: Record<string, unknown> = {
                     type: dto.type,
@@ -437,6 +445,7 @@ export class CoursesContentService {
                 };
                 if (typeof dto.order === 'number') data.order = dto.order;
                 if (typeof dto.is_required === 'boolean') data.is_required = dto.is_required;
+                if (dto.accessibility !== undefined) data.accessibility = dto.accessibility;
                 await tx.webinarChapterItem.update({ where: { id: chapterItemId }, data });
             } else {
                 // Auto-assign order if not provided.
@@ -457,6 +466,7 @@ export class CoursesContentService {
                         item_id: fileId,
                         order: nextOrder,
                         is_required: dto.is_required !== false,
+                        accessibility: dto.accessibility ?? 'free',
                         created_at: now,
                     },
                     select: { id: true },
@@ -504,7 +514,7 @@ export class CoursesContentService {
                 status: true,
                 translations: { select: { locale: true, title: true } },
                 items: {
-                    select: { id: true, type: true, order: true, item_id: true, is_required: true },
+                    select: { id: true, type: true, order: true, item_id: true, is_required: true, accessibility: true },
                     orderBy: [{ order: 'asc' }, { id: 'asc' }],
                 },
             },
@@ -528,6 +538,7 @@ export class CoursesContentService {
                 order: it.order == null ? null : Number(it.order),
                 item_id: Number(it.item_id),
                 is_required: it.is_required !== false,
+                accessibility: it.accessibility ?? 'free',
                 file: null,
                 quiz: null,
                 assignment: null,
@@ -539,7 +550,7 @@ export class CoursesContentService {
     private async readItemDto(tx: PrismaService, itemId: number): Promise<ChapterItemDto> {
         const row: any = await tx.webinarChapterItem.findFirst({
             where: { id: itemId },
-            select: { id: true, type: true, order: true, item_id: true, is_required: true },
+            select: { id: true, type: true, order: true, item_id: true, is_required: true, accessibility: true },
         });
         if (!row) throw new NotFoundException('items.not_in_course');
 
@@ -582,19 +593,33 @@ export class CoursesContentService {
         } else if (row.type === 'quiz') {
             const q: any = await tx.quizzes.findFirst({
                 where: { id: Number(row.item_id) },
-                select: { id: true, translations: { select: { title: true } } },
+                select: {
+                    id: true,
+                    translations: {
+                        where: { locale: 'kz' },
+                        select: { title: true },
+                        take: 1,
+                    },
+                },
             });
             if (q) {
-                // Quizzes has no slug column — surface translation title as label proxy.
+                // Quizzes has no slug column — surface KZ translation title as label proxy.
                 quiz = { id: Number(q.id), slug: q.translations?.[0]?.title ?? '' };
             }
         } else if (row.type === 'assignment') {
             const a: any = await tx.webinarAssignment.findFirst({
                 where: { id: Number(row.item_id) },
-                select: { id: true },
+                select: {
+                    id: true,
+                    translations: {
+                        where: { locale: 'kz' },
+                        select: { title: true },
+                        take: 1,
+                    },
+                },
             });
             if (a) {
-                assignment = { id: Number(a.id) };
+                assignment = { id: Number(a.id), title: a.translations?.[0]?.title ?? '' };
             }
         }
 
@@ -604,6 +629,7 @@ export class CoursesContentService {
             order: row.order == null ? null : Number(row.order),
             item_id: Number(row.item_id),
             is_required: row.is_required !== false,
+            accessibility: row.accessibility ?? 'free',
             file,
             quiz,
             assignment,

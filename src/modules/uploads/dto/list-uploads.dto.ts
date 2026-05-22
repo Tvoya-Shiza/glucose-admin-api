@@ -15,11 +15,26 @@ import type { UploadKind } from '../upload-token.signer';
  */
 export class ListUploadsQueryDto {
     @IsOptional()
-    @IsIn(['image', 'video', 'cover'])
+    @IsIn(['image', 'video', 'cover', 'document'])
     kind?: UploadKind;
 
     @IsOptional()
-    @IsIn(['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm'])
+    @IsIn([
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'video/mp4',
+        'video/webm',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain',
+        'application/zip',
+    ])
     mime?: string;
 
     @IsOptional()

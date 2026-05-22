@@ -104,4 +104,14 @@ export class CreateCourseDto {
     @IsOptional()
     @IsBoolean()
     strict_progress?: boolean;
+
+    /**
+     * Estimated time to complete the course, in MINUTES (Webinar.duration column).
+     * Operator-supplied at create time; can be edited later via UpdateCourseDto.
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    duration?: number;
 }

@@ -77,6 +77,9 @@ export interface PreviewFileRef {
     id: number;
     file: string; // file URL / disk path on schema (file_storage.upload-served via nginx /static/courses/)
     file_type: string;
+    /** Files.storage enum value — UI needs this to choose between <video> and <iframe>
+     *  for YouTube / Vimeo / iframe embed targets. */
+    storage: string;
     volume: string;
     translations: PreviewFileTranslation[];
 }

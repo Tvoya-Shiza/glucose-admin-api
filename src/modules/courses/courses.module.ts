@@ -42,15 +42,19 @@ import { CoursesCacheService } from './utils/courses-cache.service';
 @Module({
     imports: [AccessModule],
     controllers: [
+        // Static-path controller BEFORE the `:id` controller — Nest registers
+        // routes in declaration order, so `GET /courses/categories` would
+        // otherwise be swallowed by `CoursesDetailController.detail(:id)` and
+        // ParseIntPipe would 400 on the string "categories".
+        CourseCategoriesController,
         CoursesListController,
         CoursesMutationsController,
-        CoursesDetailController,
         CoursesContentController,
         CoursesScheduleController,
         CoursesTeacherController,
         CoursesPreviewController,
         CoursesProgressController,
-        CourseCategoriesController,
+        CoursesDetailController,
     ],
     providers: [
         CoursesListService,
@@ -64,6 +68,6 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CourseCategoriesService,
         CoursesCacheService,
     ],
-    exports: [],
+    exports: [CoursesProgressService],
 })
 export class CoursesModule {}

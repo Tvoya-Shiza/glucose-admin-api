@@ -106,9 +106,14 @@ export class UpsertItemDto {
      * FK target — Files.id when type='file', Quizzes.id when type='quiz',
      * WebinarAssignment.id when type='assignment'. Service validates the
      * referenced row exists AND belongs (transitively) to the same Webinar.
+     *
+     * `0` is the create-new sentinel when type='file' — the service spawns a
+     * fresh Files row from (file_url, file_type, volume, storage). For 'quiz'
+     * and 'assignment' the service still requires a real FK (>= 1) and throws
+     * `items.{quiz,assignment}_not_found` on miss.
      */
     @IsInt()
-    @Min(1)
+    @Min(0)
     item_id!: number;
 
     @IsOptional()
@@ -117,10 +122,16 @@ export class UpsertItemDto {
     order?: number;
 
     /**
-     * Phase 13 — content-level access toggle.
-     * Only honored when type='file' — maps to Files.accessibility ('free' | 'paid').
-     * IGNORED when type='quiz' or 'assignment' (those are gated by course `is_paid`
-     * + purchase, not per-item).
+     * Phase 20 — per-item content-level access toggle. Maps to
+     * `WebinarChapterItem.accessibility` for ALL item types ('file', 'quiz',
+     * 'assignment'). For 'file' the service ALSO mirrors the value onto the
+     * linked `Files.accessibility` row so direct-file routes (getFile by id)
+     * keep their existing gate.
+     *
+     * Phase 13 (legacy): only `Files.accessibility` was honored, so this
+     * field was IGNORED for quizzes/assignments. Phase 20 lifts that
+     * restriction — quiz/assignment items can now be marked 'free' (visible
+     * without purchase) or 'paid' (requires course access) independently.
      */
     @IsOptional()
     @IsIn(['free', 'paid'])
@@ -152,4 +163,44 @@ export class UpsertItemDto {
     @IsOptional()
     @IsBoolean()
     is_required?: boolean;
+
+    /**
+     * file_url / file_type / volume / storage are honored only when type='file'.
+     * On create (item_id=0) they populate the new Files row; on update they
+     * patch the existing row when present (omitted = leave as-is).
+     *
+     * `storage` maps to the Files.storage enum — 'upload' for binary uploads,
+     * 'youtube' | 'vimeo' | 'iframe' for embedded video / external iframe
+     * targets. The client picks the right value via parseVideoUrl on the
+     * "Video URL" tab; we forward it as a plain string and Prisma rejects
+     * out-of-enum values at insert time.
+     */
+    @IsOptional()
+    @IsString()
+    @Length(0, 2048)
+    file_url?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 128)
+    file_type?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 64)
+    volume?: string;
+
+    @IsOptional()
+    @IsIn(['upload', 'youtube', 'vimeo', 'external_link', 'google_drive', 'dropbox', 'iframe', 's3', 'upload_archive', 'secure_host'])
+    storage?:
+        | 'upload'
+        | 'youtube'
+        | 'vimeo'
+        | 'external_link'
+        | 'google_drive'
+        | 'dropbox'
+        | 'iframe'
+        | 's3'
+        | 'upload_archive'
+        | 'secure_host';
 }

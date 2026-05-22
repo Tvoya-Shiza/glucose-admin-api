@@ -26,7 +26,7 @@ export const ANALYTICS_INVALIDATE_PATTERN = `${ANALYTICS_CACHE_NAMESPACE}:*`;
  * the cache key so that an admin-kpi miss does not stampede a curator-overview
  * computation, and vice-versa.
  */
-export type AnalyticsSurface = 'admin-kpi' | 'curator-overview' | 'teacher-overview';
+export type AnalyticsSurface = 'admin-kpi' | 'curator-overview' | 'teacher-overview' | 'quiz-results-stats';
 
 /**
  * Build a deterministic cache key for an analytics endpoint.

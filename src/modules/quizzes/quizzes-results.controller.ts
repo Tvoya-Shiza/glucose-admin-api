@@ -7,7 +7,9 @@ import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { ListResultsDto } from './dto/list-results.dto';
+import { ResultsStatsDto } from './dto/results-stats.dto';
 import { QuizzesResultsService } from './quizzes-results.service';
+import { QuizzesResultsStatsService } from './quizzes-results-stats.service';
 
 /**
  * QZ-08 + QZ-09 — GET /admin-api/v1/admin/quiz-results (Plan 07).
@@ -31,7 +33,10 @@ import { QuizzesResultsService } from './quizzes-results.service';
 @Controller('admin-api/v1/admin/quiz-results')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
 export class QuizzesResultsController {
-    constructor(private readonly svc: QuizzesResultsService) {}
+    constructor(
+        private readonly svc: QuizzesResultsService,
+        private readonly statsSvc: QuizzesResultsStatsService,
+    ) {}
 
     @Get()
     @Roles('admin', 'curator', 'teacher')
@@ -41,5 +46,20 @@ export class QuizzesResultsController {
         @Query() filters: ListResultsDto,
     ) {
         return this.svc.listResults({ id: actor.id, role_name: actor.role_name }, filters);
+    }
+
+    /**
+     * QZ-10 — analytics surface for the audit page. Returns totals + daily
+     * attempts-by-status trend + top quizzes + top groups for the same scope
+     * the list endpoint would return for this actor.
+     */
+    @Get('stats')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.results_view')
+    public async statsResults(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Query() filters: ResultsStatsDto,
+    ) {
+        return this.statsSvc.compute({ id: actor.id, role_name: actor.role_name }, filters);
     }
 }

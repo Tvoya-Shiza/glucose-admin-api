@@ -20,6 +20,7 @@ import { QuizBadgeItemsController } from './quiz-badge-items.controller';
 import { QuizBadgeItemsService } from './quiz-badge-items.service';
 import { QuizzesResultsController } from './quizzes-results.controller';
 import { QuizzesResultsService } from './quizzes-results.service';
+import { QuizzesResultsStatsService } from './quizzes-results-stats.service';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 
 /**
@@ -65,6 +66,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizBadgesService,
         QuizBadgeItemsService,
         QuizzesResultsService,
+        QuizzesResultsStatsService,
         QuizzesCacheService,
     ],
     exports: [],

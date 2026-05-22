@@ -37,6 +37,10 @@ export class CourseAccessorRowDto {
     last_course_activity!: number | null;
     /** TRUE when refund_at IS NULL AND access is not expired. */
     is_active!: boolean;
+    /** Aggregate progress on REQUIRED items. `total` is the same for everyone on this
+     *  course; `done` is per-user; `percent` is a 0..1 ratio. Null only if the
+     *  progress aggregator could not run (transient errors). */
+    progress!: { done: number; total: number; percent: number };
 }
 
 export class CourseAccessorsListResponseDto {

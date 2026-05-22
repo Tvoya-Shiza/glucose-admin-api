@@ -96,4 +96,16 @@ export class UpdateCourseDto {
     @IsOptional()
     @IsBoolean()
     strict_progress?: boolean;
+
+    /**
+     * Estimated time to complete the course, in MINUTES (Webinar.duration column on
+     * schema). Operator-supplied — there is no automatic aggregation from chapter
+     * items yet. Pass `null` to clear. UI formats this as "X сағ Y мин" on display.
+     * Capped at 100_000 minutes (~70 days of pure study time) as a safety guard.
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    duration?: number | null;
 }
