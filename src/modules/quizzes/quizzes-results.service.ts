@@ -139,6 +139,10 @@ export class QuizzesResultsService {
         }
 
         // ---- Total + rows in parallel ----
+        // NOTE: quiz relation is fetched in a separate query below to avoid
+        // PrismaClientUnknownRequestError when quiz_id references a deleted quiz
+        // (FK orphan). Prisma throws "Field quiz is required, got null" when the
+        // relation is inlined in select and the referenced row is missing.
         const [total, rowsRaw] = await Promise.all([
             this.prisma.quizResult.count({ where }),
             this.prisma.quizResult.findMany({
@@ -155,13 +159,6 @@ export class QuizzesResultsService {
                     user_grade: true,
                     status: true,
                     created_at: true,
-                    quiz: {
-                        select: {
-                            id: true,
-                            version: true,
-                            translations: { select: { locale: true, title: true } },
-                        },
-                    },
                     user: {
                         select: { id: true, full_name: true, email: true },
                     },
@@ -169,7 +166,23 @@ export class QuizzesResultsService {
             }),
         ]);
 
-        const rows: QuizResultRowDto[] = (rowsRaw as any[]).map((r) => this.mapRow(r));
+        // Separate quiz lookup: missing quizzes (deleted FK targets) map to null.
+        const quizIds = [...new Set((rowsRaw as any[]).map((r) => Number(r.quiz_id)).filter(Boolean))];
+        const quizRows = quizIds.length > 0
+            ? await this.prisma.quizzes.findMany({
+                  where: { id: { in: quizIds } },
+                  select: {
+                      id: true,
+                      version: true,
+                      translations: { select: { locale: true, title: true } },
+                  },
+              })
+            : [];
+        const quizMap = new Map<number, (typeof quizRows)[number]>(quizRows.map((q) => [Number(q.id), q]));
+
+        const rows: QuizResultRowDto[] = (rowsRaw as any[]).map((r) =>
+            this.mapRow({ ...r, quiz: quizMap.get(Number(r.quiz_id)) ?? null }),
+        );
 
         return { rows, total, page, page_size };
     }
