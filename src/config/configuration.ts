@@ -44,6 +44,15 @@ export const configuration = () => ({
         // Dev sets UPLOAD_SERVE_STATIC=true so previews work without nginx.
         serveStatic: (process.env.UPLOAD_SERVE_STATIC ?? '').toLowerCase() === 'true',
     },
+    // Shared uploads volume — user-api и admin-api монтируют один и тот же
+    // docker-volume `uploads-data` на /uploads (см. glucose-infrastructure/
+    // docker-compose.yml). Используется для отдачи файлов сабмишенов
+    // студентов через BFF (admin-api → submission file stream).
+    sharedStorage: {
+        baseDir:
+            process.env.SHARED_STORAGE_BASE_DIR ??
+            ((process.env.NODE_ENV ?? 'development') === 'production' ? '/uploads' : './.uploads'),
+    },
     quizForce: {
         // Phase 6 Plan 04 (QZ-06) — force-confirm tokens for destructive quiz edits.
         // Distinct secret from JWT_ADMIN_SECRET / JWT_UPLOAD_SECRET so confused-deputy

@@ -16,6 +16,7 @@
         "prisma:generate": "prisma generate",
         "seed:permissions": "ts-node -r tsconfig-paths/register prisma/seeds/permissions.seed.ts",
         "seed:regions": "ts-node -r tsconfig-paths/register prisma/seeds/regions.seed.ts",
+        "seed:universities-kk": "ts-node -r tsconfig-paths/register prisma/seeds/universities-kk.seed.ts",
         "dump:regions": "ts-node -r tsconfig-paths/register scripts/dump-geonline-regions.ts",
         "prisma:migrate": "node scripts/forbid-migrate.cjs",
         "prisma:migrate:dev": "node scripts/forbid-migrate.cjs",

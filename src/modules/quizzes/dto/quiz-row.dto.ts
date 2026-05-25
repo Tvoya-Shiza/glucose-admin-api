@@ -50,6 +50,14 @@ export interface QuizRowDto {
     /** null = unlimited attempts. */
     attempt: number | null;
     certificate: boolean;
+    /** Phase 22 — controls public-catalog visibility. */
+    is_listed: boolean;
+    /** Phase 22 — paid-quiz flag. */
+    is_paid: boolean;
+    /** Phase 22 — Decimal(15,3) as string. null when free. */
+    price: string | null;
+    /** Phase 22 — days of access after purchase. null when free. */
+    access_days: number | null;
     /** _count.questions — server-side aggregate. */
     question_count: number;
     translation_completeness: RowTranslationCompleteness;

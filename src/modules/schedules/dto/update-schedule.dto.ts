@@ -29,11 +29,15 @@ export class UpdateScheduleDto {
     @Min(1)
     group_id?: number;
 
+    // course_id is partial-optional (PATCH), but `null` is no longer accepted —
+    // once bound, a schedule cannot have its course detached. Use create-then-
+    // delete to fully re-bind. Legacy rows with course_id=NULL remain readable
+    // (handled in list/detail services); on edit, the client forces a new value.
     @IsOptional()
     @Type(() => Number)
     @IsInt()
     @Min(1)
-    course_id?: number | null;
+    course_id?: number;
 
     @IsOptional()
     @Type(() => Number)

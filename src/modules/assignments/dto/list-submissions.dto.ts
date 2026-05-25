@@ -61,8 +61,16 @@ export interface SubmissionMessageView {
     message: string;
     /** Legacy column. New curator replies use a polymorphic message row instead. */
     curator_comment: string | null;
+    /** Display name (RFC 5987-safe; mojibake-normalized). */
     file_title: string | null;
-    file_path: string | null;
+    /**
+     * Stable admin-api URL of the attached file (`/v1/admin/assignments/.../messages/:id/file`).
+     * Clients hit it through the BFF proxy. null when message has no attachment.
+     *
+     * Replaces the legacy `file_path` field which exposed a raw relative storage
+     * path that 404'd when the browser tried to resolve it against the current page.
+     */
+    file_url: string | null;
     created_at: string;
 }
 

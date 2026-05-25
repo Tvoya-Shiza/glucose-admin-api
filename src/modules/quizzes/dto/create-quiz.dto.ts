@@ -6,6 +6,7 @@ import {
     IsBoolean,
     IsIn,
     IsInt,
+    IsNumberString,
     IsOptional,
     Min,
     ValidateNested,
@@ -30,8 +31,15 @@ import { TranslationDto } from './translation.dto';
  *     but the row badges as 'incomplete'.
  *   - subject_id / category_id are nullable FKs — DTO leaves both optional.
  *
+ * Pricing fields (Phase 22):
+ *   - is_listed defaults to true on schema; explicit false hides quiz from
+ *     public catalog (still usable inside courses + badges).
+ *   - is_paid defaults to false. When true, service enforces
+ *     price > 0 AND access_days > 0.
+ *   - price is sent as a decimal string (matches Prisma's Decimal contract;
+ *     BigInt-as-string convention applied to admin-api responses too).
+ *
  * Excluded fields (NOT writable from this DTO):
- *   - price (Decimal? — Phase 9 owns)
  *   - total_mark (server-computed from questions[].grade SUM)
  *   - version (server-only — Phase 1.08 versioning)
  */
@@ -80,6 +88,27 @@ export class CreateQuizDto {
     @IsInt()
     @Min(0)
     expiry_days?: number | null;
+
+    /** Phase 22 — controls public-catalog visibility. Default true on schema. */
+    @IsOptional()
+    @IsBoolean()
+    is_listed?: boolean;
+
+    /** Phase 22 — when true, service requires price > 0 AND access_days > 0. */
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
+
+    /** Phase 22 — decimal string (Decimal(15,3)). Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsNumberString({ no_symbols: false })
+    price?: string | null;
+
+    /** Phase 22 — days of access after purchase. Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    access_days?: number | null;
 
     @IsArray()
     @ArrayMinSize(1)

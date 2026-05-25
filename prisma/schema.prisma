@@ -536,6 +536,9 @@ model Quizzes {
   category_id                Int?
   subject_id                 Int?
   price                      Decimal?   @db.Decimal(15, 3)
+  is_paid                    Boolean    @default(false)
+  access_days                Int?       @db.UnsignedInt
+  is_listed                  Boolean    @default(true)
   time                       Int?       @default(0)
   attempt                    Int?
   pass_mark                  Int
@@ -666,17 +669,21 @@ model QuizQuestionTranslation {
 }
 
 model QuizQuestionAnswer {
-  id          Int     @id @default(autoincrement())
-  question_id Int     @db.UnsignedInt
-  parent_id   Int?    @db.UnsignedInt
-  image       String? @db.Text
-  correct     Boolean @default(false)
-  created_at  Int
-  updated_at  Int?
+  id              Int     @id @default(autoincrement())
+  question_id     Int     @db.UnsignedInt
+  parent_id       Int?    @db.UnsignedInt
+  match_target_id Int?    @db.UnsignedInt
+  image           String? @db.Text
+  correct         Boolean @default(false)
+  created_at      Int
+  updated_at      Int?
 
   question QuizQuestion         @relation("QuizQuestionAnswers", fields: [question_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   parent   QuizQuestionAnswer?  @relation("QuizQuestionAnswers", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   children QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
+
+  match_target QuizQuestionAnswer?  @relation("AnswerMatchTarget", fields: [match_target_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  matched_by   QuizQuestionAnswer[] @relation("AnswerMatchTarget")
 
   translations QuizQuestionAnswerTranslation[] @relation("QuizQuestionAnswerTranslations")
 
@@ -716,6 +723,10 @@ model QuizBadge {
   id               Int       @id @default(autoincrement())
   is_active        Boolean   @default(true)
   quiz_category_id Int?
+  price            Decimal?  @db.Decimal(15, 3)
+  is_paid          Boolean   @default(false)
+  access_days      Int?      @db.UnsignedInt
+  is_listed        Boolean   @default(true)
   created_at       DateTime  @default(now()) @db.Timestamp(0)
   updated_at       DateTime? @db.Timestamp(0)
 
@@ -1467,6 +1478,8 @@ model Notification {
   webinar_id Int?                @db.UnsignedInt
   title      String              @db.VarChar(255)
   message    String              @db.Text
+  kind       String?             @default("platform_update") @db.VarChar(64)
+  deep_link  String?             @db.VarChar(512)
   sender     NotificationSender? @default(system)
   type       NotificationType    @default(single)
   created_at Int                 @db.UnsignedInt
@@ -2045,6 +2058,7 @@ model University {
   address                 String? @db.VarChar(255)
   has_dormitory           Boolean @default(false)
   has_military_department Boolean @default(false)
+  is_private              Boolean @default(false)
   title_kk                String  @db.VarChar(255)
   short_desc_kk           String? @db.VarChar(1024)
   full_desc_kk            String? @db.Text

@@ -16,6 +16,8 @@ import { CoursesPreviewController } from './courses-preview.controller';
 import { CoursesPreviewService } from './courses-preview.service';
 import { CoursesProgressController } from './courses-progress.controller';
 import { CoursesProgressService } from './courses-progress.service';
+import { CoursesPickerItemsController } from './courses-picker-items.controller';
+import { CoursesPickerItemsService } from './courses-picker-items.service';
 import { CourseCategoriesController } from './course-categories.controller';
 import { CourseCategoriesService } from './course-categories.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
@@ -46,7 +48,11 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         // routes in declaration order, so `GET /courses/categories` would
         // otherwise be swallowed by `CoursesDetailController.detail(:id)` and
         // ParseIntPipe would 400 on the string "categories".
+        // Same applies to CoursesPickerItemsController which mounts `:id/picker-items`
+        // — ordered above CoursesDetailController so the static `picker-items` suffix
+        // wins against the catch-all `:id` if Nest's matching ever changes.
         CourseCategoriesController,
+        CoursesPickerItemsController,
         CoursesListController,
         CoursesMutationsController,
         CoursesContentController,
@@ -65,6 +71,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CoursesTeacherService,
         CoursesPreviewService,
         CoursesProgressService,
+        CoursesPickerItemsService,
         CourseCategoriesService,
         CoursesCacheService,
     ],

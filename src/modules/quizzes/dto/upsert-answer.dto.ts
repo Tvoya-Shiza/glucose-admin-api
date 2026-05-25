@@ -64,13 +64,30 @@ export class UpsertAnswerDto {
     question_id!: number;
 
     /**
-     * Self-FK for IDENTIFICATIVE pairs. null for non-identificative types and
-     * for LEFT-side anchor rows; the LEFT-side answer.id for RIGHT-side match rows.
+     * Legacy 1:1 pair link for identificative (pre-Phase-24). Kept on the DTO
+     * for backward compatibility but the new ENT-format editor leaves this as
+     * null and uses match_target_id instead.
      */
     @IsOptional()
     @IsInt()
     @Min(1)
     parent_id?: number | null;
+
+    /**
+     * Phase 24 ENT identificative format. For prompt rows (LEFT), this is the id
+     * of the correct option (RIGHT, shared pool) within the SAME question. For
+     * option rows and non-identificative answer rows, this MUST be null.
+     *
+     * Service validates: target answer exists, belongs to the same question_id,
+     * and itself has match_target_id == null (no chained references).
+     *
+     * Changing this value on an existing prompt is treated as destructive
+     * (force_confirm_token gate) — same as changing `correct`.
+     */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    match_target_id?: number | null;
 
     @IsBoolean()
     correct!: boolean;

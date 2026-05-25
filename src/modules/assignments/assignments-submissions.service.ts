@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
+import { normalizeMojibakeUtf8 } from '../../common/utils/mojibake';
 import { GradeSubmissionDto } from './dto/grade-submission.dto';
 import { ReplyMessageDto } from './dto/reply-message.dto';
 import type {
@@ -143,17 +144,24 @@ export class AssignmentsSubmissionsService {
             throw new NotFoundException({ message: 'submission.not_found', trans: 'admin.assignments.submission_not_found' });
         }
 
-        const messages: SubmissionMessageView[] = (row.messages ?? []).map((m: any) => ({
-            id: Number(m.id),
-            sender_id: Number(m.sender_id),
-            sender_name: m.sender?.full_name ?? null,
-            sender_role: m.sender?.role_name ?? null,
-            message: m.message ?? '',
-            curator_comment: m.curator_comment ?? null,
-            file_title: m.file_title ?? null,
-            file_path: m.file_path ?? null,
-            created_at: String(m.created_at),
-        }));
+        const messages: SubmissionMessageView[] = (row.messages ?? []).map((m: any) => {
+            const hasFile = Boolean(m.file_path);
+            return {
+                id: Number(m.id),
+                sender_id: Number(m.sender_id),
+                sender_name: m.sender?.full_name ?? null,
+                sender_role: m.sender?.role_name ?? null,
+                message: m.message ?? '',
+                curator_comment: m.curator_comment ?? null,
+                // Normalize double-encoded UTF-8 (cyrillic uploads from legacy education saved
+                // bytes interpreted as latin-1 and re-encoded). See common/utils/mojibake.ts.
+                file_title: normalizeMojibakeUtf8(m.file_title) ?? null,
+                file_url: hasFile
+                    ? `/v1/admin/assignments/${assignmentId}/submissions/${historyId}/messages/${Number(m.id)}/file`
+                    : null,
+                created_at: String(m.created_at),
+            };
+        });
 
         return {
             history_id: Number(row.id),

@@ -5,6 +5,7 @@ import {
     IsArray,
     IsBoolean,
     IsInt,
+    IsNumberString,
     IsOptional,
     Min,
     ValidateNested,
@@ -46,6 +47,27 @@ export class UpsertBadgeDto {
     @IsInt()
     @Min(1)
     quiz_category_id?: number | null;
+
+    /** Phase 23 — controls public-catalog visibility. Default true on schema. */
+    @IsOptional()
+    @IsBoolean()
+    is_listed?: boolean;
+
+    /** Phase 23 — when true, service requires price > 0 AND access_days > 0. */
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
+
+    /** Phase 23 — decimal string (Decimal(15,3)). Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsNumberString({ no_symbols: false })
+    price?: string | null;
+
+    /** Phase 23 — days of access after purchase. Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    access_days?: number | null;
 
     @IsArray()
     @ArrayMinSize(1)

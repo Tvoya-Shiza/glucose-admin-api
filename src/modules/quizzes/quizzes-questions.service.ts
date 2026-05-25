@@ -580,6 +580,7 @@ export function mapQuestionRow(q: any): any {
         answers: ((q.answers ?? []) as any[]).map((a) => ({
             id: Number(a.id),
             parent_id: a.parent_id == null ? null : Number(a.parent_id),
+            match_target_id: a.match_target_id == null ? null : Number(a.match_target_id),
             image: a.image ?? null,
             correct: !!a.correct,
             translations: ((a.translations ?? []) as any[])

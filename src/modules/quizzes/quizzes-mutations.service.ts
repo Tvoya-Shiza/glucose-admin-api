@@ -74,6 +74,8 @@ export class QuizzesMutationsService {
             if (!sub) throw new BadRequestException('quizzes.subject_not_found');
         }
 
+        const pricing = resolvePricingOnCreate(dto);
+
         const now = nowSec();
 
         const created: any = await this.prisma.$transaction(async (tx) => {
@@ -88,6 +90,10 @@ export class QuizzesMutationsService {
                     certificate: dto.certificate ?? false,
                     display_questions_randomly: dto.display_questions_randomly ?? false,
                     expiry_days: typeof dto.expiry_days === 'number' ? dto.expiry_days : null,
+                    is_listed: pricing.is_listed,
+                    is_paid: pricing.is_paid,
+                    price: pricing.price,
+                    access_days: pricing.access_days,
                     version: 1,
                     created_at: now,
                 },
@@ -149,6 +155,18 @@ export class QuizzesMutationsService {
         }
         if (dto.expiry_days === null) data.expiry_days = null;
         else if (typeof dto.expiry_days === 'number') data.expiry_days = dto.expiry_days;
+
+        if (touchesPricing(dto)) {
+            const snapshot: any = await this.prisma.quizzes.findUnique({
+                where: { id: existing.id },
+                select: { is_paid: true, price: true, access_days: true, is_listed: true },
+            });
+            const resolved = resolvePricingOnUpdate(dto, snapshot);
+            if (resolved.is_listed !== undefined) data.is_listed = resolved.is_listed;
+            if (resolved.is_paid !== undefined) data.is_paid = resolved.is_paid;
+            if (resolved.price !== undefined) data.price = resolved.price;
+            if (resolved.access_days !== undefined) data.access_days = resolved.access_days;
+        }
 
         const kzTranslations = Array.isArray(dto.translations)
             ? dto.translations.filter((t) => t.locale === 'kz')
@@ -240,6 +258,128 @@ export function nowSec(): number {
 }
 
 /**
+ * Phase 22 pricing helpers.
+ *
+ * Contract:
+ *   - is_listed defaults to true on create when omitted (matches schema default).
+ *   - is_paid defaults to false on create when omitted.
+ *   - When the resolved is_paid is true, both `price > 0` AND `access_days > 0`
+ *     MUST be present (either in the DTO or in the existing row for updates).
+ *   - When is_paid is false, price + access_days are cleared to null so a quiz
+ *     flipped back to free cannot keep stale paid metadata.
+ */
+type CreatePricingInput = {
+    is_listed?: boolean;
+    is_paid?: boolean;
+    price?: string | null;
+    access_days?: number | null;
+};
+
+type ResolvedCreate = {
+    is_listed: boolean;
+    is_paid: boolean;
+    price: string | null;
+    access_days: number | null;
+};
+
+export function resolvePricingOnCreate(dto: CreatePricingInput): ResolvedCreate {
+    const is_listed = dto.is_listed ?? true;
+    const is_paid = dto.is_paid ?? false;
+
+    if (!is_paid) {
+        return { is_listed, is_paid: false, price: null, access_days: null };
+    }
+
+    const priceStr = typeof dto.price === 'string' ? dto.price.trim() : '';
+    if (!priceStr || !(Number(priceStr) > 0)) {
+        throw new BadRequestException('quizzes.pricing_invalid_price');
+    }
+    const access_days = typeof dto.access_days === 'number' ? dto.access_days : 0;
+    if (!(access_days > 0)) {
+        throw new BadRequestException('quizzes.pricing_invalid_access_days');
+    }
+    return { is_listed, is_paid: true, price: priceStr, access_days };
+}
+
+export function touchesPricing(dto: CreatePricingInput): boolean {
+    return (
+        dto.is_listed !== undefined ||
+        dto.is_paid !== undefined ||
+        dto.price !== undefined ||
+        dto.access_days !== undefined
+    );
+}
+
+type ResolvedUpdate = {
+    is_listed?: boolean;
+    is_paid?: boolean;
+    price?: string | null;
+    access_days?: number | null;
+};
+
+export function resolvePricingOnUpdate(
+    dto: CreatePricingInput,
+    snapshot: { is_paid: boolean; price: unknown; access_days: number | null; is_listed: boolean },
+): ResolvedUpdate {
+    const out: ResolvedUpdate = {};
+
+    if (dto.is_listed !== undefined) out.is_listed = dto.is_listed;
+
+    const nextIsPaid = dto.is_paid !== undefined ? dto.is_paid : snapshot.is_paid;
+
+    if (dto.is_paid !== undefined) out.is_paid = dto.is_paid;
+
+    if (!nextIsPaid) {
+        // Flipped to free (or stayed free) — clear paid metadata.
+        if (dto.is_paid === false) {
+            out.price = null;
+            out.access_days = null;
+        } else if (dto.price !== undefined || dto.access_days !== undefined) {
+            // Free quiz shouldn't carry pricing fields at all; silently ignore
+            // explicit price/access_days writes when is_paid is false.
+            out.price = null;
+            out.access_days = null;
+        }
+        return out;
+    }
+
+    // nextIsPaid === true: validate resolved (DTO or existing) values.
+    let nextPrice: string | null;
+    if (dto.price !== undefined) {
+        const priceStr = typeof dto.price === 'string' ? dto.price.trim() : '';
+        if (!priceStr || !(Number(priceStr) > 0)) {
+            throw new BadRequestException('quizzes.pricing_invalid_price');
+        }
+        nextPrice = priceStr;
+        out.price = nextPrice;
+    } else {
+        // Use existing price (Prisma returns Decimal as string-like; coerce).
+        const existing = snapshot.price == null ? null : String(snapshot.price);
+        if (!existing || !(Number(existing) > 0)) {
+            throw new BadRequestException('quizzes.pricing_invalid_price');
+        }
+        nextPrice = existing;
+    }
+
+    let nextAccessDays: number;
+    if (dto.access_days !== undefined) {
+        if (typeof dto.access_days !== 'number' || !(dto.access_days > 0)) {
+            throw new BadRequestException('quizzes.pricing_invalid_access_days');
+        }
+        nextAccessDays = dto.access_days;
+        out.access_days = nextAccessDays;
+    } else {
+        const existing = snapshot.access_days;
+        if (typeof existing !== 'number' || !(existing > 0)) {
+            throw new BadRequestException('quizzes.pricing_invalid_access_days');
+        }
+        nextAccessDays = existing;
+    }
+
+    return out;
+}
+
+/**
  * Shared QuizDetailDto projection. Used by mutations + duplicate services.
  *
  * Pulls the full graph (translations, questions, answers, badges, category, subject)
@@ -263,6 +403,10 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             display_questions_randomly: true,
             expiry_days: true,
             total_mark: true,
+            is_listed: true,
+            is_paid: true,
+            price: true,
+            access_days: true,
             created_at: true,
             updated_at: true,
             translations: { select: { locale: true, title: true } },
@@ -299,6 +443,7 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
                         select: {
                             id: true,
                             parent_id: true,
+                            match_target_id: true,
                             image: true,
                             correct: true,
                             created_at: true,
@@ -352,6 +497,7 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
         const answers: AnswerDto[] = ((q.answers ?? []) as any[]).map((a) => ({
             id: Number(a.id),
             parent_id: a.parent_id == null ? null : Number(a.parent_id),
+            match_target_id: a.match_target_id == null ? null : Number(a.match_target_id),
             image: a.image ?? null,
             correct: !!a.correct,
             translations: ((a.translations ?? []) as any[])
@@ -407,6 +553,10 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
         certificate: !!row.certificate,
         display_questions_randomly: !!row.display_questions_randomly,
         expiry_days: row.expiry_days == null ? null : Number(row.expiry_days),
+        is_listed: !!row.is_listed,
+        is_paid: !!row.is_paid,
+        price: row.price == null ? null : String(row.price),
+        access_days: row.access_days == null ? null : Number(row.access_days),
         translations,
         translation_completeness,
         missing_locales,

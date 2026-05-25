@@ -41,7 +41,7 @@ export class SchedulesMutationsService {
             data: {
                 curator_id: dto.curator_id,
                 group_id: dto.group_id,
-                course_id: dto.course_id ?? null,
+                course_id: dto.course_id,
                 start_at: dto.start_at,
                 end_at: dto.end_at,
                 description: dto.description ?? null,
@@ -196,29 +196,47 @@ export class SchedulesMutationsService {
             else if (it.kind === 'file') fileIds.add(it.ref_id);
         }
 
+        // When course_id is bound to the schedule, every ref MUST belong to that
+        // course. Lessons / files / assignments are filtered by their own
+        // webinar_id column. Quizzes link to courses via WebinarChapterItem rows
+        // (`type='quiz'`, `item_id=quiz.id`) joined through WebinarChapter — the
+        // legacy WebinarQuiz junction is unused in production data. This mirrors
+        // the picker source-of-truth (CoursesPickerItemsService.listQuizzes).
+        const courseFilter = typeof args.course_id === 'number' ? { webinar_id: args.course_id } : {};
+
         const [lessons, quizzes, assignments, files] = await Promise.all([
             lessonIds.size === 0
                 ? Promise.resolve([] as Array<{ id: number }>)
                 : this.prisma.webinarChapter.findMany({
-                      where: { id: { in: Array.from(lessonIds) } },
+                      where: { id: { in: Array.from(lessonIds) }, ...courseFilter },
                       select: { id: true },
                   }),
             quizIds.size === 0
-                ? Promise.resolve([] as Array<{ id: number }>)
-                : this.prisma.quizzes.findMany({
-                      where: { id: { in: Array.from(quizIds) } },
-                      select: { id: true },
-                  }),
+                ? Promise.resolve([] as Array<{ quiz_id?: number; id?: number }>)
+                : typeof args.course_id === 'number'
+                  ? this.prisma.webinarChapterItem.findMany({
+                        where: {
+                            type: 'quiz',
+                            item_id: { in: Array.from(quizIds) },
+                            webinar_chapter: { webinar_id: args.course_id },
+                        },
+                        select: { item_id: true },
+                        distinct: ['item_id'],
+                    }).then((rows) => rows.map((r) => ({ quiz_id: r.item_id })))
+                  : this.prisma.quizzes.findMany({
+                        where: { id: { in: Array.from(quizIds) } },
+                        select: { id: true },
+                    }),
             assignmentIds.size === 0
                 ? Promise.resolve([] as Array<{ id: number }>)
                 : this.prisma.webinarAssignment.findMany({
-                      where: { id: { in: Array.from(assignmentIds) } },
+                      where: { id: { in: Array.from(assignmentIds) }, ...courseFilter },
                       select: { id: true },
                   }),
             fileIds.size === 0
                 ? Promise.resolve([] as Array<{ id: number }>)
                 : this.prisma.files.findMany({
-                      where: { id: { in: Array.from(fileIds) } },
+                      where: { id: { in: Array.from(fileIds) }, ...courseFilter },
                       select: { id: true },
                   }),
         ]);
@@ -230,8 +248,14 @@ export class SchedulesMutationsService {
             files.length !== fileIds.size
         ) {
             throw new BadRequestException({
-                message: 'schedule.item_not_found',
-                trans: 'admin.schedules.item_not_found',
+                message:
+                    typeof args.course_id === 'number'
+                        ? 'schedule.item_not_in_course'
+                        : 'schedule.item_not_found',
+                trans:
+                    typeof args.course_id === 'number'
+                        ? 'admin.schedules.item_not_in_course'
+                        : 'admin.schedules.item_not_found',
             });
         }
     }

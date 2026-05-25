@@ -38,6 +38,7 @@ import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StoriesModule } from './modules/stories/stories.module';
+import { RewardsModule } from './modules/rewards/rewards.module';
 import { UniversitiesModule } from './modules/universities/universities.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
@@ -118,6 +119,8 @@ import { PrismaModule } from './prisma/prisma.module';
         // Phase 18 — Per-item content unlock overrides (Feature B1, "Контроль
         // прогресса"). Skeleton in PR-2; full CRUD lands in PR-6.
         ProgressOverridesModule,
+        // Phase 25 — Reward rules admin CRUD (GET /rewards/rules, PATCH /rewards/rules/:type).
+        RewardsModule,
     ],
     controllers: [AppController],
     providers: [

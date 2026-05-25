@@ -4,6 +4,8 @@ import { AssignmentsListController } from './assignments-list.controller';
 import { AssignmentsListService } from './assignments-list.service';
 import { AssignmentsMutationsController } from './assignments-mutations.controller';
 import { AssignmentsMutationsService } from './assignments-mutations.service';
+import { AssignmentsSubmissionFilesController } from './assignments-submission-files.controller';
+import { AssignmentsSubmissionFilesService } from './assignments-submission-files.service';
 import { AssignmentsSubmissionsController } from './assignments-submissions.controller';
 import { AssignmentsSubmissionsService } from './assignments-submissions.service';
 
@@ -24,11 +26,13 @@ import { AssignmentsSubmissionsService } from './assignments-submissions.service
         AssignmentsListController,
         AssignmentsMutationsController,
         AssignmentsSubmissionsController,
+        AssignmentsSubmissionFilesController,
     ],
     providers: [
         AssignmentsListService,
         AssignmentsMutationsService,
         AssignmentsSubmissionsService,
+        AssignmentsSubmissionFilesService,
     ],
     exports: [],
 })

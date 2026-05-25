@@ -86,6 +86,7 @@ export class QuizzesListService {
         const filterWhere: any = {};
 
         if (query.status) filterWhere.status = query.status;
+        if (typeof query.is_listed === 'boolean') filterWhere.is_listed = query.is_listed;
         if (typeof query.category_id === 'number') filterWhere.category_id = query.category_id;
         if (typeof query.badge_id === 'number') {
             filterWhere.quiz_badge_items = { some: { quiz_badge_id: query.badge_id } };
@@ -135,6 +136,10 @@ export class QuizzesListService {
                     pass_mark: true,
                     attempt: true,
                     certificate: true,
+                    is_listed: true,
+                    is_paid: true,
+                    price: true,
+                    access_days: true,
                     created_at: true,
                     updated_at: true,
                     category_id: true,
@@ -206,6 +211,10 @@ export class QuizzesListService {
             pass_mark: Number(r.pass_mark ?? 0),
             attempt: r.attempt == null ? null : Number(r.attempt),
             certificate: !!r.certificate,
+            is_listed: !!r.is_listed,
+            is_paid: !!r.is_paid,
+            price: r.price == null ? null : String(r.price),
+            access_days: r.access_days == null ? null : Number(r.access_days),
             question_count: r._count?.questions ?? 0,
             translation_completeness,
             missing_locales,

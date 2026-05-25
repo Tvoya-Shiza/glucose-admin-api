@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsBoolean, IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 /**
  * QZ-01 / QZ-02 list-quizzes query DTO. All fields optional.
@@ -43,6 +43,19 @@ export class ListQuizzesDto {
     @IsOptional()
     @IsIn(['active', 'inactive'])
     status?: QuizStatusFilter;
+
+    /**
+     * Phase 22 — filter by public-catalog visibility.
+     * URL: `?is_listed=true` or `?is_listed=false`. Omit for "all".
+     */
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (value === true || value === 'true' || value === '1' || value === 1) return true;
+        if (value === false || value === 'false' || value === '0' || value === 0) return false;
+        return undefined;
+    })
+    @IsBoolean()
+    is_listed?: boolean;
 
     @IsOptional()
     @Type(() => Number)

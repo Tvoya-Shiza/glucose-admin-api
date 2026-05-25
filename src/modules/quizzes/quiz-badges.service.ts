@@ -144,12 +144,18 @@ export class QuizBadgesService {
             if (!cat) throw new BadRequestException('quiz_badges.category_not_found');
         }
 
+        const pricing = resolveBadgePricingOnCreate(dto);
+
         const created: any = await this.prisma.$transaction(async (tx) => {
             const row: any = await tx.quizBadge.create({
                 data: {
                     is_active: typeof dto.is_active === 'boolean' ? dto.is_active : true,
                     quiz_category_id:
                         typeof dto.quiz_category_id === 'number' ? dto.quiz_category_id : null,
+                    is_listed: pricing.is_listed,
+                    is_paid: pricing.is_paid,
+                    price: pricing.price,
+                    access_days: pricing.access_days,
                 },
                 select: { id: true },
             });
@@ -191,6 +197,18 @@ export class QuizBadgesService {
         if (categoryProvided) {
             data.quiz_category_id =
                 typeof dto.quiz_category_id === 'number' ? dto.quiz_category_id : null;
+        }
+
+        if (touchesBadgePricing(dto)) {
+            const snapshot: any = await this.prisma.quizBadge.findUnique({
+                where: { id },
+                select: { is_paid: true, price: true, access_days: true, is_listed: true },
+            });
+            const resolved = resolveBadgePricingOnUpdate(dto, snapshot);
+            if (resolved.is_listed !== undefined) data.is_listed = resolved.is_listed;
+            if (resolved.is_paid !== undefined) data.is_paid = resolved.is_paid;
+            if (resolved.price !== undefined) data.price = resolved.price;
+            if (resolved.access_days !== undefined) data.access_days = resolved.access_days;
         }
 
         await this.prisma.$transaction(async (tx) => {
@@ -275,6 +293,10 @@ export class QuizBadgesService {
             id: Number(r.id),
             is_active: !!r.is_active,
             quiz_category_id: r.quiz_category_id == null ? null : Number(r.quiz_category_id),
+            is_listed: !!r.is_listed,
+            is_paid: !!r.is_paid,
+            price: r.price == null ? null : String(r.price),
+            access_days: r.access_days == null ? null : Number(r.access_days),
             translations: {
                 kz: tlist.find((t) => t.locale === 'kz')?.title ?? null,
             },
@@ -287,4 +309,108 @@ export class QuizBadgesService {
                     : (r.updated_at ?? null),
         };
     }
+}
+
+/**
+ * Phase 23 pricing helpers — mirror of the quiz pricing helpers in
+ * quizzes-mutations.service.ts. Kept inline rather than extracted into a
+ * shared util because (a) only two callers today and (b) the rule of three
+ * for premature abstraction.
+ */
+type BadgePricingInput = {
+    is_listed?: boolean;
+    is_paid?: boolean;
+    price?: string | null;
+    access_days?: number | null;
+};
+
+export function resolveBadgePricingOnCreate(dto: BadgePricingInput): {
+    is_listed: boolean;
+    is_paid: boolean;
+    price: string | null;
+    access_days: number | null;
+} {
+    const is_listed = dto.is_listed ?? true;
+    const is_paid = dto.is_paid ?? false;
+
+    if (!is_paid) {
+        return { is_listed, is_paid: false, price: null, access_days: null };
+    }
+
+    const priceStr = typeof dto.price === 'string' ? dto.price.trim() : '';
+    if (!priceStr || !(Number(priceStr) > 0)) {
+        throw new BadRequestException('quiz_badges.pricing_invalid_price');
+    }
+    const access_days = typeof dto.access_days === 'number' ? dto.access_days : 0;
+    if (!(access_days > 0)) {
+        throw new BadRequestException('quiz_badges.pricing_invalid_access_days');
+    }
+    return { is_listed, is_paid: true, price: priceStr, access_days };
+}
+
+export function touchesBadgePricing(dto: BadgePricingInput): boolean {
+    return (
+        dto.is_listed !== undefined ||
+        dto.is_paid !== undefined ||
+        dto.price !== undefined ||
+        dto.access_days !== undefined
+    );
+}
+
+export function resolveBadgePricingOnUpdate(
+    dto: BadgePricingInput,
+    snapshot: { is_paid: boolean; price: unknown; access_days: number | null; is_listed: boolean },
+): {
+    is_listed?: boolean;
+    is_paid?: boolean;
+    price?: string | null;
+    access_days?: number | null;
+} {
+    const out: {
+        is_listed?: boolean;
+        is_paid?: boolean;
+        price?: string | null;
+        access_days?: number | null;
+    } = {};
+
+    if (dto.is_listed !== undefined) out.is_listed = dto.is_listed;
+
+    const nextIsPaid = dto.is_paid !== undefined ? dto.is_paid : snapshot.is_paid;
+
+    if (dto.is_paid !== undefined) out.is_paid = dto.is_paid;
+
+    if (!nextIsPaid) {
+        if (dto.is_paid === false || dto.price !== undefined || dto.access_days !== undefined) {
+            out.price = null;
+            out.access_days = null;
+        }
+        return out;
+    }
+
+    if (dto.price !== undefined) {
+        const priceStr = typeof dto.price === 'string' ? dto.price.trim() : '';
+        if (!priceStr || !(Number(priceStr) > 0)) {
+            throw new BadRequestException('quiz_badges.pricing_invalid_price');
+        }
+        out.price = priceStr;
+    } else {
+        const existing = snapshot.price == null ? null : String(snapshot.price);
+        if (!existing || !(Number(existing) > 0)) {
+            throw new BadRequestException('quiz_badges.pricing_invalid_price');
+        }
+    }
+
+    if (dto.access_days !== undefined) {
+        if (typeof dto.access_days !== 'number' || !(dto.access_days > 0)) {
+            throw new BadRequestException('quiz_badges.pricing_invalid_access_days');
+        }
+        out.access_days = dto.access_days;
+    } else {
+        const existing = snapshot.access_days;
+        if (typeof existing !== 'number' || !(existing > 0)) {
+            throw new BadRequestException('quiz_badges.pricing_invalid_access_days');
+        }
+    }
+
+    return out;
 }

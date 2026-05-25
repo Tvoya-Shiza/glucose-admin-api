@@ -89,12 +89,33 @@ export class QuizzesAnswersService {
             }
         }
 
+        // Phase 24: match_target_id cross-question + chain checks. The target must
+        // exist in the SAME question and itself be an option (match_target_id = null) —
+        // we don't allow prompts to point to prompts.
+        if (dto.match_target_id != null) {
+            const target: any = await this.prisma.quizQuestionAnswer.findUnique({
+                where: { id: dto.match_target_id },
+                select: { id: true, question_id: true, match_target_id: true },
+            });
+            if (!target || Number(target.question_id) !== questionId) {
+                throw new BadRequestException(
+                    apiResponse(0, 'match_target_in_other_question', 'quizzes.answers.match_target_in_other_question'),
+                );
+            }
+            if (target.match_target_id != null) {
+                throw new BadRequestException(
+                    apiResponse(0, 'match_target_is_prompt', 'quizzes.answers.match_target_is_prompt'),
+                );
+            }
+        }
+
         const now = nowSec();
         const created = await this.prisma.$transaction(async (tx) => {
             const a: any = await tx.quizQuestionAnswer.create({
                 data: {
                     question_id: questionId,
                     parent_id: dto.parent_id ?? null,
+                    match_target_id: dto.match_target_id ?? null,
                     correct: !!dto.correct,
                     image: dto.image ?? null,
                     created_at: now,
@@ -172,12 +193,39 @@ export class QuizzesAnswersService {
             }
         }
 
+        // Phase 24: same cross-question + chain checks for match_target_id.
+        if (dto.match_target_id != null) {
+            // Anti-self-reference: prompt cannot point to itself.
+            if (dto.match_target_id === answerId) {
+                throw new BadRequestException(
+                    apiResponse(0, 'match_target_self', 'quizzes.answers.match_target_self'),
+                );
+            }
+            const target: any = await this.prisma.quizQuestionAnswer.findUnique({
+                where: { id: dto.match_target_id },
+                select: { id: true, question_id: true, match_target_id: true },
+            });
+            if (!target || Number(target.question_id) !== questionId) {
+                throw new BadRequestException(
+                    apiResponse(0, 'match_target_in_other_question', 'quizzes.answers.match_target_in_other_question'),
+                );
+            }
+            if (target.match_target_id != null) {
+                throw new BadRequestException(
+                    apiResponse(0, 'match_target_is_prompt', 'quizzes.answers.match_target_is_prompt'),
+                );
+            }
+        }
+
         // ── Destructive-edit detection ─────────────────────────────────────────
         const fieldsChanged: string[] = [];
         if (!!dto.correct !== !!existing.correct) fieldsChanged.push('correct');
         const newParentId = dto.parent_id ?? null;
         const oldParentId = existing.parent_id == null ? null : Number(existing.parent_id);
         if (newParentId !== oldParentId) fieldsChanged.push('parent_id');
+        const newMatchId = dto.match_target_id ?? null;
+        const oldMatchId = existing.match_target_id == null ? null : Number(existing.match_target_id);
+        if (newMatchId !== oldMatchId) fieldsChanged.push('match_target_id');
         for (const t of dto.translations ?? []) {
             const ex = existing.translations.find((x: any) => x.locale === t.locale);
             if (!ex) {
@@ -206,6 +254,7 @@ export class QuizzesAnswersService {
                 data: {
                     correct: !!dto.correct,
                     parent_id: dto.parent_id ?? null,
+                    match_target_id: dto.match_target_id ?? null,
                     image: dto.image ?? null,
                     updated_at: nowSec(),
                 },
@@ -354,6 +403,7 @@ export class QuizzesAnswersService {
         return {
             id: Number(a.id),
             parent_id: a.parent_id == null ? null : Number(a.parent_id),
+            match_target_id: a.match_target_id == null ? null : Number(a.match_target_id),
             image: a.image ?? null,
             correct: !!a.correct,
             translations: ((a.translations ?? []) as any[])

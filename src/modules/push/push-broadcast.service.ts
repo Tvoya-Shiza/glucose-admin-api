@@ -80,6 +80,10 @@ export class PushBroadcastService {
         const resolved = await this.audience.resolve(audience, actor);
         const audience_hash = resolved.audience_hash;
 
+        // Write in-app Notification rows for ALL recipients before FCM loop
+        // so students without FCM tokens also see the message in their bell inbox.
+        await this.writeInboxNotifications(payload, resolved.recipients, startedAt);
+
         let delivered = 0;
         let failed = 0;
         let duplicate = 0;
@@ -241,6 +245,47 @@ export class PushBroadcastService {
             this.logger.warn(
                 `pushNotificationLog.create failed user=${userId} trigger=${triggerType}: ${(err as Error)?.message}`,
             );
+        }
+    }
+
+    private mapCategoryToKind(category: string): string {
+        const map: Record<string, string> = {
+            info: 'platform_update',
+            promo: 'payment',
+            reminder: 'progress',
+            system: 'platform_update',
+        };
+        return map[category] ?? 'platform_update';
+    }
+
+    private async writeInboxNotifications(
+        payload: PushPayloadDto,
+        recipients: Array<{ id: number; has_fcm: boolean }>,
+        nowSec: number,
+    ): Promise<void> {
+        if (!recipients.length) return;
+        const INBOX_CHUNK = 500;
+        const kind = this.mapCategoryToKind(payload.category ?? 'info');
+
+        try {
+            for (let i = 0; i < recipients.length; i += INBOX_CHUNK) {
+                const chunk = recipients.slice(i, i + INBOX_CHUNK);
+                await this.prisma.notification.createMany({
+                    data: chunk.map((r) => ({
+                        user_id: r.id,
+                        title: payload.title_kz,
+                        message: payload.body_kz,
+                        kind,
+                        deep_link: payload.deep_link ?? null,
+                        type: 'single',
+                        sender: 'admin',
+                        created_at: nowSec,
+                    })) as any[],
+                    skipDuplicates: true,
+                });
+            }
+        } catch (err) {
+            this.logger.warn(`writeInboxNotifications failed: ${(err as Error)?.message}`);
         }
     }
 }

@@ -73,6 +73,13 @@ class EnvironmentVariables {
     @IsString()
     UPLOAD_SERVE_STATIC?: string;
 
+    // Shared uploads volume root — user-api uploaded files (student submissions
+    // for assignments) sit under this path. admin-api streams them through the
+    // BFF proxy. Defaults to /uploads (prod docker volume) / ./.uploads (dev).
+    @IsOptional()
+    @IsString()
+    SHARED_STORAGE_BASE_DIR?: string;
+
     // Phase 6 Plan 04 — force-confirm tokens for destructive quiz edits (QZ-06).
     // Distinct from JWT_ADMIN_SECRET / JWT_UPLOAD_SECRET so confused-deputy attempts
     // (presenting an admin Bearer or upload token as a force-confirm token) reject at

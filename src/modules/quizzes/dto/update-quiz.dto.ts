@@ -6,6 +6,7 @@ import {
     IsBoolean,
     IsIn,
     IsInt,
+    IsNumberString,
     IsOptional,
     Min,
     ValidateNested,
@@ -77,6 +78,27 @@ export class UpdateQuizDto {
     @IsInt()
     @Min(0)
     expiry_days?: number | null;
+
+    /** Phase 22 — controls public-catalog visibility. */
+    @IsOptional()
+    @IsBoolean()
+    is_listed?: boolean;
+
+    /** Phase 22 — when true, service requires price > 0 AND access_days > 0. */
+    @IsOptional()
+    @IsBoolean()
+    is_paid?: boolean;
+
+    /** Phase 22 — decimal string (Decimal(15,3)). Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsNumberString({ no_symbols: false })
+    price?: string | null;
+
+    /** Phase 22 — days of access after purchase. Ignored unless is_paid=true. */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    access_days?: number | null;
 
     @IsOptional()
     @IsArray()

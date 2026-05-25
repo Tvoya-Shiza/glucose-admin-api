@@ -49,8 +49,14 @@ export interface AnswerTranslationRef {
 
 export interface AnswerDto {
     id: number;
-    /** Self-FK: null = LEFT-side or non-identificative; N = RIGHT-side pointing to LEFT.id. */
+    /** Legacy 1:1 pair link (pre-Phase-24 identificative). Always null in new ENT format. */
     parent_id: number | null;
+    /**
+     * Phase 24 ENT identificative format. For prompt rows: id of the correct
+     * option from the shared pool. For option rows + non-identificative: null.
+     * Discriminator: `match_target_id != null` → this row is a prompt.
+     */
+    match_target_id: number | null;
     image: string | null;
     correct: boolean;
     translations: AnswerTranslationRef[];
@@ -112,6 +118,14 @@ export interface QuizDetailDto {
     certificate: boolean;
     display_questions_randomly: boolean;
     expiry_days: number | null;
+    /** Phase 22 — controls public-catalog visibility (true = listed at /quizzes). */
+    is_listed: boolean;
+    /** Phase 22 — paid-quiz flag. When true, price + access_days are required. */
+    is_paid: boolean;
+    /** Phase 22 — Decimal(15,3) as string. null when free. */
+    price: string | null;
+    /** Phase 22 — days of access after purchase. null when free. */
+    access_days: number | null;
     translations: QuizTranslationRef[];
     /** Quiz-level translation completeness; mirrors row badge. */
     translation_completeness: 'complete' | 'incomplete';

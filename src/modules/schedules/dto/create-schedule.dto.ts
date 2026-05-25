@@ -47,11 +47,13 @@ export class CreateScheduleDto {
     @Min(1)
     group_id!: number;
 
-    @IsOptional()
+    // Required: every schedule must be bound to a course. The DB column stays
+    // nullable for legacy rows, but new writes must specify a course so the
+    // items picker + ref validation can scope to it (assertRefsExist).
     @Type(() => Number)
     @IsInt()
     @Min(1)
-    course_id?: number;
+    course_id!: number;
 
     @Type(() => Number)
     @IsInt()
