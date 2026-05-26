@@ -126,7 +126,10 @@ export class CoursesPickerItemsService {
         take: number,
         page: number,
     ): Promise<PickerItemsResponseDto> {
-        const where: any = { webinar_id: courseId, status: 'active' };
+        const where: any = {
+            status: 'active',
+            OR: [{ webinar_id: courseId }, { webinar_id: null }],
+        };
         if (q.length > 0) where.translations = { some: { title: { contains: q } } };
 
         const [total, rows] = await this.prisma.$transaction([
