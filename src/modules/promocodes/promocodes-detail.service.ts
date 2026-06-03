@@ -1,5 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { PromocodesCacheService } from './utils/promocodes-cache.service';
+import { PROMOCODES_DETAIL_PREFIX } from './utils/promocodes-cache';
 
 /**
  * PRM-01 — promocode detail (Phase 7 Plan 05).
@@ -85,9 +87,17 @@ function decimalToStringOrNull(value: unknown): string | null {
 export class PromocodesDetailService {
     private readonly logger = new Logger(PromocodesDetailService.name);
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cache: PromocodesCacheService,
+    ) {}
 
     public async getDetail(id: number): Promise<PromocodeDetail> {
+        const cacheKey = `${PROMOCODES_DETAIL_PREFIX}:${id}`;
+        return this.cache.getOrSet(cacheKey, () => this.fetchDetail(id));
+    }
+
+    private async fetchDetail(id: number): Promise<PromocodeDetail> {
         const row: any = await this.prisma.promocode.findFirst({
             where: { id },
             include: { _count: { select: { usages: true } } },

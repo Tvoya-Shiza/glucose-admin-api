@@ -4,6 +4,8 @@ import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ListPromocodesDto } from './dto/list-promocodes.dto';
 import { PROMOCODE_SCOPE_RULES } from './promocodes.scope';
+import { PromocodesCacheService } from './utils/promocodes-cache.service';
+import { PROMOCODES_LIST_PREFIX } from './utils/promocodes-cache';
 
 /**
  * PRM-01 — paginated, scoped, filtered, search-able promocodes list (Plan 05).
@@ -60,7 +62,10 @@ export class PromocodesListService {
     public static readonly DEFAULT_PAGE_SIZE = 50;
     public static readonly MAX_PAGE_SIZE = 200;
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cache: PromocodesCacheService,
+    ) {}
 
     public async list(actor: ScopeActor, query: ListPromocodesDto): Promise<PromocodeListResponse> {
         const page = Math.max(1, query.page ?? 1);
@@ -70,6 +75,32 @@ export class PromocodesListService {
         );
         const sort = query.sort ?? 'created_at';
         const order: 'asc' | 'desc' = query.order ?? 'desc';
+
+        const fingerprint = JSON.stringify({
+            actor_id: actor.id,
+            role_name: actor.role_name,
+            page,
+            page_size,
+            sort,
+            order,
+            discount_type: query.discount_type ?? null,
+            is_active: query.is_active ?? null,
+            status_window: query.status_window ?? null,
+            q: query.q?.trim() ?? null,
+        });
+        const cacheKey = `${PROMOCODES_LIST_PREFIX}:${fingerprint}`;
+
+        return this.cache.getOrSet(cacheKey, () => this.fetchList(actor, query, page, page_size, sort, order));
+    }
+
+    private async fetchList(
+        actor: ScopeActor,
+        query: ListPromocodesDto,
+        page: number,
+        page_size: number,
+        sort: string,
+        order: 'asc' | 'desc',
+    ): Promise<PromocodeListResponse> {
         const now = Math.floor(Date.now() / 1000);
 
         // Filter where (status / discount_type / is_active / status_window / q).

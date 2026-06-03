@@ -4,6 +4,8 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import { ListUsagesDto } from './dto/list-usages.dto';
 import { PROMOCODE_SCOPE_RULES } from './promocodes.scope';
+import { PromocodesCacheService } from './utils/promocodes-cache.service';
+import { PROMOCODES_USAGES_PREFIX } from './utils/promocodes-cache';
 
 /**
  * PRM-02 — promocode usage list (Plan 05).
@@ -52,7 +54,10 @@ export class PromocodesUsagesService {
     public static readonly DEFAULT_PAGE_SIZE = 50;
     public static readonly MAX_PAGE_SIZE = 200;
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly cache: PromocodesCacheService,
+    ) {}
 
     public async list(
         actor: ScopeActor,
@@ -74,8 +79,20 @@ export class PromocodesUsagesService {
             Math.max(1, query.page_size ?? PromocodesUsagesService.DEFAULT_PAGE_SIZE),
         );
         const order: 'asc' | 'desc' = query.order ?? 'desc';
-        const skip = (page - 1) * page_size;
 
+        const fingerprint = JSON.stringify({ page, page_size, order });
+        const cacheKey = `${PROMOCODES_USAGES_PREFIX}:${promocodeId}:${fingerprint}`;
+
+        return this.cache.getOrSet(cacheKey, () => this.fetchUsages(promocodeId, page, page_size, order));
+    }
+
+    private async fetchUsages(
+        promocodeId: number,
+        page: number,
+        page_size: number,
+        order: 'asc' | 'desc',
+    ): Promise<PromocodeUsageListResponse> {
+        const skip = (page - 1) * page_size;
         const where: any = { promocode_id: promocodeId };
         const orderBy: any = { used_at: order };
 
