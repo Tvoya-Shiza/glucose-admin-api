@@ -533,6 +533,153 @@ export class UploadsService implements OnModuleInit {
     }
 
     /**
+     * Rename — update only the user-facing `original_name` (display name).
+     *
+     * The on-disk ULID filename and `file_url` are immutable, so this can never
+     * break a reference (banners.image / courses.image_cover / etc. keep working).
+     * Staff-only — controller enforces @Roles + files.create.
+     */
+    async renameFile(id: string, rawName: string): Promise<UploadAssetDto> {
+        const row = await this.prisma.uploadAsset.findFirst({
+            where: { id, deleted_at: null },
+            include: { folder: { select: { id: true, path: true } } },
+        });
+        if (!row) {
+            throw new NotFoundException('upload.asset_not_found');
+        }
+        const display = UploadsService.sanitizeDisplayName(rawName);
+        if (!display) {
+            throw new BadRequestException('upload.name_invalid');
+        }
+        const updated = await this.prisma.uploadAsset.update({
+            where: { id },
+            data: { original_name: display },
+            include: { folder: { select: { id: true, path: true } } },
+        });
+        return UploadsService.toAssetDto(updated);
+    }
+
+    /**
+     * Replace — overwrite the bytes of an existing asset IN PLACE.
+     *
+     * Same trust model as acceptUpload (BFF-bypass, X-Upload-Token IS the
+     * credential — D-13). The replacement MUST be the SAME MIME/kind as the
+     * original so the ULID filename + `file_url` stay identical and every
+     * reference keeps resolving. Updates `size` only (mime/filename unchanged).
+     *
+     * Caveat: nginx serves /static with `Cache-Control: immutable`, so a
+     * replaced file may be served stale by already-cached clients until their
+     * 30-day TTL lapses — inherent to "same URL, new bytes". Acceptable for an
+     * admin tool; a hard refresh shows the new content.
+     */
+    async replaceFile(id: string, token: string, file: Express.Multer.File | undefined): Promise<UploadAssetDto> {
+        if (!token) {
+            throw new UnauthorizedException('upload.token_missing');
+        }
+
+        // Verify signature + expiry (same gate as acceptUpload).
+        let claims: UploadTokenClaims;
+        try {
+            claims = verifyUploadToken(token, this.secret);
+        } catch (err) {
+            this.logger.debug(`replace token verify failed: ${(err as Error).message}`);
+            throw new UnauthorizedException('upload.token_invalid');
+        }
+
+        // Single-use jti.
+        const jtiKey = `geonline-admin:upload:jti:used:${claims.jti}`;
+        const ttlSeconds = Math.max(1, claims.exp - Math.floor(Date.now() / 1000));
+        const setResult = await this.redis.set(jtiKey, '1', 'EX', ttlSeconds, 'NX');
+        if (setResult !== 'OK') {
+            throw new ConflictException('upload.token_already_used');
+        }
+
+        const row = await this.prisma.uploadAsset.findFirst({
+            where: { id, deleted_at: null },
+            include: { folder: { select: { id: true, path: true } } },
+        });
+        if (!row) {
+            throw new NotFoundException('upload.asset_not_found');
+        }
+
+        // Validate the file against the token AND the target asset. Requiring the
+        // same MIME/kind keeps the extension (and thus filename + file_url) stable.
+        if (!file) {
+            throw new BadRequestException('upload.file_missing');
+        }
+        if (file.mimetype !== claims.content_type) {
+            throw new BadRequestException('upload.content_type_mismatch');
+        }
+        if (claims.kind !== row.kind || claims.content_type !== row.mime) {
+            throw new BadRequestException('upload.replace_type_mismatch');
+        }
+        if (file.size > claims.size) {
+            throw new BadRequestException('upload.size_exceeds_declared');
+        }
+        const cap = UploadsService.KIND_MAX_BYTES[claims.kind];
+        if (cap === undefined) {
+            throw new BadRequestException('upload.kind_not_allowed');
+        }
+        if (file.size > cap) {
+            throw new BadRequestException(`upload.size_exceeds_kind_cap_${cap}`);
+        }
+
+        // Resolve the existing on-disk path (baseDir + folder.path + filename),
+        // with the same belt-and-braces traversal defense as delete/move.
+        const folderPath = row.folder?.path ?? '';
+        const fullPath = folderPath === ''
+            ? path.resolve(this.baseDir, row.filename)
+            : path.resolve(this.baseDir, folderPath, row.filename);
+        const baseResolved = path.resolve(this.baseDir);
+        if (!fullPath.startsWith(baseResolved + path.sep)) {
+            throw new InternalServerErrorException('upload.path_resolution_failed');
+        }
+
+        try {
+            await fs.writeFile(fullPath, file.buffer, { mode: 0o640 });
+        } catch (err) {
+            this.logger.error(`replace write failed for ${id}: ${(err as Error).message}`);
+            throw new InternalServerErrorException('upload.write_failed');
+        }
+
+        const updated = await this.prisma.uploadAsset.update({
+            where: { id },
+            data: { size: file.size },
+            include: { folder: { select: { id: true, path: true } } },
+        });
+        return UploadsService.toAssetDto(updated);
+    }
+
+    /** Map a Prisma UploadAsset row (with folder include) to the wire DTO. */
+    private static toAssetDto(row: {
+        id: string;
+        actor_id: number;
+        folder_id: number | null;
+        kind: string;
+        mime: string;
+        size: number;
+        filename: string;
+        file_url: string;
+        original_name: string | null;
+        created_at: Date;
+        folder?: { id: number; path: string } | null;
+    }): UploadAssetDto {
+        return {
+            id: row.id,
+            actor_id: row.actor_id,
+            folder_id: row.folder_id,
+            folder_path: row.folder?.path ?? null,
+            kind: row.kind as UploadKind,
+            mime: row.mime,
+            size: row.size,
+            filename: row.filename,
+            file_url: row.file_url,
+            original_name: row.original_name,
+            created_at: row.created_at.toISOString(),
+        };
+    }
+
+    /**
      * Sanitize a user-supplied original filename for safe storage in DB + UI search.
      * Keeps the visual character of the name while stripping any path/control bytes.
      */
@@ -542,5 +689,25 @@ export class UploadsService implements OnModuleInit {
         }
         const trimmed = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
         return trimmed.length > 0 ? trimmed : null;
+    }
+
+    /**
+     * Sanitize an admin-supplied DISPLAY name (rename flow). Unlike
+     * sanitizeOriginalName (which hardens raw upload filenames to an ASCII
+     * subset), the rename name is set by an authenticated admin and is shown as
+     * escaped text in the file list — so we keep Unicode (Cyrillic etc.) and
+     * only strip path separators, angle brackets and control chars.
+     */
+    private static sanitizeDisplayName(raw: string): string | null {
+        if (typeof raw !== 'string') {
+            return null;
+        }
+        const cleaned = raw
+            // eslint-disable-next-line no-control-regex
+            .replace(/[\u0000-\u001F<>/\\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 120);
+        return cleaned.length > 0 ? cleaned : null;
     }
 }

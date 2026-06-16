@@ -65,6 +65,15 @@ export interface ChapterItemFileRef {
     accessibility: FileAccessibility;
 }
 
+/** Phase 29 — one PDF inside a multi-file PDF block. */
+export interface ChapterItemPdfRef {
+    id: number;
+    file: string;
+    volume: string;
+    /** KZ FileTranslations.title — the display label; '' when untitled. */
+    title: string;
+}
+
 export interface ChapterItemQuizRef {
     id: number;
     slug: string;
@@ -94,6 +103,12 @@ export interface ChapterItemDto {
     file: ChapterItemFileRef | null;
     quiz: ChapterItemQuizRef | null;
     assignment: ChapterItemAssignmentRef | null;
+    /**
+     * Phase 29 — non-empty when this file item is a multi-file PDF block. The
+     * `file` ref still points at the first PDF (back-compat); `pdfs` is the full
+     * ordered list. Empty array for non-PDF items.
+     */
+    pdfs: ChapterItemPdfRef[];
     /** Only present (non-empty) when type='file' — derived from FileTranslations join. */
     translations: TranslationRowDto[];
 }

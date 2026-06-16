@@ -312,11 +312,51 @@ export class CoursesContentService {
         }
 
         const now = nowSeconds();
+        // Phase 29 — multi-file PDF block. When present, the item becomes a PDF
+        // collection: one Files row per entry, linked via the bridge (ordered).
+        const pdfInputs = dto.pdf_files;
+        const isPdfBlock = dto.type === 'file' && Array.isArray(pdfInputs) && pdfInputs.length > 0;
         const result: any = await this.prisma.$transaction(async (tx) => {
             let fileId: number = dto.item_id;
             let chapterItemId: number | undefined = itemId;
+            let pdfFileIds: number[] | null = null;
 
-            if (dto.type === 'file') {
+            if (isPdfBlock) {
+                // Create one Files row per PDF (storage='upload', application/pdf).
+                // Title rule: the PRIMARY (first) file carries the block title (so the
+                // lesson label via pickTitle is meaningful); the rest use their own
+                // uploaded filename. Falls back to the filename when no block title.
+                const blockTitle = dto.translations?.find((t) => t.locale === 'kz')?.title?.trim() ?? '';
+                const createdIds: number[] = [];
+                for (let idx = 0; idx < pdfInputs!.length; idx++) {
+                    const pdf = pdfInputs![idx];
+                    const f: any = await tx.files.create({
+                        data: {
+                            creator_id: actor.id,
+                            webinar_id: courseId,
+                            chapter_id: dto.chapter_id,
+                            storage: 'upload' as any,
+                            file: pdf.file_url,
+                            file_type: 'application/pdf',
+                            volume: String(pdf.volume ?? '0'),
+                            accessibility: dto.accessibility ?? 'free',
+                            status: 'active',
+                            created_at: now,
+                        },
+                        select: { id: true },
+                    });
+                    const newId = Number(f.id);
+                    createdIds.push(newId);
+                    const label = idx === 0 ? blockTitle || pdf.name : pdf.name;
+                    if (label && label.trim()) {
+                        await tx.fileTranslations.create({
+                            data: { file_id: newId, locale: 'kz', title: label.slice(0, 255), description: null },
+                        });
+                    }
+                }
+                pdfFileIds = createdIds;
+                fileId = createdIds[0]; // item_id points at the first pdf (back-compat).
+            } else if (dto.type === 'file') {
                 if (!fileId || fileId === 0) {
                     // Create a fresh Files row. For rich-text-only items, file='' / file_type='text/html' / volume='0'.
                     // For YouTube / Vimeo / external embeds the client passes storage='youtube'|'vimeo'|'iframe'
@@ -474,6 +514,25 @@ export class CoursesContentService {
                 chapterItemId = Number(created.id);
             }
 
+            // Phase 29 — (re)write the PDF bridge rows for this item, ordered.
+            // Replaces the block's previous PDFs (old Files rows are retained,
+            // consistent with deleteItem's orphan-retain policy).
+            if (pdfFileIds) {
+                await tx.webinarChapterItemPdfFile.deleteMany({
+                    where: { webinar_chapter_item_id: chapterItemId },
+                });
+                for (let i = 0; i < pdfFileIds.length; i++) {
+                    await tx.webinarChapterItemPdfFile.create({
+                        data: {
+                            webinar_chapter_item_id: chapterItemId,
+                            file_id: pdfFileIds[i],
+                            sort_order: i,
+                            created_at: now,
+                        },
+                    });
+                }
+            }
+
             return this.readItemDto(tx as any, chapterItemId);
         });
 
@@ -542,6 +601,7 @@ export class CoursesContentService {
                 file: null,
                 quiz: null,
                 assignment: null,
+                pdfs: [],
                 translations: [],
             })),
         };
@@ -558,7 +618,35 @@ export class CoursesContentService {
         let file: ChapterItemDto['file'] = null;
         let quiz: ChapterItemDto['quiz'] = null;
         let assignment: ChapterItemDto['assignment'] = null;
+        let pdfs: ChapterItemDto['pdfs'] = [];
         let translations: ChapterItemDto['translations'] = [];
+
+        if (row.type === 'file') {
+            // Phase 29 — if this item is a multi-file PDF block, hydrate the
+            // ordered list from the bridge.
+            const pdfRows: any[] = await tx.webinarChapterItemPdfFile.findMany({
+                where: { webinar_chapter_item_id: Number(row.id) },
+                orderBy: { sort_order: 'asc' },
+                select: {
+                    file: {
+                        select: {
+                            id: true,
+                            file: true,
+                            volume: true,
+                            translations: { where: { locale: 'kz' }, select: { title: true }, take: 1 },
+                        },
+                    },
+                },
+            });
+            pdfs = pdfRows
+                .filter((r) => r.file)
+                .map((r) => ({
+                    id: Number(r.file.id),
+                    file: r.file.file,
+                    volume: r.file.volume,
+                    title: r.file.translations?.[0]?.title ?? '',
+                }));
+        }
 
         if (row.type === 'file') {
             const f: any = await tx.files.findFirst({
@@ -633,6 +721,7 @@ export class CoursesContentService {
             file,
             quiz,
             assignment,
+            pdfs,
             translations,
         };
     }

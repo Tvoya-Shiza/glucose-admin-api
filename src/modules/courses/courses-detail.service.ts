@@ -235,6 +235,38 @@ export class CoursesDetailService {
             (assignments as any[]).map((a) => [Number(a.id), a]),
         );
 
+        // Phase 29 — multi-file PDF blocks: one batched bridge query for all items.
+        const pdfRows =
+            itemIds.length === 0
+                ? ([] as any[])
+                : await this.prisma.webinarChapterItemPdfFile.findMany({
+                      where: { webinar_chapter_item_id: { in: itemIds } },
+                      orderBy: { sort_order: 'asc' },
+                      select: {
+                          webinar_chapter_item_id: true,
+                          file: {
+                              select: {
+                                  id: true,
+                                  file: true,
+                                  volume: true,
+                                  translations: { where: { locale: 'kz' }, select: { title: true }, take: 1 },
+                              },
+                          },
+                      },
+                  });
+        const pdfsByItem = new Map<number, ChapterItemDto['pdfs']>();
+        for (const r of pdfRows as any[]) {
+            if (!r.file) continue;
+            const list = pdfsByItem.get(Number(r.webinar_chapter_item_id)) ?? [];
+            list.push({
+                id: Number(r.file.id),
+                file: r.file.file,
+                volume: r.file.volume,
+                title: r.file.translations?.[0]?.title ?? '',
+            });
+            pdfsByItem.set(Number(r.webinar_chapter_item_id), list);
+        }
+
         // Top-level translations.
         const translations: TranslationRowDto[] = (row.translations ?? [])
             .filter((t: any) => t.locale === 'kz')
@@ -316,6 +348,7 @@ export class CoursesDetailService {
                     file,
                     quiz,
                     assignment,
+                    pdfs: pdfsByItem.get(Number(it.id)) ?? [],
                     translations: itTranslations,
                 };
             });

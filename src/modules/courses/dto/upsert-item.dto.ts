@@ -88,6 +88,27 @@ export class UpsertChapterDto {
 
 export type UpsertItemType = 'file' | 'quiz' | 'assignment';
 
+/**
+ * Phase 29 — one PDF inside a multi-file PDF block. `file_url` is the uploaded
+ * /static/courses/<ulid>.pdf path; `name` (optional) becomes the per-file label
+ * (FileTranslations.title) shown on the public app.
+ */
+export class PdfFileInputDto {
+    @IsString()
+    @Length(1, 2048)
+    file_url!: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 64)
+    volume?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 255)
+    name?: string;
+}
+
 export class UpsertItemDto {
     /** Omit on create. Present (matching path :itemId) on update. */
     @IsOptional()
@@ -203,4 +224,18 @@ export class UpsertItemDto {
         | 's3'
         | 'upload_archive'
         | 'secure_host';
+
+    /**
+     * Phase 29 — when present (type='file'), the item is a multi-file PDF block.
+     * The service creates one Files row per entry (storage='upload',
+     * file_type='application/pdf'), links them via the
+     * webinar_chapter_item_pdf_files bridge (ordered), and points item_id at the
+     * first. Replaces the block's previous PDFs on update.
+     */
+    @IsOptional()
+    @IsArray()
+    @ArrayMaxSize(50)
+    @ValidateNested({ each: true })
+    @Type(() => PdfFileInputDto)
+    pdf_files?: PdfFileInputDto[];
 }

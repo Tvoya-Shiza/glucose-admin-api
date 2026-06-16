@@ -7,6 +7,16 @@ import type { CourseDetailDto, TranslationRowDto } from './dto/course-detail.dto
 import { deriveTranslationCompleteness } from './utils/translation-completeness';
 import { CoursesCacheService } from './utils/courses-cache.service';
 import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
+import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
+
+/**
+ * Course descriptions are authored as Tiptap rich text (incl. external links).
+ * Sanitize server-side on EVERY write — final XSS gate (T-05-30, mirrors
+ * courses-content.service.ts). Empty/blank stays NULL (LongText column nullable).
+ */
+function sanitizeDescription(description: string | null | undefined): string | null {
+    return description ? sanitizeTiptapHtmlServer(description) : null;
+}
 
 /**
  * CRS-01 + CRS-07 — course create / update / soft-delete (Plan 02 task 2).
@@ -134,7 +144,7 @@ export class CoursesMutationsService {
                         webinar_id: w.id,
                         locale: t.locale,
                         title: t.title,
-                        description: t.description ?? null,
+                        description: sanitizeDescription(t.description),
                     })),
                 });
             }
@@ -261,7 +271,7 @@ export class CoursesMutationsService {
                             where: { id: row.id },
                             data: {
                                 title: t.title,
-                                description: t.description ?? null,
+                                description: sanitizeDescription(t.description),
                             },
                         });
                     } else {
@@ -270,7 +280,7 @@ export class CoursesMutationsService {
                                 webinar_id: existing.id,
                                 locale: t.locale,
                                 title: t.title,
-                                description: t.description ?? null,
+                                description: sanitizeDescription(t.description),
                             },
                         });
                     }

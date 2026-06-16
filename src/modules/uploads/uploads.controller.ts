@@ -26,6 +26,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { ListUploadsQueryDto } from './dto/list-uploads.dto';
 import { MoveFileDto } from './dto/move-file.dto';
+import { RenameFileDto } from './dto/rename-file.dto';
 import { UploadTokenRequestDto } from './dto/upload-token.dto';
 import { UploadTokenGuard } from './upload-token.guard';
 import { UploadsService } from './uploads.service';
@@ -94,6 +95,39 @@ export class UploadsController {
     @Audit('uploads.move', 'upload')
     public move(@Param('id') id: string, @Body() dto: MoveFileDto) {
         return this.service.moveFile(id, dto.folder_id ?? null);
+    }
+
+    @Patch(':id/rename')
+    @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('files.create')
+    @Audit('uploads.rename', 'upload')
+    public rename(@Param('id') id: string, @Body() dto: RenameFileDto) {
+        return this.service.renameFile(id, dto.original_name);
+    }
+
+    /**
+     * Replace an asset's content IN PLACE — same BFF-bypass trust model as
+     * /file (X-Upload-Token IS the credential, admin Bearer not trusted here).
+     * The asset id comes from the path; the token authorizes an actor with
+     * files.create rights. file_url stays identical (same MIME → same filename).
+     */
+    @Post(':id/replace')
+    @UseGuards(UploadTokenGuard)
+    @UseInterceptors(
+        FileInterceptor('file', {
+            storage: memoryStorage(),
+            limits: { fileSize: 200 * 1024 * 1024 },
+        }),
+    )
+    @Audit('uploads.replace', 'upload')
+    @HttpCode(HttpStatus.OK)
+    public replace(
+        @Param('id') id: string,
+        @Headers('x-upload-token') headerToken: string,
+        @UploadedFile() file: Express.Multer.File,
+    ) {
+        return this.service.replaceFile(id, headerToken, file);
     }
 
     @Delete(':id')

@@ -1061,8 +1061,27 @@ model WebinarChapterItem {
   creator           User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   schedules         WebinarChapterSchedule[] @relation("WebinarChapterSchedule")
   content_overrides CourseContentOverride[]  @relation("ItemContentOverrides")
+  // Phase 29 — extra PDF files attached to this item (type='file' PDF blocks).
+  pdf_files         WebinarChapterItemPdfFile[] @relation("ChapterItemPdfFiles")
 
   @@map("webinar_chapter_items")
+}
+
+/// Phase 29 — bridge: a single chapter item (type='file', PDF block) → many
+/// PDF `files` rows, ordered. Mirrors the canonical glucose-api schema.
+model WebinarChapterItemPdfFile {
+  id                      Int @id @default(autoincrement())
+  webinar_chapter_item_id Int
+  file_id                 Int
+  sort_order              Int @default(0)
+  created_at              Int
+
+  chapter_item WebinarChapterItem @relation("ChapterItemPdfFiles", fields: [webinar_chapter_item_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  file         Files              @relation("PdfFileLinks", fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([webinar_chapter_item_id, file_id], map: "uniq_wcipf_item_file")
+  @@index([webinar_chapter_item_id], map: "idx_wcipf_item")
+  @@map("webinar_chapter_item_pdf_files")
 }
 
 /// Phase 19 — per-item content unlock gates.
@@ -1144,6 +1163,9 @@ model Files {
   courseLearnings CourseLearning[] @relation("CourseLearningFiles")
 
   translations FileTranslations[] @relation("FileTranslations")
+
+  // Phase 29 — chapter-item PDF block links (this file used as a PDF material).
+  pdf_links WebinarChapterItemPdfFile[] @relation("PdfFileLinks")
 
   @@map("files")
 }
