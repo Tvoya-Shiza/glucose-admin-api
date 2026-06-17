@@ -58,7 +58,7 @@ export class CoursesPickerItemsService {
             case 'file':
                 return this.listFiles(courseId, q, skip, page_size, page);
             case 'assignment':
-                return this.listAssignments(courseId, q, skip, page_size, page);
+                return this.listAssignments(courseId, q, scope, skip, page_size, page);
             case 'quiz':
                 return this.listQuizzes(courseId, q, scope, skip, page_size, page);
         }
@@ -141,20 +141,32 @@ export class CoursesPickerItemsService {
         return this.shape(rows, total, page, take);
     }
 
+    /**
+     * Assignments carry their own nullable `webinar_id`. Two scopes:
+     *   - 'course' (default): assignments attachable to THIS course — bound to it
+     *     (webinar_id=courseId) OR unbound (webinar_id=null). Right for schedules.
+     *   - 'all': the whole catalog. Right for the course-content editor's attach
+     *     flow — but assignments bound to ANOTHER course can't actually be
+     *     attached (upsertItem rejects them), so they come back flagged
+     *     `disabled` instead of being hidden, matching the save rule exactly.
+     */
     private async listAssignments(
         courseId: number,
         q: string,
+        scope: PickerItemScope,
         skip: number,
         take: number,
         page: number,
     ): Promise<PickerItemsResponseDto> {
-        const where: any = {
-            status: 'active',
+        const where: any = { status: 'active' };
+        if (scope === 'course') {
             // Course-specific (webinar_id) OR global (null) assignments. `q` is
             // ANDed in as a second OR group so it doesn't clobber this scope OR.
-            OR: [{ webinar_id: courseId }, { webinar_id: null }],
-        };
-        if (q.length > 0) where.AND = [{ OR: this.searchOr(q) }];
+            where.OR = [{ webinar_id: courseId }, { webinar_id: null }];
+            if (q.length > 0) where.AND = [{ OR: this.searchOr(q) }];
+        } else if (q.length > 0) {
+            where.OR = this.searchOr(q);
+        }
 
         const [total, rows] = await this.prisma.$transaction([
             this.prisma.webinarAssignment.count({ where }),
@@ -162,6 +174,7 @@ export class CoursesPickerItemsService {
                 where,
                 select: {
                     id: true,
+                    webinar_id: true,
                     translations: {
                         where: { locale: { in: ['kz', 'ru'] } },
                         select: { locale: true, title: true },
@@ -173,7 +186,18 @@ export class CoursesPickerItemsService {
             }),
         ]);
 
-        return this.shape(rows, total, page, take);
+        // Attachable iff unbound or bound to THIS course (mirrors upsertItem).
+        // Only flag in 'all' scope — 'course' scope already returns only
+        // attachable rows, so nothing there is ever disabled.
+        const out: PickerItemRow[] = rows.map((r) => {
+            const linked = r.webinar_id != null && r.webinar_id !== courseId;
+            return {
+                id: Number(r.id),
+                ...flattenTranslationsToTitles(r.translations),
+                ...(scope === 'all' && linked ? { disabled: true, linked_course_id: r.webinar_id } : {}),
+            };
+        });
+        return { rows: out, total, page, page_size: take };
     }
 
     /**

@@ -58,6 +58,15 @@ export interface PickerItemRow {
     id: number;
     title_kz: string | null;
     title_ru: string | null;
+    /**
+     * Set only for assignment `scope='all'`: true when the item exists but
+     * cannot be attached to THIS course (it is already bound to a different
+     * course). The client renders these disabled with an "already linked" hint
+     * instead of hiding them, so the editor can see the title is taken.
+     */
+    disabled?: boolean;
+    /** The course this item is already bound to (populated alongside `disabled`). */
+    linked_course_id?: number | null;
 }
 
 export interface PickerItemsResponseDto {
