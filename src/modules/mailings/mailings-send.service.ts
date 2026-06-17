@@ -128,7 +128,7 @@ export class MailingsSendService {
                 const existing = await this.prisma.mailingLog.findFirst({
                     where: {
                         user_id: recipient.id,
-                        meta: { path: ['attempt_id'], equals: attemptId } as any,
+                        meta: { path: '$.attempt_id', equals: attemptId } as any,
                     },
                     select: { id: true },
                 });

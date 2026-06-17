@@ -6,6 +6,7 @@ import { UsersBulkController } from './users-bulk.controller';
 import { UsersBulkService } from './users-bulk.service';
 import { UsersCreateController } from './users-create.controller';
 import { UsersCreateService } from './users-create.service';
+import { UsersDeleteController } from './users-delete.controller';
 import { UsersDetailController } from './users-detail.controller';
 import { UsersDetailService } from './users-detail.service';
 import { UsersExportController } from './users-export.controller';
@@ -56,6 +57,8 @@ import { UsersRoleService } from './users-role.service';
         UsersExportController,
         UsersCreateController,
         UsersQuizzesController,
+        // DELETE /:id — method-specific, no static-DELETE collisions; before detail for tidiness.
+        UsersDeleteController,
         UsersDetailController,
     ],
     providers: [
