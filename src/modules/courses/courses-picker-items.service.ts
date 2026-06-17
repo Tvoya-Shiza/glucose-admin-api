@@ -3,23 +3,27 @@ import { PrismaService } from '../../prisma/prisma.service';
 import {
     ListPickerItemsDto,
     PickerItemRow,
+    PickerItemScope,
     PickerItemsResponseDto,
 } from './dto/list-picker-items.dto';
 import { flattenTranslationsToTitles } from './utils/flatten-translations';
 
 /**
- * Backs GET /admin-api/v1/admin/courses/:id/picker-items — used by the schedules
- * editor to populate the items pickers (lesson / quiz / assignment / file) scoped
- * to ONE course.
+ * Backs GET /admin-api/v1/admin/courses/:id/picker-items — populates the item
+ * pickers (lesson / quiz / assignment / file) for two consumers: the schedules
+ * editor (schedule an item already in the course) and the course-content editor
+ * (attach a new entity as a chapter item).
  *
- * RBAC posture: course-scope is intentionally NOT applied here. Curators edit
- * schedules (RolesGuard + 'schedules.edit'), so they need to pick items inside
- * the course bound to the schedule. Existence-check only — same liberal stance
- * the existing `assertRefsExist` in schedules-mutations takes for refs.
+ * lesson/file/assignment carry their own `webinar_id`, so they are always scoped
+ * to ONE course. quiz is the exception — quizzes are global (no `webinar_id`), so
+ * the `scope` query param selects the result set: 'course' (default) = quizzes
+ * already attached to this course (schedules editor); 'all' = the whole catalog
+ * (content editor, attach flow). See listQuizzes for the rationale.
  *
- * Pagination + search: page_size capped at 100 in DTO. `q` is a server-side
+ * Pagination + search: page_size capped at 100 in DTO. `q` matches a server-side
  * `contains` over translations.title (MySQL utf8mb4 is case-insensitive by
- * default; Prisma `mode: 'insensitive'` is Postgres-only).
+ * default; Prisma `mode: 'insensitive'` is Postgres-only) OR the row's numeric
+ * id when `q` is all digits — see searchOr.
  *
  * Shape: returns `{ rows: [{id, title_kz, title_ru}], total, page, page_size }`
  * raw (no apiResponse wrapper) — matches list-endpoint convention.
@@ -37,6 +41,7 @@ export class CoursesPickerItemsService {
         const page_size = Math.max(1, Math.min(100, query.page_size ?? CoursesPickerItemsService.DEFAULT_PAGE_SIZE));
         const skip = (page - 1) * page_size;
         const q = query.q?.trim() ?? '';
+        const scope: PickerItemScope = query.scope ?? 'course';
 
         // Existence check (no scope) — 404 if the course is missing / soft-deleted.
         const exists = await this.prisma.webinar.findFirst({
@@ -55,8 +60,25 @@ export class CoursesPickerItemsService {
             case 'assignment':
                 return this.listAssignments(courseId, q, skip, page_size, page);
             case 'quiz':
-                return this.listQuizzes(courseId, q, skip, page_size, page);
+                return this.listQuizzes(courseId, q, scope, skip, page_size, page);
         }
+    }
+
+    /**
+     * Search predicate shared by every kind: match `q` against any kz/ru
+     * translation title AND — when `q` is a positive integer — against the row's
+     * own numeric id. Lets curators paste a known id ("10") instead of typing a
+     * title. Returns a Prisma `OR` array; callers AND it with their own scope.
+     */
+    private searchOr(q: string): any[] {
+        const ors: any[] = [{ translations: { some: { title: { contains: q } } } }];
+        if (/^\d+$/.test(q)) {
+            const id = Number(q);
+            if (Number.isSafeInteger(id) && id > 0) {
+                ors.push({ id });
+            }
+        }
+        return ors;
     }
 
     private async listLessons(
@@ -67,7 +89,7 @@ export class CoursesPickerItemsService {
         page: number,
     ): Promise<PickerItemsResponseDto> {
         const where: any = { webinar_id: courseId, status: 'active' };
-        if (q.length > 0) where.translations = { some: { title: { contains: q } } };
+        if (q.length > 0) where.OR = this.searchOr(q);
 
         const [total, rows] = await this.prisma.$transaction([
             this.prisma.webinarChapter.count({ where }),
@@ -97,7 +119,7 @@ export class CoursesPickerItemsService {
         page: number,
     ): Promise<PickerItemsResponseDto> {
         const where: any = { webinar_id: courseId, status: 'active', deleted_at: null };
-        if (q.length > 0) where.translations = { some: { title: { contains: q } } };
+        if (q.length > 0) where.OR = this.searchOr(q);
 
         const [total, rows] = await this.prisma.$transaction([
             this.prisma.files.count({ where }),
@@ -128,9 +150,11 @@ export class CoursesPickerItemsService {
     ): Promise<PickerItemsResponseDto> {
         const where: any = {
             status: 'active',
+            // Course-specific (webinar_id) OR global (null) assignments. `q` is
+            // ANDed in as a second OR group so it doesn't clobber this scope OR.
             OR: [{ webinar_id: courseId }, { webinar_id: null }],
         };
-        if (q.length > 0) where.translations = { some: { title: { contains: q } } };
+        if (q.length > 0) where.AND = [{ OR: this.searchOr(q) }];
 
         const [total, rows] = await this.prisma.$transaction([
             this.prisma.webinarAssignment.count({ where }),
@@ -153,9 +177,16 @@ export class CoursesPickerItemsService {
     }
 
     /**
-     * Quizzes are linked to courses via WebinarChapterItem rows where `type='quiz'`
-     * and `item_id` references `quizzes.id`. The `webinar_chapter_items.chapter_id`
-     * → `webinar_chapters.webinar_id` chain scopes them to a course.
+     * Quizzes have NO `webinar_id` — they are global entities linked to a course
+     * only via WebinarChapterItem rows (`type='quiz'`, `item_id` → `quizzes.id`,
+     * scoped through `webinar_chapters.webinar_id`).
+     *
+     * That gives two legitimate result sets, selected by `scope`:
+     *   - 'course' (default): quizzes already attached to this course. Used by
+     *     the schedules editor — you can only schedule existing course items.
+     *   - 'all': the whole quiz catalog. Used by the course-content editor when
+     *     ATTACHING a new quiz. Scoping to already-attached quizzes there is a
+     *     chicken-and-egg dead end (you could never attach the first quiz).
      *
      * NOTE: the schema also defines a `WebinarQuiz` junction (webinar_id/quiz_id/
      * chapter_id), but it is empty in production data and the chapter-items path
@@ -165,29 +196,36 @@ export class CoursesPickerItemsService {
     private async listQuizzes(
         courseId: number,
         q: string,
+        scope: PickerItemScope,
         skip: number,
         take: number,
         page: number,
     ): Promise<PickerItemsResponseDto> {
-        // 1. Collect distinct quiz ids attached to any chapter of this course.
-        const chapterItems = await this.prisma.webinarChapterItem.findMany({
-            where: {
-                type: 'quiz',
-                webinar_chapter: { webinar_id: courseId },
-            },
-            select: { item_id: true },
-            distinct: ['item_id'],
-        });
-        const quizIds = chapterItems.map((r) => r.item_id);
+        const quizWhere: any = {};
 
-        if (quizIds.length === 0) {
-            return { rows: [], total: 0, page, page_size: take };
+        if (scope === 'course') {
+            // Collect distinct quiz ids attached to any chapter of this course.
+            const chapterItems = await this.prisma.webinarChapterItem.findMany({
+                where: {
+                    type: 'quiz',
+                    webinar_chapter: { webinar_id: courseId },
+                },
+                select: { item_id: true },
+                distinct: ['item_id'],
+            });
+            const quizIds = chapterItems.map((r) => r.item_id);
+
+            if (quizIds.length === 0) {
+                return { rows: [], total: 0, page, page_size: take };
+            }
+            quizWhere.id = { in: quizIds };
         }
 
-        // 2. Apply search + pagination at the quizzes table level.
-        const quizWhere: any = { id: { in: quizIds } };
+        // Search (title or numeric id) on top of the chosen scope. For 'course'
+        // this ANDs with `id IN (quizIds)`, so an id match still has to be a
+        // course quiz; for 'all' it searches the whole catalog.
         if (q.length > 0) {
-            quizWhere.translations = { some: { title: { contains: q } } };
+            quizWhere.OR = this.searchOr(q);
         }
 
         const [total, rows] = await this.prisma.$transaction([

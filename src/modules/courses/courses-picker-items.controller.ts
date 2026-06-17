@@ -8,11 +8,13 @@ import { CoursesPickerItemsService } from './courses-picker-items.service';
 import { ListPickerItemsDto } from './dto/list-picker-items.dto';
 
 /**
- * GET /admin-api/v1/admin/courses/:id/picker-items?kind=lesson|file|assignment|quiz
+ * GET /admin-api/v1/admin/courses/:id/picker-items?kind=lesson|file|assignment|quiz[&scope=course|all]
  *
- * Used by the schedules editor item-picker to fetch ONLY items belonging to the
- * schedule's bound course. Returns a uniform `{rows, total, page, page_size}`
- * shape regardless of kind so the client picker stays simple.
+ * Item-picker for both the schedules editor and the course-content editor.
+ * lesson/file/assignment are always scoped to the course; quiz takes a `scope`
+ * (default 'course' = already attached, 'all' = whole catalog for the attach
+ * flow). Returns a uniform `{rows, total, page, page_size}` shape regardless of
+ * kind so the client picker stays simple.
  *
  * RBAC: admin/curator/teacher with 'schedules.edit' — same audience that uses
  * the picker in the upsert dialog. No course scope (curators wouldn't pass
