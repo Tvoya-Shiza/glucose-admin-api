@@ -241,6 +241,32 @@ export class UsersDetailService {
         return this.detail(actor, id);
     }
 
+    /**
+     * USR — soft-delete a user. We stamp `deleted_at` (unix seconds) rather than
+     * physically deleting: the User schema declares `onDelete: Cascade` on nearly every
+     * relation (including the `referrer_id` self-relation), so a hard delete would
+     * recursively remove referred users and all content they authored. Every read in
+     * this module filters `deleted_at: null`, so the user disappears from lists/detail.
+     *
+     * Scope check first — out-of-scope ID returns 404 (NOT 403, T-03-21). Self-delete is
+     * blocked so an admin cannot lock themselves out.
+     */
+    public async softDelete(actor: ScopeActor, id: number): Promise<{ id: number; deleted: true }> {
+        if (actor.id === id) throw new ForbiddenException('cannot_delete_self');
+
+        const ok = await this.prisma.user.findFirst({
+            where: { id, deleted_at: null, ...buildScopeWhere(actor, USER_SCOPE_RULES) },
+            select: { id: true },
+        });
+        if (!ok) throw new NotFoundException('user_not_found');
+
+        const now = Math.floor(Date.now() / 1000);
+        await this.prisma.$transaction([
+            this.prisma.user.update({ where: { id }, data: { deleted_at: now, updated_at: now } }),
+        ]);
+        return { id, deleted: true };
+    }
+
     public async patchMemberships(
         actor: ScopeActor,
         id: number,

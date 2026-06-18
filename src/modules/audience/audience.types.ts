@@ -11,7 +11,9 @@
  */
 
 export type AudienceKind = 'group' | 'role' | 'region' | 'cohort';
-export type AudienceRole = 'student' | 'teacher' | 'curator' | 'admin';
+// Free-form: roles are matched against the real `User.role_name` column (e.g. app
+// users are 'user'). Validation lives in the DTO (string + maxLength), not a fixed union.
+export type AudienceRole = string;
 export type RegionField = 'country_id' | 'province_id' | 'city_id' | 'district_id' | 'school_id';
 export type AudienceUserStatus = 'active' | 'pending' | 'inactive';
 
@@ -35,6 +37,8 @@ export interface AudienceResolveResult {
 
 export interface AudiencePreviewResult {
     count: number;
+    /** How many of `count` have an active FCM token (will actually receive a push). */
+    count_with_fcm: number;
     sample: ResolvedRecipient[];
     audience_hash: string;
     cached: boolean;

@@ -21,6 +21,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { PrismaClient, RegionType } from '../../generated/prisma';
+import { DENYLISTED_REGION_TITLES } from './generic-schools.const';
 
 const prisma = new PrismaClient();
 
@@ -88,6 +89,23 @@ async function main(): Promise<void> {
     const dump: DumpFile = JSON.parse(raw);
     console.log(`Loaded ${dump.regions.length} regions + ${dump.translations.length} translations`);
     console.log(`  source: ${dump.source_host}/${dump.source_db}, dumped_at=${dump.dumped_at}`);
+
+    // Denylist: не сидируем generic-школы (см. DENYLISTED_REGION_TITLES).
+    const deniedTitles = new Set<string>(DENYLISTED_REGION_TITLES);
+    const deniedRegionIds = new Set<number>(
+        dump.translations
+            .filter((tr) => tr.title != null && deniedTitles.has(tr.title))
+            .map((tr) => tr.region_id),
+    );
+    if (deniedRegionIds.size) {
+        const beforeR = dump.regions.length;
+        const beforeT = dump.translations.length;
+        dump.regions = dump.regions.filter((r) => !deniedRegionIds.has(r.id));
+        dump.translations = dump.translations.filter((tr) => !deniedRegionIds.has(tr.region_id));
+        console.log(
+            `  denylist: пропущено ${beforeR - dump.regions.length} регионов, ${beforeT - dump.translations.length} переводов`,
+        );
+    }
 
     // Filter by --types if provided. We always include ancestors so FKs stay valid.
     let regions = dump.regions;

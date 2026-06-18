@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+    ArrayMaxSize,
     ArrayMinSize,
     IsArray,
     IsBoolean,
@@ -7,6 +8,8 @@ import {
     IsInt,
     IsOptional,
     IsPositive,
+    IsString,
+    MaxLength,
     Min,
     ValidateIf,
     ValidateNested,
@@ -27,8 +30,9 @@ import {
 const REGION_FIELDS = ['country_id', 'province_id', 'city_id', 'district_id', 'school_id'] as const;
 type RegionField = (typeof REGION_FIELDS)[number];
 
-const ROLES = ['student', 'teacher', 'curator', 'admin'] as const;
-type AudienceRole = (typeof ROLES)[number];
+// Roles are matched against the real `User.role_name` column (free-form string,
+// e.g. app users are 'user'). No fixed enum — the picker is data-driven from the DB.
+type AudienceRole = string;
 
 const STATUSES = ['active', 'pending', 'inactive'] as const;
 type AudienceUserStatus = (typeof STATUSES)[number];
@@ -71,7 +75,9 @@ export class AudienceFilterDto {
     @ValidateIf((o) => o.kind === 'role')
     @IsArray()
     @ArrayMinSize(1)
-    @IsIn(ROLES as readonly string[], { each: true })
+    @ArrayMaxSize(50)
+    @IsString({ each: true })
+    @MaxLength(64, { each: true })
     roles?: AudienceRole[];
 
     // region
