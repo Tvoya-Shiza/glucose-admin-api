@@ -12,6 +12,7 @@ import { QuizzesDetailController } from './quizzes-detail.controller';
 import { QuizzesDetailService } from './quizzes-detail.service';
 import { QuizzesQuestionsController } from './quizzes-questions.controller';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
+import { QuizzesQuestionsImportService } from './quizzes-questions-import.service';
 import { QuizzesAnswersController } from './quizzes-answers.controller';
 import { QuizzesAnswersService } from './quizzes-answers.service';
 import { QuizBadgesController } from './quiz-badges.controller';
@@ -62,6 +63,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizCategoriesService,
         QuizzesDetailService,
         QuizzesQuestionsService,
+        QuizzesQuestionsImportService,
         QuizzesAnswersService,
         QuizBadgesService,
         QuizBadgeItemsService,
