@@ -139,6 +139,7 @@ export class AudienceService {
                 const resolved = await this.resolve(audience, actor);
                 return {
                     count: resolved.count,
+                    count_with_fcm: resolved.recipients.filter((r) => r.has_fcm).length,
                     sample: resolved.recipients.slice(0, 5),
                     audience_hash: resolved.audience_hash,
                 } as Omit<AudiencePreviewResult, 'cached'>;
@@ -147,6 +148,24 @@ export class AudienceService {
         );
 
         return { ...value, cached: hit };
+    }
+
+    /**
+     * Distinct `role_name` values + live counts, scoped to the actor. Powers the
+     * AudienceSelector role picker so the admin targets REAL roles (e.g. app users
+     * are `role_name='user'`, NOT 'student') instead of a hardcoded guess.
+     *
+     * Soft-deleted users excluded; RBAC narrowing applied (admin sees all).
+     */
+    public async roleCounts(actor: ScopeActor): Promise<Array<{ role_name: string; count: number }>> {
+        const rows = await this.prisma.user.groupBy({
+            by: ['role_name'],
+            where: { AND: [{ deleted_at: null }, buildScopeWhere(actor, AUDIENCE_SCOPE_RULES)] },
+            _count: { _all: true },
+        });
+        return rows
+            .map((r) => ({ role_name: r.role_name, count: r._count._all }))
+            .sort((a, b) => b.count - a.count);
     }
 
     /**

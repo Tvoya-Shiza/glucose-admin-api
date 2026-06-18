@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
 import { Audit } from '../../common/audit/audit.decorator';
 import { RequirePermission } from '../access/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/guards/permission.guard';
@@ -41,5 +41,17 @@ export class PushAudienceController {
     @Audit('push.audience-preview', 'audience')
     public async preview(@CurrentUser() actor: AuthenticatedRequestUser, @Body() body: AudienceShapeDto) {
         return this.audience.preview(body, { id: actor.id, role_name: actor.role_name });
+    }
+
+    /**
+     * GET /admin-api/v1/admin/push/roles — distinct User.role_name values + live counts
+     * (actor-scoped). Powers the AudienceSelector role picker so the admin targets REAL
+     * roles instead of a hardcoded guess. GET handler → exempt from @Audit (read-only).
+     */
+    @Get('roles')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('push.view')
+    public async roles(@CurrentUser() actor: AuthenticatedRequestUser) {
+        return this.audience.roleCounts({ id: actor.id, role_name: actor.role_name });
     }
 }
