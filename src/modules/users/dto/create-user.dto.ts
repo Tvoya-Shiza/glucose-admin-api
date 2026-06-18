@@ -38,8 +38,8 @@ export class CreateUserDto {
     @MaxLength(72)
     password?: string;
 
-    @IsIn(['admin', 'curator', 'teacher', 'student'])
-    role_name!: 'admin' | 'curator' | 'teacher' | 'student';
+    @IsIn(['admin', 'curator', 'teacher', 'user'])
+    role_name!: 'admin' | 'curator' | 'teacher' | 'user';
 
     @IsOptional()
     @IsIn(['active', 'inactive', 'pending'])
