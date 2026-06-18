@@ -266,16 +266,18 @@ export class UpsertItemDto {
     pdf_files?: PdfFileInputDto[];
 
     /**
-     * Phase 30 — optional single lecture-notes attachment for a content item
-     * (video / image / rich-text). Tri-state:
-     *   - omitted (undefined) → leave the existing attachment untouched;
-     *   - `null`              → detach (clear attachment_file_id; old Files row
-     *                            retained as orphan, per Phase 29 policy);
-     *   - object              → set/replace the attachment.
+     * Phase 30 — up to 3 lecture-notes attachments (any document type) for a
+     * content item (video / image / rich-text). Reconciled via the
+     * webinar_chapter_item_attachments bridge (download-only on the app). Tri-state:
+     *   - omitted (undefined) → leave the existing attachments untouched;
+     *   - `[]`                → detach all (old Files rows retained as orphans);
+     *   - non-empty array     → replace the full set (ordered).
      * Does NOT touch `item_id` — the main file (e.g. the video) stays intact.
      */
     @IsOptional()
-    @ValidateNested()
+    @IsArray()
+    @ArrayMaxSize(3)
+    @ValidateNested({ each: true })
     @Type(() => ItemAttachmentDto)
-    attachment?: ItemAttachmentDto | null;
+    attachments?: ItemAttachmentDto[];
 }

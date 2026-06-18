@@ -74,11 +74,11 @@ export interface ChapterItemPdfRef {
     title: string;
 }
 
-/** Phase 30 — optional lecture-notes attachment ("konspekt") on a content item. */
+/** Phase 30 — one lecture-notes attachment ("konspekt") on a content item. */
 export interface ChapterItemAttachmentRef {
     id: number;
     file: string;
-    /** Real uploaded MIME — drives PDF-vs-download on the public app. */
+    /** Real uploaded MIME. */
     file_type: string;
     volume: string;
     /** KZ FileTranslations.title — the display label; '' when untitled. */
@@ -120,8 +120,8 @@ export interface ChapterItemDto {
      * ordered list. Empty array for non-PDF items.
      */
     pdfs: ChapterItemPdfRef[];
-    /** Phase 30 — optional lecture-notes attachment; null when none. */
-    attachment: ChapterItemAttachmentRef | null;
+    /** Phase 30 — up to 3 lecture-notes attachments; empty array when none. */
+    attachments: ChapterItemAttachmentRef[];
     /** Only present (non-empty) when type='file' — derived from FileTranslations join. */
     translations: TranslationRowDto[];
 }

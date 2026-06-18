@@ -133,8 +133,6 @@ export class CoursesDetailService {
                                 type: true,
                                 order: true,
                                 item_id: true,
-                                // Phase 30 — optional lecture-notes attachment pointer.
-                                attachment_file_id: true,
                                 is_required: true,
                                 // Phase 20 — per-item access gate, applies to all types.
                                 accessibility: true,
@@ -181,9 +179,6 @@ export class CoursesDetailService {
                 if (it.type === 'file') fileItemIds.add(refId);
                 else if (it.type === 'quiz') quizItemIds.add(refId);
                 else if (it.type === 'assignment') assignmentItemIds.add(refId);
-                // Phase 30 — attachment Files rows are also plain Files; fetch them in
-                // the same batch and reuse `fileById` below.
-                if (it.attachment_file_id) fileItemIds.add(Number(it.attachment_file_id));
             }
         }
 
@@ -272,6 +267,40 @@ export class CoursesDetailService {
             pdfsByItem.set(Number(r.webinar_chapter_item_id), list);
         }
 
+        // Phase 30 — lecture-notes attachments: one batched bridge query for all items.
+        const attachmentRows =
+            itemIds.length === 0
+                ? ([] as any[])
+                : await this.prisma.webinarChapterItemAttachment.findMany({
+                      where: { webinar_chapter_item_id: { in: itemIds } },
+                      orderBy: { sort_order: 'asc' },
+                      select: {
+                          webinar_chapter_item_id: true,
+                          file: {
+                              select: {
+                                  id: true,
+                                  file: true,
+                                  file_type: true,
+                                  volume: true,
+                                  translations: { where: { locale: 'kz' }, select: { title: true }, take: 1 },
+                              },
+                          },
+                      },
+                  });
+        const attachmentsByItem = new Map<number, ChapterItemDto['attachments']>();
+        for (const r of attachmentRows as any[]) {
+            if (!r.file) continue;
+            const list = attachmentsByItem.get(Number(r.webinar_chapter_item_id)) ?? [];
+            list.push({
+                id: Number(r.file.id),
+                file: r.file.file,
+                file_type: r.file.file_type,
+                volume: r.file.volume,
+                title: r.file.translations?.[0]?.title ?? '',
+            });
+            attachmentsByItem.set(Number(r.webinar_chapter_item_id), list);
+        }
+
         // Top-level translations.
         const translations: TranslationRowDto[] = (row.translations ?? [])
             .filter((t: any) => t.locale === 'kz')
@@ -343,21 +372,6 @@ export class CoursesDetailService {
                     }
                 }
 
-                // Phase 30 — optional lecture-notes attachment (reuses fileById batch).
-                let attachment: ChapterItemDto['attachment'] = null;
-                if (it.attachment_file_id) {
-                    const af = fileById.get(Number(it.attachment_file_id));
-                    if (af) {
-                        attachment = {
-                            id: Number(af.id),
-                            file: af.file,
-                            file_type: af.file_type,
-                            volume: af.volume,
-                            title: af.translations?.find((t: any) => t.locale === 'kz')?.title ?? '',
-                        };
-                    }
-                }
-
                 return {
                     id: Number(it.id),
                     type: it.type as 'file' | 'quiz' | 'assignment',
@@ -369,7 +383,7 @@ export class CoursesDetailService {
                     quiz,
                     assignment,
                     pdfs: pdfsByItem.get(Number(it.id)) ?? [],
-                    attachment,
+                    attachments: attachmentsByItem.get(Number(it.id)) ?? [],
                     translations: itTranslations,
                 };
             });

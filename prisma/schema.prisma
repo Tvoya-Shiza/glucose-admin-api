@@ -1051,10 +1051,6 @@ model WebinarChapterItem {
   user_id       Int                    @db.UnsignedInt
   chapter_id    Int                    @db.UnsignedInt
   item_id       Int                    @db.UnsignedInt
-  // Phase 30 — optional lecture-notes attachment (any document) for this item.
-  // Plain nullable FK to files.id (no Prisma relation — read via files.findFirst).
-  // Mirrors the canonical glucose-api schema; refresh via `npm run prisma:pull`.
-  attachment_file_id Int?
   type          WebinarChapterItemType @default(file)
   order         Int?                   @db.UnsignedInt
   is_required   Boolean                @default(true)
@@ -1067,6 +1063,8 @@ model WebinarChapterItem {
   content_overrides CourseContentOverride[]  @relation("ItemContentOverrides")
   // Phase 29 — extra PDF files attached to this item (type='file' PDF blocks).
   pdf_files         WebinarChapterItemPdfFile[] @relation("ChapterItemPdfFiles")
+  // Phase 30 — up to 3 lecture-notes attachments (any document), download-only.
+  attachments       WebinarChapterItemAttachment[] @relation("ChapterItemAttachments")
 
   @@map("webinar_chapter_items")
 }
@@ -1086,6 +1084,24 @@ model WebinarChapterItemPdfFile {
   @@unique([webinar_chapter_item_id, file_id], map: "uniq_wcipf_item_file")
   @@index([webinar_chapter_item_id], map: "idx_wcipf_item")
   @@map("webinar_chapter_item_pdf_files")
+}
+
+/// Phase 30 — bridge: up to 3 lecture-notes attachments (any document type) for a
+/// chapter item, ordered. Independent of item_id (the main file). Mirrors the
+/// canonical glucose-api schema. Refresh via `npm run prisma:pull`.
+model WebinarChapterItemAttachment {
+  id                      Int @id @default(autoincrement())
+  webinar_chapter_item_id Int
+  file_id                 Int
+  sort_order              Int @default(0)
+  created_at              Int
+
+  chapter_item WebinarChapterItem @relation("ChapterItemAttachments", fields: [webinar_chapter_item_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  file         Files              @relation("AttachmentFileLinks", fields: [file_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([webinar_chapter_item_id, file_id], map: "uniq_wcia_item_file")
+  @@index([webinar_chapter_item_id], map: "idx_wcia_item")
+  @@map("webinar_chapter_item_attachments")
 }
 
 /// Phase 19 — per-item content unlock gates.
@@ -1170,6 +1186,8 @@ model Files {
 
   // Phase 29 — chapter-item PDF block links (this file used as a PDF material).
   pdf_links WebinarChapterItemPdfFile[] @relation("PdfFileLinks")
+  // Phase 30 — chapter-item attachment links (this file used as a konspekt).
+  attachment_links WebinarChapterItemAttachment[] @relation("AttachmentFileLinks")
 
   @@map("files")
 }
