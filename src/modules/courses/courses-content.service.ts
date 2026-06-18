@@ -472,6 +472,75 @@ export class CoursesContentService {
                 fileId = dto.item_id;
             }
 
+            // Phase 30 — optional lecture-notes attachment. Tri-state from the DTO:
+            //   undefined → leave as-is · null → detach · object → set/replace.
+            // NEVER touches item_id, so a video item keeps its video main file.
+            let attachmentFileId: number | null | undefined = undefined;
+            if (dto.attachment !== undefined) {
+                if (dto.attachment === null) {
+                    // Detach. The old Files row is retained as an orphan (Phase 29 policy).
+                    attachmentFileId = null;
+                } else {
+                    const att = dto.attachment;
+                    const attTitle = (att.name ?? '').slice(0, 255);
+                    // Reuse the item's existing attachment Files row on update, else create.
+                    let existingAttId: number | null = null;
+                    if (chapterItemId) {
+                        const cur: any = await tx.webinarChapterItem.findFirst({
+                            where: { id: chapterItemId },
+                            select: { attachment_file_id: true },
+                        });
+                        existingAttId = cur?.attachment_file_id ?? null;
+                    }
+                    if (existingAttId) {
+                        await tx.files.update({
+                            where: { id: existingAttId },
+                            data: {
+                                file: att.file_url,
+                                file_type: att.file_type,
+                                volume: String(att.volume ?? '0'),
+                                updated_at: now,
+                            },
+                        });
+                        const existingTr: any = await tx.fileTranslations.findFirst({
+                            where: { file_id: existingAttId, locale: 'kz' },
+                            select: { id: true },
+                            orderBy: { id: 'asc' },
+                        });
+                        if (existingTr) {
+                            await tx.fileTranslations.update({ where: { id: existingTr.id }, data: { title: attTitle } });
+                        } else if (attTitle.trim()) {
+                            await tx.fileTranslations.create({
+                                data: { file_id: existingAttId, locale: 'kz', title: attTitle, description: null },
+                            });
+                        }
+                        attachmentFileId = existingAttId;
+                    } else {
+                        const af: any = await tx.files.create({
+                            data: {
+                                creator_id: actor.id,
+                                webinar_id: courseId,
+                                chapter_id: dto.chapter_id,
+                                storage: 'upload' as any,
+                                file: att.file_url,
+                                file_type: att.file_type,
+                                volume: String(att.volume ?? '0'),
+                                accessibility: dto.accessibility ?? 'free',
+                                status: 'active',
+                                created_at: now,
+                            },
+                            select: { id: true },
+                        });
+                        attachmentFileId = Number(af.id);
+                        if (attTitle.trim()) {
+                            await tx.fileTranslations.create({
+                                data: { file_id: attachmentFileId, locale: 'kz', title: attTitle, description: null },
+                            });
+                        }
+                    }
+                }
+            }
+
             // Create or update WebinarChapterItem.
             //
             // Phase 20: `accessibility` is now an item-level column. We write it
@@ -486,6 +555,7 @@ export class CoursesContentService {
                 if (typeof dto.order === 'number') data.order = dto.order;
                 if (typeof dto.is_required === 'boolean') data.is_required = dto.is_required;
                 if (dto.accessibility !== undefined) data.accessibility = dto.accessibility;
+                if (attachmentFileId !== undefined) data.attachment_file_id = attachmentFileId;
                 await tx.webinarChapterItem.update({ where: { id: chapterItemId }, data });
             } else {
                 // Auto-assign order if not provided.
@@ -504,6 +574,7 @@ export class CoursesContentService {
                         chapter_id: dto.chapter_id,
                         type: dto.type,
                         item_id: fileId,
+                        attachment_file_id: attachmentFileId ?? null,
                         order: nextOrder,
                         is_required: dto.is_required !== false,
                         accessibility: dto.accessibility ?? 'free',
@@ -602,6 +673,7 @@ export class CoursesContentService {
                 quiz: null,
                 assignment: null,
                 pdfs: [],
+                attachment: null,
                 translations: [],
             })),
         };
@@ -610,7 +682,15 @@ export class CoursesContentService {
     private async readItemDto(tx: PrismaService, itemId: number): Promise<ChapterItemDto> {
         const row: any = await tx.webinarChapterItem.findFirst({
             where: { id: itemId },
-            select: { id: true, type: true, order: true, item_id: true, is_required: true, accessibility: true },
+            select: {
+                id: true,
+                type: true,
+                order: true,
+                item_id: true,
+                attachment_file_id: true,
+                is_required: true,
+                accessibility: true,
+            },
         });
         if (!row) throw new NotFoundException('items.not_in_course');
 
@@ -619,6 +699,7 @@ export class CoursesContentService {
         let quiz: ChapterItemDto['quiz'] = null;
         let assignment: ChapterItemDto['assignment'] = null;
         let pdfs: ChapterItemDto['pdfs'] = [];
+        let attachment: ChapterItemDto['attachment'] = null;
         let translations: ChapterItemDto['translations'] = [];
 
         if (row.type === 'file') {
@@ -711,6 +792,29 @@ export class CoursesContentService {
             }
         }
 
+        // Phase 30 — hydrate the optional lecture-notes attachment (any type).
+        if (row.attachment_file_id) {
+            const af: any = await tx.files.findFirst({
+                where: { id: Number(row.attachment_file_id) },
+                select: {
+                    id: true,
+                    file: true,
+                    file_type: true,
+                    volume: true,
+                    translations: { where: { locale: 'kz' }, select: { title: true }, take: 1 },
+                },
+            });
+            if (af) {
+                attachment = {
+                    id: Number(af.id),
+                    file: af.file,
+                    file_type: af.file_type,
+                    volume: af.volume,
+                    title: af.translations?.[0]?.title ?? '',
+                };
+            }
+        }
+
         return {
             id: Number(row.id),
             type: row.type,
@@ -722,6 +826,7 @@ export class CoursesContentService {
             quiz,
             assignment,
             pdfs,
+            attachment,
             translations,
         };
     }

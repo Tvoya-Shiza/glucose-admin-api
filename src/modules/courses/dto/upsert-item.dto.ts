@@ -109,6 +109,32 @@ export class PdfFileInputDto {
     name?: string;
 }
 
+/**
+ * Phase 30 — optional lecture-notes attachment ("konspekt") for a content item
+ * (video / image / rich-text). Any document type. `file_url` is the uploaded
+ * /static/courses/<ulid>.<ext> path; `file_type` is the real uploaded MIME;
+ * `name` (optional) becomes the FileTranslations.title label.
+ */
+export class ItemAttachmentDto {
+    @IsString()
+    @Length(1, 2048)
+    file_url!: string;
+
+    @IsString()
+    @Length(1, 128)
+    file_type!: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 255)
+    name?: string;
+
+    @IsOptional()
+    @IsString()
+    @Length(0, 64)
+    volume?: string;
+}
+
 export class UpsertItemDto {
     /** Omit on create. Present (matching path :itemId) on update. */
     @IsOptional()
@@ -238,4 +264,18 @@ export class UpsertItemDto {
     @ValidateNested({ each: true })
     @Type(() => PdfFileInputDto)
     pdf_files?: PdfFileInputDto[];
+
+    /**
+     * Phase 30 — optional single lecture-notes attachment for a content item
+     * (video / image / rich-text). Tri-state:
+     *   - omitted (undefined) → leave the existing attachment untouched;
+     *   - `null`              → detach (clear attachment_file_id; old Files row
+     *                            retained as orphan, per Phase 29 policy);
+     *   - object              → set/replace the attachment.
+     * Does NOT touch `item_id` — the main file (e.g. the video) stays intact.
+     */
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => ItemAttachmentDto)
+    attachment?: ItemAttachmentDto | null;
 }

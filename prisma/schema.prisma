@@ -1051,6 +1051,10 @@ model WebinarChapterItem {
   user_id       Int                    @db.UnsignedInt
   chapter_id    Int                    @db.UnsignedInt
   item_id       Int                    @db.UnsignedInt
+  // Phase 30 — optional lecture-notes attachment (any document) for this item.
+  // Plain nullable FK to files.id (no Prisma relation — read via files.findFirst).
+  // Mirrors the canonical glucose-api schema; refresh via `npm run prisma:pull`.
+  attachment_file_id Int?
   type          WebinarChapterItemType @default(file)
   order         Int?                   @db.UnsignedInt
   is_required   Boolean                @default(true)
