@@ -16,6 +16,60 @@ import type {
     MemberProgressRowDto,
     MemberRowDto,
 } from './dto/group-detail.dto';
+import type { ResolveMembersDto, ResolveMembersResultDto, ResolveResultRowDto, StudentCandidateDto } from './dto/resolve-members.dto';
+
+/** A learner row selected for resolution/matching (subset of User columns). */
+type ResolveLearner = {
+    id: number;
+    full_name: string | null;
+    mobile: string | null;
+    email: string | null;
+    status: any;
+};
+
+/** Collapse internal whitespace + trim. Returns '' for nullish/empty input. */
+function collapseName(input: string | null | undefined): string {
+    if (!input) return '';
+    return String(input).replace(/\s+/g, ' ').trim();
+}
+
+/** Lower-cased collapsed form — the comparison key for case/space-insensitive name matching. */
+function nameKey(input: string | null | undefined): string {
+    return collapseName(input).toLowerCase();
+}
+
+/**
+ * Forward + reversed-word-order variants of a collapsed name. KZ users enter
+ * "Имя Фамилия" but the stored full_name may be "Фамилия Имя" — we try both.
+ */
+function nameVariants(collapsed: string): string[] {
+    if (!collapsed) return [];
+    const words = collapsed.split(' ');
+    if (words.length < 2) return [collapsed];
+    const reversed = [...words].reverse().join(' ');
+    return reversed === collapsed ? [collapsed] : [collapsed, reversed];
+}
+
+/**
+ * Last 10 digits (national significant number) of any phone-ish string. Handles
+ * `+77...`, `77...`, `87...`, and bare 10-digit forms by stripping non-digits.
+ * Returns null when fewer than 10 digits are present (treated as "no phone").
+ */
+function phoneNsn(input: string | null | undefined): string | null {
+    if (!input) return null;
+    const digits = String(input).replace(/\D/g, '');
+    if (digits.length < 10) return null;
+    return digits.slice(-10);
+}
+
+/**
+ * Candidate stored representations for an NSN, for an index-friendly `mobile IN (...)`.
+ * Covers the documented mixed storage formats (`+77072852362` vs `77072852362`) plus
+ * the legacy `8...` and bare-10 forms.
+ */
+function phoneStorageVariants(nsn: string): string[] {
+    return [`+7${nsn}`, `7${nsn}`, `8${nsn}`, nsn];
+}
 
 /**
  * GRP-03 + GRP-06 — group members service (Plan 04, wave 4).
@@ -376,6 +430,202 @@ export class GroupsMembersService {
             courses_started: startedMap.get(uid)?.size ?? 0,
             courses_completed: completedMap.get(uid)?.size ?? 0,
         }));
+
+        return { rows };
+    }
+
+    /**
+     * GRP-07 — Excel bulk-import resolution (matching only; no mutation).
+     *
+     * Matches each imported { name?, phone? } row against existing learners
+     * (role_name='user', not deleted) and returns candidates + their group
+     * membership. The admin-client then commits the chosen user_ids through the
+     * existing bulkAdd path (POST /:id/members), so this method NEVER writes.
+     *
+     * Strategy — 3 batch queries regardless of row count:
+     *   1. user.findMany by phone storage-variants  (phone is the authoritative key)
+     *   2. user.findMany by exact name (collation = case-insensitive) + reversed order
+     *   3. groupUser.findMany for every candidate user -> membership badges
+     *
+     * Phone precedence: when a row has both fields and the phone resolves a user, we
+     * match by phone and flag `name_mismatch` if the supplied name disagrees (rather
+     * than rejecting). Rows with neither field -> status='invalid'.
+     */
+    public async resolveMembers(
+        actor: ScopeActor,
+        groupId: number,
+        dto: ResolveMembersDto,
+    ): Promise<ResolveMembersResultDto> {
+        await this.assertScope(actor, groupId);
+
+        // Per-row normalization.
+        const prepared = dto.rows.map((r, index) => {
+            const collapsedName = collapseName(r.name);
+            const nsn = phoneNsn(r.phone);
+            return {
+                index,
+                inputName: collapsedName || null,
+                inputPhone: (r.phone ?? '').trim() || null,
+                collapsedName,
+                nsn,
+                hasName: collapsedName.length > 0,
+                hasPhone: nsn !== null,
+            };
+        });
+
+        // Collect distinct phone variants + name candidates across all rows.
+        const phoneVariantSet = new Set<string>();
+        const nameQuerySet = new Set<string>();
+        for (const p of prepared) {
+            if (p.hasPhone && p.nsn) for (const v of phoneStorageVariants(p.nsn)) phoneVariantSet.add(v);
+            if (p.hasName) for (const v of nameVariants(p.collapsedName)) nameQuerySet.add(v);
+        }
+
+        // Batch query 1 — learners matched by phone. mobileMap is keyed by NSN so both
+        // `+77...` and `77...` stored forms collapse to the same lookup key.
+        const phoneUsers: ResolveLearner[] = phoneVariantSet.size
+            ? await this.prisma.user.findMany({
+                  where: { role_name: 'user', deleted_at: null, mobile: { in: Array.from(phoneVariantSet) } },
+                  select: { id: true, full_name: true, mobile: true, email: true, status: true },
+              })
+            : [];
+        const mobileMap = new Map<string, ResolveLearner>();
+        for (const u of phoneUsers) {
+            const key = phoneNsn(u.mobile);
+            if (key && !mobileMap.has(key)) mobileMap.set(key, u);
+        }
+
+        // Batch query 2 — learners matched by exact name (MySQL utf8mb4_general_ci makes
+        // the IN() comparison case-insensitive; whitespace must already be collapsed).
+        const nameUsers: ResolveLearner[] = nameQuerySet.size
+            ? await this.prisma.user.findMany({
+                  where: { role_name: 'user', deleted_at: null, full_name: { in: Array.from(nameQuerySet) } },
+                  select: { id: true, full_name: true, mobile: true, email: true, status: true },
+              })
+            : [];
+        const nameMap = new Map<string, ResolveLearner[]>();
+        for (const u of nameUsers) {
+            const key = nameKey(u.full_name);
+            if (!key) continue;
+            const arr = nameMap.get(key) ?? [];
+            arr.push(u);
+            nameMap.set(key, arr);
+        }
+
+        // Resolve per-row candidate list (phone takes precedence over name).
+        const candidateUsers = new Map<number, ResolveLearner>();
+        const rowCandidates: ResolveLearner[][] = prepared.map((p) => {
+            if (p.hasPhone && p.nsn) {
+                const u = mobileMap.get(p.nsn);
+                if (u) {
+                    candidateUsers.set(Number(u.id), u);
+                    return [u];
+                }
+            }
+            if (p.hasName) {
+                const keys = nameVariants(p.collapsedName).map((v) => nameKey(v));
+                const seen = new Set<number>();
+                const list: ResolveLearner[] = [];
+                for (const k of keys) {
+                    for (const u of nameMap.get(k) ?? []) {
+                        const uid = Number(u.id);
+                        if (!seen.has(uid)) {
+                            seen.add(uid);
+                            list.push(u);
+                            candidateUsers.set(uid, u);
+                        }
+                    }
+                }
+                return list.slice(0, 25); // cap per-row ambiguity payload
+            }
+            return [];
+        });
+
+        // Batch query 3 — group memberships for every candidate (for the badges).
+        const candidateIds = Array.from(candidateUsers.keys());
+        const memberships = candidateIds.length
+            ? await this.prisma.groupUser.findMany({
+                  where: { user_id: { in: candidateIds } },
+                  select: { user_id: true, group: { select: { id: true, name: true } } },
+              })
+            : [];
+        const groupsByUser = new Map<number, Array<{ id: number; name: string }>>();
+        for (const m of memberships as Array<{ user_id: number; group: { id: number; name: string } | null }>) {
+            if (!m.group) continue;
+            const uid = Number(m.user_id);
+            const arr = groupsByUser.get(uid) ?? [];
+            arr.push({ id: Number(m.group.id), name: m.group.name });
+            groupsByUser.set(uid, arr);
+        }
+
+        const toCandidate = (u: ResolveLearner): StudentCandidateDto => {
+            const groups = groupsByUser.get(Number(u.id)) ?? [];
+            return {
+                user_id: Number(u.id),
+                full_name: u.full_name ?? null,
+                mobile: u.mobile ?? null,
+                email: u.email ?? null,
+                status: u.status,
+                in_this_group: groups.some((g) => g.id === groupId),
+                groups,
+            };
+        };
+
+        const nameMatchesUser = (collapsedName: string, full_name: string | null): boolean =>
+            nameVariants(collapsedName).some((v) => nameKey(v) === nameKey(full_name));
+
+        // Classify each row. matchedSeen tracks first-seen matched users for dup flagging.
+        const matchedSeen = new Set<number>();
+        const rows: ResolveResultRowDto[] = prepared.map((p, i) => {
+            const base = {
+                index: p.index,
+                input: { name: p.inputName, phone: p.inputPhone },
+                matched_user_id: null as number | null,
+                name_mismatch: false,
+                duplicate_in_file: false,
+                candidates: [] as StudentCandidateDto[],
+            };
+
+            if (!p.hasName && !p.hasPhone) {
+                return { ...base, status: 'invalid' };
+            }
+
+            // Phone match (authoritative).
+            if (p.hasPhone && p.nsn && mobileMap.get(p.nsn)) {
+                const u = mobileMap.get(p.nsn)!;
+                const uid = Number(u.id);
+                const name_mismatch = p.hasName ? !nameMatchesUser(p.collapsedName, u.full_name) : false;
+                const duplicate_in_file = matchedSeen.has(uid);
+                matchedSeen.add(uid);
+                return {
+                    ...base,
+                    status: 'matched',
+                    matched_user_id: uid,
+                    name_mismatch,
+                    duplicate_in_file,
+                    candidates: [toCandidate(u)],
+                };
+            }
+
+            // Name match fallback.
+            const cands = rowCandidates[i];
+            if (cands.length === 1) {
+                const uid = Number(cands[0].id);
+                const duplicate_in_file = matchedSeen.has(uid);
+                matchedSeen.add(uid);
+                return {
+                    ...base,
+                    status: 'matched',
+                    matched_user_id: uid,
+                    duplicate_in_file,
+                    candidates: [toCandidate(cands[0])],
+                };
+            }
+            if (cands.length > 1) {
+                return { ...base, status: 'ambiguous', candidates: cands.map(toCandidate) };
+            }
+            return { ...base, status: 'unmatched' };
+        });
 
         return { rows };
     }

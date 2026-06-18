@@ -21,6 +21,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { BulkMembersDto } from './dto/bulk-members.dto';
 import { ListMembersDto, MemberProgressRequestDto } from './dto/member-progress.dto';
+import { ResolveMembersDto } from './dto/resolve-members.dto';
 import { GroupsMembersService } from './groups-members.service';
 
 /**
@@ -96,5 +97,18 @@ export class GroupsMembersController {
         @Body() dto: MemberProgressRequestDto,
     ) {
         return this.svc.progress({ id: actor.id, role_name: actor.role_name }, id, dto);
+    }
+
+    @Post(':id/members/resolve')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
+    @SkipAudit('read-only matching/resolution for Excel import; no mutation occurs')
+    @HttpCode(HttpStatus.OK)
+    public async resolve(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: ResolveMembersDto,
+    ) {
+        return this.svc.resolveMembers({ id: actor.id, role_name: actor.role_name }, id, dto);
     }
 }
