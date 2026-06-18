@@ -351,6 +351,16 @@ const CATALOG: SeedGroup[] = [
             { action: 'manage', display_order: 20, name_ru: 'Управление', name_kz: 'Басқару' },
         ],
     },
+    {
+        code: 'settings',
+        display_order: 2500,
+        name_ru: 'Настройки',
+        name_kz: 'Баптаулар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'edit', display_order: 20, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------

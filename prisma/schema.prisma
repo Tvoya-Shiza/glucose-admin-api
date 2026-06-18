@@ -2153,3 +2153,13 @@ model AdmissionStat {
   @@index([year])
   @@map("admission_stats")
 }
+
+model AppSetting {
+  id         Int    @id @default(autoincrement()) @db.UnsignedInt
+  key        String @unique @db.VarChar(64)
+  value      String @db.Text
+  created_at Int    @db.UnsignedInt
+  updated_at Int?   @db.UnsignedInt
+
+  @@map("app_settings")
+}

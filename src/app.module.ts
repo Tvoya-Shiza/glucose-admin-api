@@ -34,6 +34,7 @@ import { PromocodesModule } from './modules/promocodes/promocodes.module';
 import { PushModule } from './modules/push/push.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
@@ -121,6 +122,8 @@ import { PrismaModule } from './prisma/prisma.module';
         ProgressOverridesModule,
         // Phase 25 — Reward rules admin CRUD (GET /rewards/rules, PATCH /rewards/rules/:type).
         RewardsModule,
+        // Phase 31 — Global app settings (ҰБТ exam date for the dashboard countdown).
+        SettingsModule,
     ],
     controllers: [AppController],
     providers: [
