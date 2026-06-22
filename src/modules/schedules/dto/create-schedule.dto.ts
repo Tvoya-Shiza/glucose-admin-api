@@ -65,9 +65,12 @@ export class CreateScheduleDto {
     @Min(0)
     end_at!: number;
 
+    // Rich-text HTML (sanitized server-side before persist). Markup eats into
+    // the budget, so the cap is higher than the old plain-text 2000. DB column
+    // is TEXT (~65k); keep in sync with the admin-client zod schema.
     @IsOptional()
     @IsString()
-    @MaxLength(2000)
+    @MaxLength(10000)
     description?: string;
 
     @IsOptional()

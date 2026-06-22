@@ -51,9 +51,11 @@ export class UpdateScheduleDto {
     @Min(0)
     end_at?: number;
 
+    // Rich-text HTML (sanitized server-side before persist). See create DTO for
+    // the rationale behind the higher cap. Keep in sync with the admin-client.
     @IsOptional()
     @IsString()
-    @MaxLength(2000)
+    @MaxLength(10000)
     description?: string | null;
 
     @IsOptional()

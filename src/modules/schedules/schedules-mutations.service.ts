@@ -5,6 +5,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { CreateScheduleDto, ScheduleItemInputDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { SCHEDULE_SCOPE_RULES } from './schedules.scope';
+import { normalizeScheduleDescription } from './utils/sanitize-html-server';
 
 /**
  * Write surface for LessonSchedule.
@@ -44,7 +45,7 @@ export class SchedulesMutationsService {
                 course_id: dto.course_id,
                 start_at: dto.start_at,
                 end_at: dto.end_at,
-                description: dto.description ?? null,
+                description: normalizeScheduleDescription(dto.description),
                 status: dto.status ?? 'scheduled',
                 created_by: actor.id,
                 created_at: nowSec,
@@ -88,7 +89,7 @@ export class SchedulesMutationsService {
                     course_id: dto.course_id === undefined ? undefined : dto.course_id,
                     start_at,
                     end_at,
-                    description: dto.description === undefined ? undefined : dto.description,
+                    description: dto.description === undefined ? undefined : normalizeScheduleDescription(dto.description),
                     status: dto.status,
                     updated_at: nowSec,
                 },
