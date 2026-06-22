@@ -72,7 +72,12 @@ export class UploadsController {
         FileInterceptor('file', {
             storage: memoryStorage(),
             limits: { fileSize: 200 * 1024 * 1024 },
-        }),
+            // multer декодирует имя файла как latin1 по умолчанию → кириллица/қазақша
+            // в file.originalname приходит как mojibake. Читаем заголовок как UTF-8,
+            // чтобы sanitizeOriginalName сохранял читаемое имя, а не «мохибейк».
+            // `defParamCharset` нет в типе Nest MulterOptions, но multer его читает.
+            defParamCharset: 'utf8',
+        } as any),
     )
     @Audit('uploads.file', 'file')
     @HttpCode(HttpStatus.OK)
@@ -118,7 +123,12 @@ export class UploadsController {
         FileInterceptor('file', {
             storage: memoryStorage(),
             limits: { fileSize: 200 * 1024 * 1024 },
-        }),
+            // multer декодирует имя файла как latin1 по умолчанию → кириллица/қазақша
+            // в file.originalname приходит как mojibake. Читаем заголовок как UTF-8,
+            // чтобы sanitizeOriginalName сохранял читаемое имя, а не «мохибейк».
+            // `defParamCharset` нет в типе Nest MulterOptions, но multer его читает.
+            defParamCharset: 'utf8',
+        } as any),
     )
     @Audit('uploads.replace', 'upload')
     @HttpCode(HttpStatus.OK)
