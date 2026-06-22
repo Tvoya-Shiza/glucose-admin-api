@@ -687,7 +687,16 @@ export class UploadsService implements OnModuleInit {
         if (!raw || typeof raw !== 'string') {
             return null;
         }
-        const trimmed = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
+        // Display-only field: the on-disk name is always the ULID (`${id}${ext}`)
+        // and `file_url` never derives from this, so there is no path-safety reason
+        // to drop non-ASCII. Keep Unicode letters/digits (Cyrillic/Kazakh filenames
+        // are the norm here) and only fold path separators, control chars, and other
+        // punctuation into `_` so names stay readable instead of becoming `_____`.
+        const trimmed = raw
+            .replace(/[^\p{L}\p{N}._ -]/gu, '_')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 120);
         return trimmed.length > 0 ? trimmed : null;
     }
 
