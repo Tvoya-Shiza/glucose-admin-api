@@ -60,8 +60,34 @@ export class AssignmentsSubmissionsService {
 
         const filterWhere: any = { assignment_id: assignmentId };
         if (query.status) filterWhere.status = query.status;
+
+        // Build the `student` predicate from the free-text search + the group (поток / ағым)
+        // filter, AND-merged so both narrow together.
+        const studentPredicates: any[] = [];
         if (query.q && query.q.trim().length > 0) {
-            filterWhere.student = { full_name: { contains: query.q.trim() } };
+            studentPredicates.push({ full_name: { contains: query.q.trim() } });
+        }
+        if (typeof query.group_id === 'number') {
+            studentPredicates.push({ group_users: { some: { group_id: query.group_id } } });
+        }
+        if (studentPredicates.length === 1) {
+            filterWhere.student = studentPredicates[0];
+        } else if (studentPredicates.length > 1) {
+            filterWhere.student = { AND: studentPredicates };
+        }
+
+        // Curator group guard: a curator filtering by a group they don't supervise would
+        // otherwise leak students who merely share another supervised group (the scope's
+        // `some` and the filter's `some` match independently). Silently return an empty page,
+        // mirroring buildResultsWhere in the quiz-results surface.
+        if (actor.role_name === 'curator' && typeof query.group_id === 'number') {
+            const owned = await this.prisma.group.findFirst({
+                where: { id: query.group_id, supervisor_id: actor.id },
+                select: { id: true },
+            });
+            if (!owned) {
+                return { rows: [], total: 0, page, page_size };
+            }
         }
 
         const scoped = await this.applyTeacherSubmissionScope(actor, filterWhere);
@@ -278,7 +304,12 @@ export class AssignmentsSubmissionsService {
             const webinarIds = own.map((w) => Number(w.id));
             return { ...baseWhere, assignment: { webinar_id: { in: webinarIds.length === 0 ? [-1] : webinarIds } } };
         }
-        const scopeWhere = buildScopeWhere(actor, ASSIGNMENT_SUBMISSION_SCOPE_RULES);
+        const scopeWhere = buildScopeWhere(actor, ASSIGNMENT_SUBMISSION_SCOPE_RULES) as Record<string, any>;
+        // AND-merge the `student` predicate so the q/group_id filters survive the curator
+        // scope (which also narrows on `student`); a plain spread would clobber them.
+        if (baseWhere.student && scopeWhere.student) {
+            return { ...baseWhere, ...scopeWhere, student: { AND: [baseWhere.student, scopeWhere.student] } };
+        }
         return { ...baseWhere, ...(scopeWhere as object) };
     }
 }

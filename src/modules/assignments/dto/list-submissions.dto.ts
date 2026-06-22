@@ -21,6 +21,13 @@ export class ListSubmissionsDto {
     @IsIn(['pending', 'passed', 'not_passed', 'not_submitted'])
     status?: SubmissionStatusFilter;
 
+    /** Filter to submissions whose student belongs to this group (поток / ағым). */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    group_id?: number;
+
     @IsOptional()
     @IsString()
     @MaxLength(100)
