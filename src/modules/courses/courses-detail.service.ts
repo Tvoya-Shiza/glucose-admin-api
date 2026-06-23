@@ -5,6 +5,7 @@ import type { CourseDetailDto, ChapterDto, ChapterItemDto, TranslationRowDto } f
 import { deriveTranslationCompleteness } from './utils/translation-completeness';
 import { CoursesCacheService } from './utils/courses-cache.service';
 import { buildCourseDetailCacheKey } from './utils/course-cache';
+import { itemTypeToRestrictionKind, loadAllowedGroupsByNode, nodeKey, type NodeKey } from './utils/access-restrictions';
 
 /**
  * CRS-01 + CRS-07 — course detail (Plan 03).
@@ -322,6 +323,18 @@ export class CoursesDetailService {
             }
         }
 
+        // Phase 33 — load the group whitelist for every module + lesson node so the
+        // detail payload carries `allowed_group_ids` (lesson editor + schedule-grid
+        // indicator). One batched query keyed by (kind, ref_id).
+        const restrictionKeys: NodeKey[] = [];
+        for (const c of row.chapters as any[]) {
+            restrictionKeys.push({ kind: 'lesson', ref_id: Number(c.id) });
+            for (const it of c.items as any[]) {
+                restrictionKeys.push({ kind: itemTypeToRestrictionKind(it.type), ref_id: Number(it.item_id) });
+            }
+        }
+        const allowedByNode = await loadAllowedGroupsByNode(this.prisma, restrictionKeys);
+
         // Chapters + items.
         const chapters: ChapterDto[] = (row.chapters as any[]).map((c: any) => {
             const cTranslations: TranslationRowDto[] = (c.translations ?? [])
@@ -385,6 +398,8 @@ export class CoursesDetailService {
                     pdfs: pdfsByItem.get(Number(it.id)) ?? [],
                     attachments: attachmentsByItem.get(Number(it.id)) ?? [],
                     translations: itTranslations,
+                    allowed_group_ids:
+                        allowedByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), refId)) ?? [],
                 };
             });
 
@@ -394,6 +409,7 @@ export class CoursesDetailService {
                 status: c.status as 'active' | 'inactive',
                 translations: cTranslations,
                 items,
+                allowed_group_ids: allowedByNode.get(nodeKey('lesson', Number(c.id))) ?? [],
             };
         });
 

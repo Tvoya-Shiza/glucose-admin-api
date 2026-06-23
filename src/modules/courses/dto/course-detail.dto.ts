@@ -124,6 +124,13 @@ export interface ChapterItemDto {
     attachments: ChapterItemAttachmentRef[];
     /** Only present (non-empty) when type='file' — derived from FileTranslations join. */
     translations: TranslationRowDto[];
+    /**
+     * Phase 33 — group access whitelist for this lesson. Empty = visible to all
+     * groups; non-empty = only members of these groups see the lesson (others have
+     * it hidden in the student app). Drives the lesson editor's "Доступ по группам"
+     * control and the schedule-grid "no access" indicator.
+     */
+    allowed_group_ids: number[];
 }
 
 export type ChapterStatus = 'active' | 'inactive';
@@ -134,6 +141,12 @@ export interface ChapterDto {
     status: ChapterStatus;
     translations: TranslationRowDto[];
     items: ChapterItemDto[];
+    /**
+     * Phase 33 — group access whitelist for the WHOLE module. Empty = visible to
+     * all; non-empty = only these groups see the module (a hidden module hides all
+     * its lessons regardless of per-lesson whitelists).
+     */
+    allowed_group_ids: number[];
 }
 
 export interface CourseCounts {

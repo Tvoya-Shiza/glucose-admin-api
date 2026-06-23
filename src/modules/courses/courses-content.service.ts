@@ -14,6 +14,13 @@ import { CoursesDetailService } from './courses-detail.service';
 import { CoursesCacheService } from './utils/courses-cache.service';
 import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
+import {
+    itemTypeToRestrictionKind,
+    loadAllowedGroupsByNode,
+    nodeKey,
+    type NodeKey,
+    type RestrictionKind,
+} from './utils/access-restrictions';
 
 /**
  * CRS-03 + CRS-04 — content tree (chapter + item) editor service (Plan 05).
@@ -246,6 +253,11 @@ export class CoursesContentService {
                         });
                     }
                 }
+            }
+
+            // Phase 33 — module-level group whitelist (kind='lesson', ref_id=chapter id).
+            if (dto.allowed_group_ids !== undefined) {
+                await this.syncNodeRestrictions(tx as any, courseId, 'lesson', chapId, dto.allowed_group_ids, actor.id);
             }
 
             return this.readChapterDto(tx as any, chapId);
@@ -587,6 +599,20 @@ export class CoursesContentService {
                 }
             }
 
+            // Phase 33 — lesson-level group whitelist. ref_id = the resolved
+            // resource id (fileId); kind derived from the item type (file covers
+            // file/session/text_lesson). Matches the student-side item-level key.
+            if (dto.allowed_group_ids !== undefined) {
+                await this.syncNodeRestrictions(
+                    tx as any,
+                    courseId,
+                    itemTypeToRestrictionKind(dto.type),
+                    fileId,
+                    dto.allowed_group_ids,
+                    actor.id,
+                );
+            }
+
             return this.readItemDto(tx as any, chapterItemId);
         });
 
@@ -634,6 +660,13 @@ export class CoursesContentService {
         });
         if (!row) throw new NotFoundException('chapters.not_in_course');
 
+        // Phase 33 — resolve per-node group whitelist for the chapter + its items.
+        const keys: NodeKey[] = [{ kind: 'lesson', ref_id: Number(row.id) }];
+        for (const it of row.items ?? []) {
+            keys.push({ kind: itemTypeToRestrictionKind(it.type), ref_id: Number(it.item_id) });
+        }
+        const allowedByNode = await loadAllowedGroupsByNode(tx as any, keys);
+
         return {
             id: Number(row.id),
             order: row.order == null ? null : Number(row.order),
@@ -658,7 +691,10 @@ export class CoursesContentService {
                 pdfs: [],
                 attachments: [],
                 translations: [],
+                allowed_group_ids:
+                    allowedByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), Number(it.item_id))) ?? [],
             })),
+            allowed_group_ids: allowedByNode.get(nodeKey('lesson', Number(row.id))) ?? [],
         };
     }
 
@@ -802,6 +838,10 @@ export class CoursesContentService {
                 }));
         }
 
+        // Phase 33 — resolve the lesson's group whitelist.
+        const kind = itemTypeToRestrictionKind(row.type);
+        const allowedByNode = await loadAllowedGroupsByNode(tx as any, [{ kind, ref_id: Number(row.item_id) }]);
+
         return {
             id: Number(row.id),
             type: row.type,
@@ -815,7 +855,56 @@ export class CoursesContentService {
             pdfs,
             attachments,
             translations,
+            allowed_group_ids: allowedByNode.get(nodeKey(kind, Number(row.item_id))) ?? [],
         };
+    }
+
+    /**
+     * Phase 33 — declaratively set the group whitelist for one node. Diffs the
+     * desired group ids against the existing `lesson_access_restrictions` rows:
+     * creates the missing, deletes the removed. `[]` clears the restriction
+     * (node visible to all). Validates the group ids exist. Runs inside the
+     * caller's `$transaction` (pass the tx client as `db`).
+     */
+    private async syncNodeRestrictions(
+        db: PrismaService,
+        courseId: number,
+        kind: RestrictionKind,
+        refId: number,
+        desiredGroupIds: number[],
+        actorId: number,
+    ): Promise<void> {
+        const desired = new Set((desiredGroupIds ?? []).filter((g) => Number.isInteger(g) && g > 0));
+        if (desired.size > 0) {
+            const found = await db.group.count({ where: { id: { in: Array.from(desired) } } });
+            if (found !== desired.size) {
+                throw new BadRequestException('access_restrictions.group_not_found');
+            }
+        }
+        const existing: Array<{ id: bigint; group_id: number }> = await db.lessonAccessRestriction.findMany({
+            where: { kind: kind as any, ref_id: refId },
+            select: { id: true, group_id: true },
+        });
+        const existingGroups = new Set(existing.map((r) => r.group_id));
+        const toDelete = existing.filter((r) => !desired.has(r.group_id)).map((r) => r.id);
+        const toCreate = Array.from(desired).filter((g) => !existingGroups.has(g));
+        if (toDelete.length > 0) {
+            await db.lessonAccessRestriction.deleteMany({ where: { id: { in: toDelete } } });
+        }
+        if (toCreate.length > 0) {
+            const now = nowSeconds();
+            await db.lessonAccessRestriction.createMany({
+                data: toCreate.map((g) => ({
+                    course_id: courseId,
+                    kind: kind as any,
+                    ref_id: refId,
+                    group_id: g,
+                    created_by: actorId,
+                    created_at: now,
+                })),
+                skipDuplicates: true,
+            });
+        }
     }
 }
 

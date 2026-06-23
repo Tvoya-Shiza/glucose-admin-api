@@ -293,6 +293,8 @@ model User {
   course_content_overrides         CourseContentOverride[] @relation("UserContentOverrides")
   granted_course_content_overrides CourseContentOverride[] @relation("AdminGrantedContentOverrides")
 
+  created_access_restrictions LessonAccessRestriction[] @relation("AccessRestrictionCreator")
+
   push_notification_logs PushNotificationLog[]
 
   scheduled_pushes_created   ScheduledPush[] @relation("ScheduledPushCreator")
@@ -382,6 +384,8 @@ model Group {
   notifications     Notification[]           @relation("NotificationGroup")
   sales             Sale[]                   @relation("GroupSales")
   content_overrides CourseContentOverride[]  @relation("GroupContentOverrides")
+
+  access_restrictions LessonAccessRestriction[] @relation("GroupAccessRestrictions")
 
   @@map("groups")
 }
@@ -937,6 +941,8 @@ model Webinar {
 
   lesson_schedules  LessonSchedule[]        @relation("LessonScheduleCourse")
   content_overrides CourseContentOverride[] @relation("WebinarContentOverrides")
+
+  access_restrictions LessonAccessRestriction[] @relation("WebinarAccessRestrictions")
 
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
@@ -2089,6 +2095,38 @@ enum LessonScheduleStatus {
 }
 
 enum LessonScheduleItemKind {
+  lesson
+  quiz
+  assignment
+  file
+}
+
+//* Phase 33 — lesson / module access restriction by group (whitelist).
+// Mirror of glucose-api/prisma/schema.prisma (canonical). One row = one
+// whitelisted group for one node (kind='lesson' -> WebinarChapter.id ; else the
+// resource id). A node with no rows is visible to everyone; with rows, only
+// whitelisted groups see it (the student content tree hides the rest). Refreshed
+// here via `npm run prisma:pull` after the glucose-api migration applies.
+model LessonAccessRestriction {
+  id         BigInt                      @id @default(autoincrement()) @db.UnsignedBigInt
+  course_id  Int
+  kind       LessonAccessRestrictionKind
+  ref_id     Int                         @db.UnsignedInt
+  group_id   Int                         @db.UnsignedInt
+  created_by Int
+  created_at Int                         @db.UnsignedInt
+
+  course  Webinar @relation("WebinarAccessRestrictions", fields: [course_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group   Group   @relation("GroupAccessRestrictions", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User    @relation("AccessRestrictionCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([kind, ref_id, group_id], name: "uniq_lar_node_group")
+  @@index([course_id, kind, ref_id], name: "idx_lar_course_node")
+  @@index([group_id], name: "idx_lar_group")
+  @@map("lesson_access_restrictions")
+}
+
+enum LessonAccessRestrictionKind {
   lesson
   quiz
   assignment

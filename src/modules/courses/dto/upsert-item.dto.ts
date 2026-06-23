@@ -84,6 +84,20 @@ export class UpsertChapterDto {
     @ValidateNested({ each: true })
     @Type(() => TranslationDto)
     translations?: TranslationDto[];
+
+    /**
+     * Phase 33 — group access whitelist for the WHOLE module. Tri-state:
+     *   - omitted (undefined) → leave the existing whitelist untouched;
+     *   - `[]`                → clear the restriction (module visible to all groups);
+     *   - non-empty array     → only these groups see the module.
+     * The service diffs against existing lesson_access_restrictions rows.
+     */
+    @IsOptional()
+    @IsArray()
+    @ArrayMaxSize(500)
+    @IsInt({ each: true })
+    @Type(() => Number)
+    allowed_group_ids?: number[];
 }
 
 export type UpsertItemType = 'file' | 'quiz' | 'assignment';
@@ -280,4 +294,19 @@ export class UpsertItemDto {
     @ValidateNested({ each: true })
     @Type(() => ItemAttachmentDto)
     attachments?: ItemAttachmentDto[];
+
+    /**
+     * Phase 33 — group access whitelist for THIS lesson. Tri-state:
+     *   - omitted (undefined) → leave the existing whitelist untouched;
+     *   - `[]`                → clear the restriction (lesson visible to all groups);
+     *   - non-empty array     → only these groups see the lesson.
+     * The service diffs against existing lesson_access_restrictions rows for the
+     * node (kind derived from `type`, ref_id = the resolved resource id).
+     */
+    @IsOptional()
+    @IsArray()
+    @ArrayMaxSize(500)
+    @IsInt({ each: true })
+    @Type(() => Number)
+    allowed_group_ids?: number[];
 }
