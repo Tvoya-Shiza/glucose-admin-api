@@ -8,6 +8,8 @@ import { CoursesDetailController } from './courses-detail.controller';
 import { CoursesDetailService } from './courses-detail.service';
 import { CoursesContentController } from './courses-content.controller';
 import { CoursesContentService } from './courses-content.service';
+import { CoursesDuplicateController } from './courses-duplicate.controller';
+import { CoursesDuplicateService } from './courses-duplicate.service';
 import { CoursesScheduleController } from './courses-schedule.controller';
 import { CoursesScheduleService } from './courses-schedule.service';
 import { CoursesTeacherController } from './courses-teacher.controller';
@@ -56,6 +58,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CoursesListController,
         CoursesMutationsController,
         CoursesContentController,
+        CoursesDuplicateController,
         CoursesScheduleController,
         CoursesTeacherController,
         CoursesPreviewController,
@@ -67,6 +70,7 @@ import { CoursesCacheService } from './utils/courses-cache.service';
         CoursesMutationsService,
         CoursesDetailService,
         CoursesContentService,
+        CoursesDuplicateService,
         CoursesScheduleService,
         CoursesTeacherService,
         CoursesPreviewService,
