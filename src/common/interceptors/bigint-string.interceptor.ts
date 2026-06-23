@@ -1,4 +1,4 @@
-import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
+import { CallHandler, ExecutionContext, Injectable, NestInterceptor, StreamableFile } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
@@ -19,6 +19,16 @@ export class BigIntStringInterceptor implements NestInterceptor {
     intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
         return next.handle().pipe(
             map((value) => {
+                // Streamed file responses must reach Nest's serializer as a
+                // StreamableFile *instance* so the framework pipes the stream.
+                // The recursive `convert` below deep-clones into a plain object,
+                // turning a StreamableFile into `{"options":{...},"stream":{...}}`
+                // which Nest then JSON-serializes — corrupting binary downloads
+                // (e.g. submission PDFs arriving as application/pdf but containing
+                // the serialized object). Pass it through untouched.
+                if (value instanceof StreamableFile) {
+                    return value;
+                }
                 const res = context.switchToHttp().getResponse();
                 const contentType = res?.getHeader?.('content-type');
                 if (typeof contentType === 'string' && contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
