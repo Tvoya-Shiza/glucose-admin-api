@@ -32,7 +32,7 @@ export class SchedulesMutationsService {
 
         await this.assertRefsExist({
             curator_id: dto.curator_id,
-            group_id: dto.group_id,
+            group_id: dto.group_id ?? null,
             course_id: dto.course_id,
             items: dto.items ?? [],
         });
@@ -41,12 +41,14 @@ export class SchedulesMutationsService {
         const created = await this.prisma.lessonSchedule.create({
             data: {
                 curator_id: dto.curator_id,
-                group_id: dto.group_id,
+                group_id: dto.group_id ?? null,
                 course_id: dto.course_id,
                 start_at: dto.start_at,
                 end_at: dto.end_at,
                 description: normalizeScheduleDescription(dto.description),
                 status: dto.status ?? 'scheduled',
+                block_before_start: dto.block_before_start ?? false,
+                block_after_end: dto.block_after_end ?? false,
                 created_by: actor.id,
                 created_at: nowSec,
                 items: {
@@ -74,7 +76,8 @@ export class SchedulesMutationsService {
 
         await this.assertRefsExist({
             curator_id: existing.curator_id,
-            group_id: dto.group_id ?? existing.group_id,
+            // undefined = keep existing group; explicit null = convert to general.
+            group_id: dto.group_id === undefined ? existing.group_id : dto.group_id,
             course_id: dto.course_id === undefined ? existing.course_id : dto.course_id ?? undefined,
             items: dto.items ?? [],
         });
@@ -85,12 +88,15 @@ export class SchedulesMutationsService {
             await tx.lessonSchedule.update({
                 where: { id: idAsBigInt },
                 data: {
+                    // undefined → unchanged; null → general; number → group-scoped.
                     group_id: dto.group_id,
                     course_id: dto.course_id === undefined ? undefined : dto.course_id,
                     start_at,
                     end_at,
                     description: dto.description === undefined ? undefined : normalizeScheduleDescription(dto.description),
                     status: dto.status,
+                    block_before_start: dto.block_before_start,
+                    block_after_end: dto.block_after_end,
                     updated_at: nowSec,
                 },
             });
@@ -148,7 +154,8 @@ export class SchedulesMutationsService {
 
     private async assertRefsExist(args: {
         curator_id: number;
-        group_id: number;
+        // Phase 32 — null/undefined = general schedule, no group to validate.
+        group_id?: number | null;
         course_id?: number | null;
         items: ScheduleItemInputDto[];
     }): Promise<void> {
@@ -161,15 +168,19 @@ export class SchedulesMutationsService {
                     });
                 }
             }),
-            this.prisma.group.findUnique({ where: { id: args.group_id }, select: { id: true } }).then((g) => {
-                if (!g) {
-                    throw new BadRequestException({
-                        message: 'schedule.group_not_found',
-                        trans: 'admin.schedules.group_not_found',
-                    });
-                }
-            }),
         ];
+        if (typeof args.group_id === 'number') {
+            checks.push(
+                this.prisma.group.findUnique({ where: { id: args.group_id }, select: { id: true } }).then((g) => {
+                    if (!g) {
+                        throw new BadRequestException({
+                            message: 'schedule.group_not_found',
+                            trans: 'admin.schedules.group_not_found',
+                        });
+                    }
+                }),
+            );
+        }
         if (typeof args.course_id === 'number') {
             checks.push(
                 this.prisma.webinar.findUnique({ where: { id: args.course_id }, select: { id: true } }).then((w) => {
@@ -273,7 +284,7 @@ export class SchedulesMutationsService {
         return {
             id: found.id,
             curator_id: Number(found.curator_id),
-            group_id: Number(found.group_id),
+            group_id: found.group_id == null ? null : Number(found.group_id),
             course_id: found.course_id == null ? null : Number(found.course_id),
             start_at: Number(found.start_at),
             end_at: Number(found.end_at),

@@ -2035,19 +2035,24 @@ model AdminNotification {
 model LessonSchedule {
   id          BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
   curator_id  Int                  @db.UnsignedInt
-  group_id    Int                  @db.UnsignedInt
+  // Phase 32 — nullable: NULL = GENERAL schedule (applies to all students of the
+  // course). A non-null group_id scopes the schedule (and its access gate) to a group.
+  group_id    Int?                 @db.UnsignedInt
   course_id   Int?                 @db.UnsignedInt
   start_at    Int                  @db.UnsignedInt
   end_at      Int                  @db.UnsignedInt
   description String?              @db.Text
   status      LessonScheduleStatus @default(scheduled)
+  // Phase 32 — independent access-gate toggles (see glucose-api gating).
+  block_before_start Boolean       @default(false) @db.TinyInt
+  block_after_end    Boolean       @default(false) @db.TinyInt
   created_by  Int                  @db.UnsignedInt
   created_at  Int                  @db.UnsignedInt
   updated_at  Int?                 @db.UnsignedInt
   deleted_at  Int?                 @db.UnsignedInt
 
   curator User                 @relation("LessonScheduleCurator", fields: [curator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  group   Group                @relation("LessonScheduleGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group   Group?               @relation("LessonScheduleGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   course  Webinar?             @relation("LessonScheduleCourse", fields: [course_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
   creator User                 @relation("LessonScheduleCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
   items   LessonScheduleItem[] @relation("LessonScheduleItems")

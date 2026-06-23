@@ -3,12 +3,14 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsIn,
     IsInt,
     IsOptional,
     IsString,
     MaxLength,
     Min,
+    ValidateIf,
     ValidateNested,
 } from 'class-validator';
 import { SCHEDULE_KINDS, SCHEDULE_STATUSES, type ScheduleKindFilter, type ScheduleStatusFilter } from './list-schedules.dto';
@@ -42,10 +44,14 @@ export class CreateScheduleDto {
     @Min(1)
     curator_id!: number;
 
+    // Phase 32 — optional/nullable: omit or send null for a GENERAL schedule
+    // (applies to every student of the course). A positive id scopes it to a group.
+    @IsOptional()
+    @ValidateIf((o: CreateScheduleDto) => o.group_id !== null && o.group_id !== undefined)
     @Type(() => Number)
     @IsInt()
     @Min(1)
-    group_id!: number;
+    group_id?: number | null;
 
     // Required: every schedule must be bound to a course. The DB column stays
     // nullable for legacy rows, but new writes must specify a course so the
@@ -76,6 +82,17 @@ export class CreateScheduleDto {
     @IsOptional()
     @IsIn(SCHEDULE_STATUSES as unknown as string[])
     status?: ScheduleStatusFilter;
+
+    // Phase 32 — independent access-gate toggles. Default false (informational
+    // event that doesn't lock content). block_before_start: lock while now < start_at.
+    // block_after_end: lock while now > end_at.
+    @IsOptional()
+    @IsBoolean()
+    block_before_start?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    block_after_end?: boolean;
 
     @IsOptional()
     @IsArray()

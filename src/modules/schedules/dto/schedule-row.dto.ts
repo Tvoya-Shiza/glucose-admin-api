@@ -15,8 +15,9 @@ export interface ScheduleRowDto {
     id: number;
     curator_id: number;
     curator_name: string | null;
-    group_id: number;
-    group_name: string;
+    /** Phase 32 — null for a GENERAL schedule (not bound to a specific group). */
+    group_id: number | null;
+    group_name: string | null;
     course_id: number | null;
     course_title_ru: string | null;
     course_title_kz: string | null;
@@ -24,6 +25,9 @@ export interface ScheduleRowDto {
     end_at: number;
     description: string | null;
     status: ScheduleStatus;
+    /** Phase 32 — independent access-gate toggles. */
+    block_before_start: boolean;
+    block_after_end: boolean;
     item_count: number;
     items: ScheduleItemDto[];
     created_by: number;

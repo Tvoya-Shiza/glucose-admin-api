@@ -3,12 +3,14 @@ import {
     ArrayMaxSize,
     ArrayMinSize,
     IsArray,
+    IsBoolean,
     IsIn,
     IsInt,
     IsOptional,
     IsString,
     MaxLength,
     Min,
+    ValidateIf,
     ValidateNested,
 } from 'class-validator';
 import { SCHEDULE_STATUSES, type ScheduleStatusFilter } from './list-schedules.dto';
@@ -23,11 +25,14 @@ import { ScheduleItemInputDto } from './create-schedule.dto';
  * delete + recreate to re-assign ownership.
  */
 export class UpdateScheduleDto {
+    // Phase 32 — explicit `null` converts a group schedule to GENERAL; omitted
+    // leaves the existing group unchanged; a positive id re-scopes to that group.
     @IsOptional()
+    @ValidateIf((o: UpdateScheduleDto) => o.group_id !== null && o.group_id !== undefined)
     @Type(() => Number)
     @IsInt()
     @Min(1)
-    group_id?: number;
+    group_id?: number | null;
 
     // course_id is partial-optional (PATCH), but `null` is no longer accepted —
     // once bound, a schedule cannot have its course detached. Use create-then-
@@ -61,6 +66,15 @@ export class UpdateScheduleDto {
     @IsOptional()
     @IsIn(SCHEDULE_STATUSES as unknown as string[])
     status?: ScheduleStatusFilter;
+
+    // Phase 32 — independent access-gate toggles (omitted = unchanged).
+    @IsOptional()
+    @IsBoolean()
+    block_before_start?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    block_after_end?: boolean;
 
     @IsOptional()
     @IsArray()
