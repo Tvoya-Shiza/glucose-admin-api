@@ -4,6 +4,7 @@ import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { CreateScheduleDto, ScheduleItemInputDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { SaveScheduleGridDto } from './dto/schedule-grid.dto';
 import { SCHEDULE_SCOPE_RULES } from './schedules.scope';
 import { normalizeScheduleDescription } from './utils/sanitize-html-server';
 
@@ -129,6 +130,85 @@ export class SchedulesMutationsService {
             data: { deleted_at: nowSec },
         });
         return { id: Number(idAsBigInt), deleted: true };
+    }
+
+    /**
+     * Phase 32 — per-course schedule GRID bulk save. Each node is a single-item
+     * `lesson_schedules` row (kind='lesson' → chapter-level; quiz/assignment/file →
+     * item-level). Cascade + precedence are handled by the student gating resolver,
+     * so this surface just persists one window/toggle set per configured node.
+     *
+     *   - upserts WITHOUT id  → create a new single-item row (curator=actor, scope group)
+     *   - upserts WITH id     → update that row's window/toggles (scope-checked)
+     *   - deletes             → soft-delete (scope-checked)
+     *
+     * All node refs must belong to `courseId`. Runs in one transaction.
+     */
+    public async bulkSaveGrid(actor: ScopeActor, courseId: number, dto: SaveScheduleGridDto) {
+        const upserts = dto.upserts ?? [];
+        const deletes = dto.deletes ?? [];
+        const group_id = dto.group_id ?? null;
+
+        for (const node of upserts) {
+            this.assertValidRange(node.start_at, node.end_at);
+        }
+
+        // Validate every node ref belongs to the course (reuses item-in-course logic).
+        if (upserts.length > 0) {
+            await this.assertRefsExist({
+                curator_id: actor.id,
+                group_id: actor.role_name === 'admin' ? undefined : group_id,
+                course_id: courseId,
+                items: upserts.map((n) => ({ kind: n.kind, ref_id: n.ref_id })),
+            });
+        }
+
+        // Scope-check every id we touch (update + delete) BEFORE writing, so a
+        // partial transaction can't sneak past curator ownership.
+        const idsToCheck = [...upserts.filter((n) => n.id != null).map((n) => n.id as number), ...deletes];
+        await Promise.all(idsToCheck.map((id) => this.findWritable(actor, BigInt(id))));
+
+        const nowSec = Math.floor(Date.now() / 1000);
+        await this.prisma.$transaction(async (tx) => {
+            for (const node of upserts) {
+                if (node.id != null) {
+                    await tx.lessonSchedule.update({
+                        where: { id: BigInt(node.id) },
+                        data: {
+                            start_at: node.start_at,
+                            end_at: node.end_at,
+                            block_before_start: node.block_before_start ?? false,
+                            block_after_end: node.block_after_end ?? false,
+                            updated_at: nowSec,
+                        },
+                    });
+                } else {
+                    await tx.lessonSchedule.create({
+                        data: {
+                            curator_id: actor.id,
+                            group_id,
+                            course_id: courseId,
+                            start_at: node.start_at,
+                            end_at: node.end_at,
+                            status: 'scheduled',
+                            block_before_start: node.block_before_start ?? false,
+                            block_after_end: node.block_after_end ?? false,
+                            created_by: actor.id,
+                            created_at: nowSec,
+                            items: { create: [{ kind: node.kind, ref_id: node.ref_id, position: 0, created_at: nowSec }] },
+                        },
+                    });
+                }
+            }
+            if (deletes.length > 0) {
+                await tx.lessonSchedule.updateMany({
+                    where: { id: { in: deletes.map((id) => BigInt(id)) } },
+                    data: { deleted_at: nowSec },
+                });
+            }
+        });
+
+        return { ok: true, upserted: upserts.length, deleted: deletes.length };
     }
 
     // -------------------------------------------------------------- helpers

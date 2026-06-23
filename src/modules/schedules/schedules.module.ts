@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
+import { SchedulesGridController } from './schedules-grid.controller';
 import { SchedulesListController } from './schedules-list.controller';
 import { SchedulesListService } from './schedules-list.service';
 import { SchedulesMutationsController } from './schedules-mutations.controller';
@@ -15,7 +16,7 @@ import { SchedulesMutationsService } from './schedules-mutations.service';
  */
 @Module({
     imports: [AccessModule],
-    controllers: [SchedulesListController, SchedulesMutationsController],
+    controllers: [SchedulesListController, SchedulesMutationsController, SchedulesGridController],
     providers: [SchedulesListService, SchedulesMutationsService],
     exports: [],
 })
