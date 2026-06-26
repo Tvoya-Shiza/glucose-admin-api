@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { MailingsHistoryQueryDto } from './dto/mailings-history.dto';
@@ -10,10 +10,8 @@ import { MailingsCacheService } from './utils/mailings-cache.service';
  *
  * Returns paginated MailingLog rows.
  *
- * RBAC (D-19): admin-only in v1. MAILING_SCOPE_RULES default-denies
- * curator/teacher via `id: { in: [] }`, but defense-in-depth: this service
- * also throws ForbiddenException when actor.role_name !== 'admin' so the
- * caller gets a clear 403 rather than an empty list.
+ * RBAC (D-19): runtime-driven via @RequirePermission('mailings.history_view')
+ * on the controller. Any admitted role with the grant may view history.
  *
  * Cache: 60s under geonline-admin:mailings:history:<actor.id>:<filter-shape>
  * (D-18). Short TTL means newly-sent mailings surface quickly; pagination
@@ -27,12 +25,6 @@ export class MailingsHistoryService {
     ) {}
 
     public async list(query: MailingsHistoryQueryDto, actor: ScopeActor) {
-        // D-19: mailings are admin-only across send + history. Throw rather than
-        // return an empty list so curator/teacher see a clear 403.
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('mailings.history.admin_only');
-        }
-
         const page = Math.max(1, query.page ?? 1);
         const pageSize = Math.min(100, Math.max(1, query.page_size ?? 25));
         const sort = query.sort ?? 'sent_at';

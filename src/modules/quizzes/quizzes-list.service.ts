@@ -42,10 +42,11 @@ import { buildQuizListCacheKey } from './utils/quizzes-cache';
  *     'created_at' / 'updated_at' map directly. Tie-breaker on id keeps pagination
  *     deterministic.
  *
- * Scope (D-21):
+ * Scope:
  *   - admin   -> rule omitted -> {} -> sees all
  *   - teacher -> rule omitted -> {} -> sees all (D-21 user spec: "teacher edits ANY quiz")
- *   - curator -> { id: { in: [] } } -> empty result (default-deny, courses pattern)
+ *   - curator -> rule omitted -> {} -> sees all; access governed by the runtime
+ *                @RequirePermission('quizzes.view') grant, not hardcoded by role.
  *
  * Cache: getOrSet wrapped via QuizzesCacheService at TTL=60s. Key embeds role+actor_id
  * BEFORE the filter hash (T-06-19 mitigation). Invalidation lives in the mutations /

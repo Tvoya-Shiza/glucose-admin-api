@@ -1,6 +1,5 @@
 import {
     BadRequestException,
-    ForbiddenException,
     Injectable,
     Logger,
     NotFoundException,
@@ -60,10 +59,6 @@ export class QuizzesAnswersService {
         dto: UpsertAnswerDto,
     ) {
         const quiz = await this.questionsService.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         // Question existence + cross-quiz check
         const question: any = await this.prisma.quizQuestion.findUnique({
             where: { id: questionId },
@@ -160,10 +155,6 @@ export class QuizzesAnswersService {
         dto: UpsertAnswerDto,
     ) {
         const quiz = await this.questionsService.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const existing: any = await this.prisma.quizQuestionAnswer.findUnique({
             where: { id: answerId },
             include: { translations: true, question: { select: { id: true, quiz_id: true } } },
@@ -299,10 +290,6 @@ export class QuizzesAnswersService {
         forceConfirmToken: string | null,
     ) {
         const quiz = await this.questionsService.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const existing: any = await this.prisma.quizQuestionAnswer.findUnique({
             where: { id: answerId },
             select: {

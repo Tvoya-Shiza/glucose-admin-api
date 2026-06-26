@@ -28,7 +28,8 @@ import { BlogsCacheService } from './utils/blogs-cache.service';
  *   - BlogsAuthorController   PATCH /admin-api/v1/admin/blogs/:id/author      (BLG-03 / D-11)
  *   - BlogCategoriesCtl       GET/POST/PATCH/DELETE /admin-api/v1/admin/blogs/categories[/:id]
  *
- * Every controller method carries @Roles('admin') (D-20). Mutations carry @Audit (D-17).
+ * Every controller method carries @Roles('admin','curator','teacher') + @RequirePermission
+ * gating. Mutations carry @Audit (D-17).
  *
  * Tiptap content writes (BlogTranslation.content) are sanitized via
  * `utils/sanitize-html-server.ts` (T-07-04-02 — defense in depth, mirrors Phase 5

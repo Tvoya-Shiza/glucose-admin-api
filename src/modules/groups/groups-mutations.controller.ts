@@ -23,13 +23,16 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { GroupsMutationsService } from './groups-mutations.service';
 
 /**
- * GRP-01 + GRP-04 + GRP-05 — admin-only group mutations + cascade-preview (Plan 02).
+ * GRP-01 + GRP-04 + GRP-05 — group mutations + cascade-preview (Plan 02).
+ *
+ * Access is governed by @Roles + a grantable @RequirePermission per route
+ * (groups.create / groups.edit / groups.delete). No per-tenant WRITE narrowing exists.
  *
  * Routes:
- *   POST   /admin-api/v1/admin/groups                 -> create        (admin)
- *   PATCH  /admin-api/v1/admin/groups/:id             -> update name/status (admin)
- *   DELETE /admin-api/v1/admin/groups/:id             -> hard delete   (admin)
- *   POST   /admin-api/v1/admin/groups/:id/cascade-preview -> dry-run   (admin / curator)
+ *   POST   /admin-api/v1/admin/groups                 -> create        (groups.create)
+ *   PATCH  /admin-api/v1/admin/groups/:id             -> update name/status (groups.edit)
+ *   DELETE /admin-api/v1/admin/groups/:id             -> hard delete   (groups.delete)
+ *   POST   /admin-api/v1/admin/groups/:id/cascade-preview -> dry-run   (groups.delete)
  *
  * Audit: every non-GET handler decorated. cascade-preview uses @SkipAudit with a
  * non-empty reason because it is a read-style operation (no DB mutation); the actual

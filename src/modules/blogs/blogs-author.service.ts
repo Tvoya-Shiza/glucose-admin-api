@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ChangeBlogAuthorDto } from './dto/change-author.dto';
@@ -12,8 +12,10 @@ import { BLOGS_INVALIDATE_PATTERN, BLOGS_PUBLIC_INVALIDATE_PATTERN } from './uti
  * High-trust mutation: changes Blog.author_id. Mirrors Phase 3 Plan 04 UsersRoleService
  * posture for admin-escalation-shaped writes.
  *
+ * Access is runtime-RBAC-driven: governed by @RequirePermission('blogs.edit') on the
+ * controller, not hardcoded to admin.
+ *
  * Defensive guards (mirroring threat model T-07-04-03 / T-07-04-04):
- *   - admin-only (belt-and-braces alongside RolesGuard at controller).
  *   - existence check on Blog (404 'blogs.not_found').
  *   - target user existence + role check: `role_name IN ('admin','teacher')` (D-11
  *     locked policy — students are never authors; curators don't author content).
@@ -46,10 +48,8 @@ export class BlogsAuthorService {
     ) {}
 
     public async changeAuthor(actor: ScopeActor, blogId: number, dto: ChangeBlogAuthorDto): Promise<BlogDetail> {
-        // Belt-and-braces — RolesGuard already enforces admin-only at the controller.
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('admin_only');
-        }
+        // Access is governed by @RequirePermission('blogs.edit') on the controller —
+        // any admitted role with the grant may reassign authors.
 
         // 1. Blog must exist.
         const blog: any = await this.prisma.blog.findFirst({

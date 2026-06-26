@@ -21,11 +21,7 @@ import { CoursesListService } from './courses-list.service';
  * RBAC: admin / curator / teacher all hit the route. WEBINAR_SCOPE_RULES narrows visibility:
  *   - admin   -> all courses
  *   - teacher -> own courses (teacher_id === actor.id)
- *   - curator -> default-deny (id: { in: [] }) -> empty result
- *
- * Curators are kept on the route (not @Roles('admin','teacher')) so that any future
- * admin-flow that wants to surface a 'no courses' state for curators continues to render
- * with a real 200 response. AdminNav already hides the link for curators per Plan 01.
+ *   - curator -> rule omitted -> {} -> all courses (governed by @RequirePermission('courses.view'))
  */
 @Controller('admin-api/v1/admin/courses')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

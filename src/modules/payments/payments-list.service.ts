@@ -23,9 +23,9 @@ import { KASPI_SCOPE_RULES } from './payments.scope';
  *   - cursor present -> WHERE id <op> cursor; skip = 0
  *   - cursor absent  -> standard offset (page-1) * page_size
  *
- * Scope (D-18, T-09-01-01): admin sees all; curator + teacher get
- * `id: { in: [] }` via KASPI_SCOPE_RULES (default-deny). RolesGuard already
- * rejects them at @Roles('admin'); the scope is belt-and-braces.
+ * Scope (D-18, T-09-01-01): access is governed at runtime by
+ * @RequirePermission('payments.view'). KASPI_SCOPE_RULES applies no per-row
+ * narrowing — any granted role sees all KaspiPayment rows.
  *
  * BigInt + Decimal: `txn_id` and `sum` are converted to STRING at the row-mapping
  * boundary so the wire format matches the locked admin-client contract

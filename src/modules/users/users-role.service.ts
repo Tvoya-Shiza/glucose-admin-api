@@ -12,8 +12,9 @@ import { ChangeRoleDto } from './dto/change-role.dto';
  * on the controller; `ci:audit-required` enforces the decoration.
  *
  * Defensive guards (mirroring threat model):
- *   - admin-only: `actor.role_name !== 'admin'` -> 403 (RolesGuard already gates; this
- *     is belt-and-braces at the service boundary).
+ *   - anti-escalation: a non-admin actor (governed by the grantable `users.edit` permission)
+ *     may change roles but may NOT assign the `admin` role nor alter a user who currently
+ *     IS an admin -> 403. Only a real admin may mint or alter admins.
  *   - self-demotion: `actor.id === id && target !== 'admin'` -> 403 (T-03-33).
  *   - role pair mismatch: `Role.findUnique(role_id).name !== dto.role_name` -> 400 (T-03-31).
  *   - admin-escalation: `dto.role_name === 'admin'` requires `confirmation === String(id)` (T-03-32).
@@ -34,11 +35,6 @@ export class UsersRoleService {
         id: number,
         dto: ChangeRoleDto,
     ): Promise<{ id: number; role_id: number; role_name: string }> {
-        // Belt-and-braces — RolesGuard already enforces admin-only at the controller.
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('admin_only');
-        }
-
         // T-03-33: prevent admin from demoting themselves to a non-admin role (would
         // lock the platform out — they could no longer reach this endpoint to fix it).
         // Demotion by *another* admin is allowed.
@@ -60,6 +56,14 @@ export class UsersRoleService {
         if (!role) throw new BadRequestException('role_not_found');
         if (role.name !== dto.role_name) {
             throw new BadRequestException(`role_mismatch:expected_${role.name}_got_${dto.role_name}`);
+        }
+
+        // Anti-escalation: role changes are governed by the grantable `users.edit` permission
+        // (controller admits admin/curator/teacher), but a non-admin actor must NEVER be able
+        // to (a) assign the `admin` role, nor (b) modify the role of a user who currently IS an
+        // admin. Only a real admin may mint or alter admins.
+        if (actor.role_name !== 'admin' && (dto.role_name === 'admin' || user.role_name === 'admin')) {
+            throw new ForbiddenException('cannot_assign_admin_role');
         }
 
         // T-03-32: admin-escalation guard. Server-side gate independent of any UI.

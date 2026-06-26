@@ -21,9 +21,9 @@ import { SALE_SCOPE_RULES } from './sales.scope';
  *     Mobile is normalized via `normalizeKzPhone` so partial-digit input
  *     `7012` still hits canonical `+77012...`.
  *
- * Scope (D-18, D-20, T-09-03-01): admin sees all; curator + teacher get
- * `id: { in: [] }` via SALE_SCOPE_RULES (default-deny). RolesGuard already
- * rejects them at @Roles('admin'); the scope is belt-and-braces.
+ * Scope (D-18, D-20): access is governed at runtime by @RequirePermission
+ * ('sales.view'); any admitted role holding the grant sees all rows. No role is
+ * row-narrowed by SALE_SCOPE_RULES (it omits all roles -> {}).
  *
  * BigInt + Decimal: Sale id + relation ids are Int (plain `number`); Decimal
  * fields (`amount`, `total_amount`) are converted to STRING at the row-mapping

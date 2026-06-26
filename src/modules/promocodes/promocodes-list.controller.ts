@@ -14,8 +14,9 @@ import { PromocodesListService } from './promocodes-list.service';
  *
  * Returns the raw `{ rows, total, pageCount }` shape (NOT wrapped) per CLAUDE.md.
  *
- * RBAC (D-20): admin-only. Curator/teacher get 403 from RolesGuard. Belt-and-braces
- * via PROMOCODE_SCOPE_RULES (default-deny `id IN ()` if @Roles is somehow bypassed).
+ * RBAC (D-20): runtime-RBAC-driven. @Roles admits admin/curator/teacher; access is
+ * governed by the grantable @RequirePermission('promocodes.view'). No role is
+ * narrowed by row (PROMOCODE_SCOPE_RULES is empty -> {} -> sees all).
  *
  * Audit: GET endpoints are exempt from the `ci:audit-required` lint.
  */

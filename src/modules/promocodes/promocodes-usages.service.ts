@@ -15,8 +15,10 @@ import { PROMOCODES_USAGES_PREFIX } from './utils/promocodes-cache';
  * NULLABLE on the schema (Plan 01 schema-truth lock #7) and serialize to
  * `string | null` via `.toFixed(2)`.
  *
- * Scope: admin-only — the parent Promocode is scope-gated via PROMOCODE_SCOPE_RULES
- * (curator/teacher get `id IN ()` → empty result → 404).
+ * Scope: runtime-RBAC-driven. The parent Promocode existence check spreads
+ * PROMOCODE_SCOPE_RULES, which narrows no role by row -> {} -> any role granted
+ * @RequirePermission('promocodes.view') sees the promocode (404 only if it truly
+ * doesn't exist).
  *
  * Response shape: raw `{ rows, total, pageCount }` (CLAUDE.md — list endpoints
  * don't wrap with apiResponse).
@@ -65,8 +67,8 @@ export class PromocodesUsagesService {
         query: ListUsagesDto,
     ): Promise<PromocodeUsageListResponse> {
         // Parent Promocode existence + scope check. buildScopeWhere is spread into
-        // findFirst: admin -> {} (sees all); curator/teacher -> { id: { in: [] } }
-        // -> 404. This mirrors the belt-and-braces stance from list endpoints.
+        // findFirst: no role narrows by row -> {} -> any granted role sees it (404 only
+        // when the promocode truly doesn't exist). Mirrors the list endpoints.
         const promocode: any = await this.prisma.promocode.findFirst({
             where: { id: promocodeId, ...(buildScopeWhere(actor, PROMOCODE_SCOPE_RULES) as object) },
             select: { id: true },

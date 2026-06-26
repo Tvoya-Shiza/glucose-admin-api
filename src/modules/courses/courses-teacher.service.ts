@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ChangeTeacherDto } from './dto/change-teacher.dto';
@@ -11,14 +11,13 @@ import {
 import type { CourseDetailDto } from './dto/course-detail.dto';
 
 /**
- * CRS-06 — admin-only course-teacher reassignment service (Plan 07).
+ * CRS-06 — course-teacher reassignment service (Plan 07).
  *
  * PATCH /admin-api/v1/admin/courses/:id/teacher
  *
  * Behavior (mirrors Phase 4 Plan 03 GroupsSupervisorService verbatim):
- *   - admin-only at controller layer (@Roles('admin')); defensive belt-and-suspenders
- *     `actor.role_name !== 'admin'` check here. Curator/teacher hitting the service
- *     directly (e.g. via a future internal call site) gets 403 'courses.forbidden_admin_only'.
+ *   - Access is governed by @Roles + a grantable @RequirePermission('courses.edit') on
+ *     the controller — no blanket role denial in the service.
  *   - Validates target user exists, NOT soft-deleted, AND has role_name='teacher'.
  *     Mismatch -> NotFoundException('courses.teacher_not_found'). Preserves invariant:
  *     Webinar.teacher_id always references a non-deleted teacher (T-05-71 mitigation).
@@ -58,10 +57,8 @@ export class CoursesTeacherService {
         courseId: number,
         dto: ChangeTeacherDto,
     ): Promise<CourseDetailDto & { previous_teacher_id: number | null }> {
-        // Defensive admin-only gate (RolesGuard usually catches first).
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('courses.forbidden_admin_only');
-        }
+        // Access is governed by @Roles + a grantable @RequirePermission on the controller —
+        // no blanket role denial here.
 
         // Existence check — soft-deleted (deleted_at != null) counts as absent.
         const course: any = await this.prisma.webinar.findFirst({

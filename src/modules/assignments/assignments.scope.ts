@@ -1,17 +1,15 @@
 import type { ScopeRules } from '../../common/scoping/scope.types';
 
 /**
- * Assignment edit-surface rules (matches QUIZ_SCOPE_RULES posture).
+ * Assignment read/edit-surface rules (matches QUIZ_SCOPE_RULES posture).
  *
  *   admin   → omitted → buildScopeWhere returns {} → sees all assignments
  *   teacher → omitted → teacher edits ANY assignment (matches D-21 posture for quizzes)
- *   curator → default-deny on the edit surface ({ id: { in: [] } }). Curators do NOT
- *             author assignments; they grade via the submissions surface, which has
- *             its own scope rules (ASSIGNMENT_SUBMISSION_SCOPE_RULES).
+ *   curator → omitted → {} → governed by @RequirePermission; a granted curator sees
+ *             all assignments on the read surface. Curators are not in @Roles for the
+ *             write endpoints, so this does not grant authoring rights.
  */
-export const ASSIGNMENT_SCOPE_RULES: ScopeRules = {
-    curator: () => ({ id: { in: [] as number[] } }),
-};
+export const ASSIGNMENT_SCOPE_RULES: ScopeRules = {};
 
 /**
  * Submission read-surface rules.

@@ -23,14 +23,15 @@ import { UpsertPromocodeDto } from './dto/upsert-promocode.dto';
 import { PromocodesMutationsService } from './promocodes-mutations.service';
 
 /**
- * PRM-01 — admin-only promocode mutations (Plan 05).
+ * PRM-01 — promocode mutations (Plan 05).
  *
  * Routes:
- *   POST   /admin-api/v1/admin/promocodes       -> create     (admin)
- *   PATCH  /admin-api/v1/admin/promocodes/:id   -> update     (admin)
- *   DELETE /admin-api/v1/admin/promocodes/:id   -> hard delete (admin)
+ *   POST   /admin-api/v1/admin/promocodes       -> create      (promocodes.create)
+ *   PATCH  /admin-api/v1/admin/promocodes/:id   -> update      (promocodes.edit)
+ *   DELETE /admin-api/v1/admin/promocodes/:id   -> hard delete (promocodes.delete)
  *
- * RBAC: admin-only. Curator/teacher excluded at @Roles + PROMOCODE_SCOPE_RULES default-deny.
+ * RBAC: runtime-RBAC-driven. @Roles admits admin/curator/teacher; access is governed
+ * by the grantable @RequirePermission('promocodes.*') code on each handler.
  *
  * Audit (D-17): every handler decorated with `@Audit('promocodes.<action>', 'promocode')`.
  * `ci:audit-required` enforces.

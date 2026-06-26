@@ -30,7 +30,8 @@ import { BlogsMutationsService } from './blogs-mutations.service';
  *   PATCH  /admin-api/v1/admin/blogs/:id   -> update     (admin)
  *   DELETE /admin-api/v1/admin/blogs/:id   -> hard delete (admin)
  *
- * RBAC: admin-only. Curator/teacher excluded at @Roles + BLOG_SCOPE_RULES default-deny.
+ * RBAC: per-action @RequirePermission (blogs.create/edit/delete) over
+ * @Roles('admin','curator','teacher'); no scope-level deny.
  *
  * Audit (D-17): every handler decorated with `@Audit('blogs.<action>', 'blog')`.
  * `ci:audit-required` enforces.

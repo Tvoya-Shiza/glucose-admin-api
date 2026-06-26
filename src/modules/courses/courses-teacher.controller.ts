@@ -11,15 +11,14 @@ import { ChangeTeacherDto } from './dto/change-teacher.dto';
 import { CoursesTeacherService } from './courses-teacher.service';
 
 /**
- * CRS-06 — admin-only course-author reassignment (Plan 07).
+ * CRS-06 — course-author reassignment (Plan 07).
  *
  * Routes:
- *   PATCH /admin-api/v1/admin/courses/:id/teacher    -> change teacher (admin)
+ *   PATCH /admin-api/v1/admin/courses/:id/teacher    -> change teacher
  *
- * RBAC: admin-only. Curator/teacher get 403 from RolesGuard before reaching the service.
- * Service layer carries a defensive `actor.role_name !== 'admin'` belt-and-suspenders
- * check — never reachable in production (RolesGuard catches first) but guards against
- * future internal call sites.
+ * RBAC: @Roles('admin', 'curator', 'teacher') + a grantable @RequirePermission('courses.edit').
+ * Access is governed at runtime by the permission grant — no blanket role denial in the
+ * service layer.
  *
  * Audit: @Audit('courses.teacher.change', 'webinar') — AuditInterceptor records the
  * full response shape (which includes `previous_teacher_id` for before-state capture).

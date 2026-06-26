@@ -14,8 +14,8 @@ import { BannersListService } from './banners-list.service';
  *
  * Returns the raw `{ rows, total, pageCount }` shape (NOT wrapped) per CLAUDE.md.
  *
- * RBAC (D-20): admin-only. Curator/teacher get 403 from RolesGuard. Belt-and-braces
- * via BANNER_SCOPE_RULES (default-deny `id IN ()` if @Roles is somehow bypassed).
+ * RBAC: runtime-driven. @Roles admits admin/curator/teacher; @RequirePermission('banners.view')
+ * is the grantable gate. No ownership narrowing in BANNER_SCOPE_RULES.
  *
  * Audit: GET endpoints are exempt from the `ci:audit-required` lint.
  */

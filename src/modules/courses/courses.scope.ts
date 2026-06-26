@@ -5,7 +5,7 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
  *
  *   admin   → omitted → buildScopeWhere returns {} (sees all courses)
  *   teacher → only courses where Webinar.teacher_id === actor.id
- *   curator → default-deny (id: { in: [] }) — curators don't author courses
+ *   curator → omitted → {} → governed by @RequirePermission (no blanket scope denial)
  *
  * Spread into prisma.webinar.findMany({ where: { ...filters, ...buildScopeWhere(actor, WEBINAR_SCOPE_RULES) } }).
  *
@@ -19,5 +19,5 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
 export const WEBINAR_SCOPE_RULES: ScopeRules = {
     // admin: omitted -> buildScopeWhere returns {} -> sees all courses
     teacher: (actor) => ({ teacher_id: actor.id }),
-    curator: () => ({ id: { in: [] as number[] } }),
+    // curator: omitted -> {} -> governed by @RequirePermission (no blanket scope denial)
 };

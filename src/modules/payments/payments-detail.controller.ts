@@ -15,7 +15,8 @@ import { PaymentsDetailService } from './payments-detail.service';
  * the list endpoint shape so admin-client TanStack Query consumes a consistent
  * payload across list + detail (no envelope-strip needed for either).
  *
- * RBAC (D-18): admin-only — curator + teacher hit RolesGuard 403.
+ * RBAC (D-18): admitted to admin/curator/teacher; access governed at runtime by
+ * @RequirePermission('payments.view').
  *
  * Audit posture: GET exempt from @Audit lint (only mutations require it).
  */

@@ -18,14 +18,11 @@ import { QuizzesListService } from './quizzes-list.service';
  *
  * Audit: GET endpoints are exempt from the @Audit lint — no decorator needed.
  *
- * RBAC: admin / curator / teacher all hit the route (mirrors Phase 5 courses
- * pattern). QUIZ_SCOPE_RULES narrows visibility:
- *   - admin   -> all quizzes
- *   - teacher -> all quizzes (D-21: teacher edits ANY quiz)
- *   - curator -> default-deny (id: { in: [] }) -> empty result
- *
- * Curators are kept on the route so any future "no quizzes" empty-state for
- * curators continues to render a real 200 response.
+ * RBAC: runtime-driven. admin / curator / teacher all hit the route, gated by
+ * @RequirePermission('quizzes.view'). Quizzes are global content, so there is no
+ * per-tenant narrowing in QUIZ_SCOPE_RULES — any role granted quizzes.view sees the
+ * full list. (Historically curators were default-denied via an empty scope predicate;
+ * that is now governed by the runtime grant.)
  */
 @Controller('admin-api/v1/admin/quizzes')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

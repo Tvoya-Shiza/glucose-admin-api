@@ -23,14 +23,15 @@ import { UpsertBannerDto } from './dto/upsert-banner.dto';
 import { BannersMutationsService } from './banners-mutations.service';
 
 /**
- * BAN-01 — admin-only banner mutations (Plan 03).
+ * BAN-01 — banner mutations (Plan 03).
  *
  * Routes:
- *   POST   /admin-api/v1/admin/banners       -> create     (admin)
- *   PATCH  /admin-api/v1/admin/banners/:id   -> update     (admin)
- *   DELETE /admin-api/v1/admin/banners/:id   -> hard delete (admin)
+ *   POST   /admin-api/v1/admin/banners       -> create      (banners.create)
+ *   PATCH  /admin-api/v1/admin/banners/:id   -> update      (banners.edit)
+ *   DELETE /admin-api/v1/admin/banners/:id   -> hard delete (banners.delete)
  *
- * RBAC: admin-only. Curator/teacher excluded at @Roles + BANNER_SCOPE_RULES default-deny.
+ * RBAC: runtime-driven. @Roles admits admin/curator/teacher; each handler's
+ * @RequirePermission is the grantable gate.
  *
  * Audit (D-17): every handler decorated with `@Audit('banners.<action>', 'advertisement')`.
  * Entity name follows the Prisma model (`advertisement`); product copy says "banner".

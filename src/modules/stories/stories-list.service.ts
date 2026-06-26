@@ -14,10 +14,9 @@ import { STORY_SCOPE_RULES } from './stories.scope';
  *   - Story.created_at / updated_at are Unix seconds (`Int @db.UnsignedInt`).
  *   - StoryTranslation has NO @@unique([story_id, locale]); service-side dedup.
  *
- * Scope (D-20):
- *   - admin   -> rule omitted -> {} -> sees all
- *   - teacher -> { id: { in: [] } } -> empty result
- *   - curator -> { id: { in: [] } } -> empty result
+ * Scope (D-20): runtime-RBAC-driven — all roles omitted from STORY_SCOPE_RULES ->
+ * buildScopeWhere returns {} -> each admitted role sees all rows IF granted
+ * stories.view. Unknown roles fail closed via scope.helper's default branch.
  *
  * Performance: explicit `select`/`include` blend, `prisma.$transaction([count, findMany])`
  * mirrors Phase 3/5 list endpoints. Tie-breaker on `id` for deterministic pagination.
@@ -76,7 +75,7 @@ export class StoriesListService {
             ];
         }
 
-        // Scope spread (admin sees all; non-admin -> empty).
+        // Scope spread (all admitted roles see all rows; governed by @RequirePermission).
         const scopeWhere = buildScopeWhere(actor, STORY_SCOPE_RULES);
         const where: any = { ...filterWhere, ...(scopeWhere as object) };
 

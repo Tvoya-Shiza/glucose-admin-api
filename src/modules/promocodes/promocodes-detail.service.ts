@@ -6,8 +6,8 @@ import { PROMOCODES_DETAIL_PREFIX } from './utils/promocodes-cache';
 /**
  * PRM-01 — promocode detail (Phase 7 Plan 05).
  *
- * Admin-only (controller @Roles('admin') + PROMOCODE_SCOPE_RULES default-deny).
- * Returns full Promocode record with Decimal fields serialized to string and the
+ * Access is runtime-RBAC-driven via @RequirePermission('promocodes.view') on the
+ * controller. Returns full Promocode record with Decimal fields serialized to string and the
  * `applicable_to` JSON normalized into the discriminated union shape.
  *
  * Schema-truth (Plan 01 lock):

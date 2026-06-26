@@ -4,8 +4,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 /**
  * STY-01 — story detail (Plan 02).
  *
- * Admin-only (controller @Roles('admin') + STORY_SCOPE_RULES default-deny). Returns
- * full Story + translations[] + category (with translations) + author (full_name).
+ * Runtime-RBAC-driven (controller @RequirePermission('stories.view'); STORY_SCOPE_RULES
+ * is {} for all admitted roles). Returns full Story + translations[] + category
+ * (with translations) + author (full_name).
  *
  * Schema-truth: no soft-delete column. 404 = row genuinely absent.
  */

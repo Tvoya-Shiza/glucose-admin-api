@@ -18,10 +18,9 @@ import { BANNER_SCOPE_RULES } from './banners.scope';
  *   - AdvertisementTranslation has NO @@unique([advertisement_id, locale]); service-side dedup.
  *   - Prisma model accessor: `prisma.advertisement.*` (singular; @@map="advertisements").
  *
- * Scope (D-20):
- *   - admin   -> rule omitted -> {} -> sees all
- *   - teacher -> { id: { in: [] } } -> empty result
- *   - curator -> { id: { in: [] } } -> empty result
+ * Scope: runtime-RBAC-driven. No role narrows banners by ownership (rules empty -> {});
+ * every admitted role that holds `banners.view` sees all banners. Access is governed by
+ * the @RequirePermission grant on the controller, not by this scope file.
  *
  * Performance: explicit `select`/`include` blend, `prisma.$transaction([count, findMany])`
  * mirrors Phase 3/5/Plan 02 list endpoints. Tie-breaker on `id` for deterministic pagination.
@@ -79,7 +78,7 @@ export class BannersListService {
             ];
         }
 
-        // Scope spread (admin sees all; non-admin -> empty).
+        // Scope spread (no ownership narrowing -> {}; governed by @RequirePermission).
         const scopeWhere = buildScopeWhere(actor, BANNER_SCOPE_RULES);
         const where: any = { ...filterWhere, ...(scopeWhere as object) };
 

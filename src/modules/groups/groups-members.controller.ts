@@ -29,15 +29,15 @@ import { GroupsMembersService } from './groups-members.service';
  *
  * Routes:
  *   GET    /admin-api/v1/admin/groups/:id/members           -> paginated member list
- *   POST   /admin-api/v1/admin/groups/:id/members           -> bulk add (admin only)
- *   DELETE /admin-api/v1/admin/groups/:id/members           -> bulk remove (admin only)
+ *   POST   /admin-api/v1/admin/groups/:id/members           -> bulk add
+ *   DELETE /admin-api/v1/admin/groups/:id/members           -> bulk remove
  *   POST   /admin-api/v1/admin/groups/:id/members/progress  -> per-member course progress
  *
  * RBAC:
- *   - GET + POST progress  : admin / curator / teacher (service enforces 3-step scope
- *     check; foreign-curator and teacher receive 403, mirroring GroupsDetailController).
- *   - POST + DELETE bulk   : admin only (T-04-31 mitigation). Service carries a defensive
- *     belt-and-suspenders check for the same.
+ *   - GET + POST progress  : @Roles + @RequirePermission('groups.view'); service runs the
+ *     3-step scope check (foreign-curator receives 403; teacher/other governed by grant).
+ *   - POST + DELETE bulk   : @Roles + @RequirePermission('groups.edit'); same scope check
+ *     keeps curator's per-tenant own-group narrowing.
  *
  * Audit:
  *   - POST   /:id/members           -> @Audit('groups.members.add', 'group_user')

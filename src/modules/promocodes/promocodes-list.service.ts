@@ -19,10 +19,9 @@ import { PROMOCODES_LIST_PREFIX } from './utils/promocodes-cache';
  *   - sort=usage_count → Prisma orderBy `{ usages: { _count: <order> } }`.
  *   - Promocode.id is `Int` (signed, NOT @db.UnsignedInt).
  *
- * Scope (D-20):
- *   - admin   -> rule omitted -> {} -> sees all
- *   - teacher -> { id: { in: [] } } -> empty result
- *   - curator -> { id: { in: [] } } -> empty result
+ * Scope (D-20): runtime-RBAC-driven. No role narrows by row — every admitted role
+ * resolves to {} via buildScopeWhere and sees all promocodes IF granted
+ * @RequirePermission('promocodes.view').
  *
  * Response shape: raw `{ rows, total, pageCount }` (CLAUDE.md — list endpoints don't
  * wrap with apiResponse; admin-client TanStack Table consumes the raw shape).
@@ -128,7 +127,7 @@ export class PromocodesListService {
         }
         // 'all' or undefined → no window filter.
 
-        // Scope spread (admin sees all; non-admin -> empty).
+        // Scope spread (runtime-RBAC-driven; no role narrows by row -> {} -> sees all).
         const scopeWhere = buildScopeWhere(actor, PROMOCODE_SCOPE_RULES);
         const where: any = { ...filterWhere, ...(scopeWhere as object) };
 

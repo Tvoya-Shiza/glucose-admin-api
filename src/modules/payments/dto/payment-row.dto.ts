@@ -15,8 +15,8 @@
  *     `total_amount: string | null`.
  *
  * data1..data10 are surfaced verbatim per D-04. They may carry phone-like values or
- * other Kaspi callback fields — admin-only surface (D-18) keeps the disclosure
- * footprint inside the operator population.
+ * other Kaspi callback fields — the payments.view grant (D-18) keeps the disclosure
+ * footprint inside the population explicitly granted that permission.
  */
 export class PaymentRowDto {
     id!: number;

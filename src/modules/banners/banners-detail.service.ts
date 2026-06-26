@@ -7,8 +7,8 @@ import { PrismaService } from '../../prisma/prisma.service';
  * Mirrors StoriesDetailService minus the `icon` column (Advertisement schema has
  * only `image` + `video`).
  *
- * Admin-only (controller @Roles('admin') + BANNER_SCOPE_RULES default-deny). Returns
- * full Advertisement + translations[] + category (with translations) + author (full_name).
+ * Access is runtime-RBAC-driven via @RequirePermission('banners.view') on the controller.
+ * Returns full Advertisement + translations[] + category (with translations) + author (full_name).
  *
  * Schema-truth: no soft-delete column. 404 = row genuinely absent.
  */

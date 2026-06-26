@@ -16,10 +16,11 @@ import { CoursesDuplicateService } from './courses-duplicate.service';
  * per-concern convention; mirrors QuizzesDuplicateController. Keeps @Audit coverage
  * trivially auditable.
  *
- * RBAC: admin / teacher (own course). Curator is listed at @Roles for surface
- * uniformity but the service layer hard-denies curator (403). Reuses the existing
- * `courses.create` permission code (no new permission to seed/sync), matching how the
- * quiz duplicate reuses `quizzes.create`.
+ * RBAC: @Roles('admin', 'curator', 'teacher') + a grantable @RequirePermission('courses.create').
+ * Access is governed at runtime by the permission grant; the service narrows only teacher to
+ * their own course (admin/curator are not narrowed). Reuses the existing `courses.create`
+ * permission code (no new permission to seed/sync), matching how the quiz duplicate reuses
+ * `quizzes.create`.
  *
  * Audit: @Audit('courses.duplicate', 'webinar') — entity_id resolves from
  * `response.data.id` (the new course); duplicate stats (chapters_copied, items_copied,

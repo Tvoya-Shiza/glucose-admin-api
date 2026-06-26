@@ -22,8 +22,8 @@ import { ASSIGNMENT_SCOPE_RULES } from './assignments.scope';
  *   - created_at is BigInt @db.UnsignedBigInt — convert to string at the boundary
  *     per CLAUDE.md "BigInt as string" rule. The DTOs expose unix-seconds-as-string.
  *
- * Scope: admin/teacher see all; curator default-deny on the edit surface (the picker
- * + list page are blocked for curators — they only see submissions in their groups).
+ * Scope: admin/teacher/curator see all rows (ASSIGNMENT_SCOPE_RULES omits these roles
+ * → {}); the read surface is governed by the grantable @RequirePermission('assignments.view').
  */
 @Injectable()
 export class AssignmentsListService {

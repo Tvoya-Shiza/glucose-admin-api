@@ -38,10 +38,10 @@ import { CoursesScheduleService } from './courses-schedule.service';
  * BigInt; the global BigIntStringInterceptor serializes BigInt fields back to
  * string on the response.
  *
- * RBAC: admin / teacher (CONTEXT D-19 — curators excluded; they don't author
- * courses and the schedule editor is owner-only). Service layer enforces 3-step
- * assertCourseScope (existence -> teacher gate -> proceed) — foreign-teacher
- * direct access yields 403, soft-deleted course yields 404.
+ * RBAC: @Roles('admin', 'curator', 'teacher') + a grantable @RequirePermission.
+ * Access is governed at runtime by the permission grant. Service layer enforces 3-step
+ * assertCourseScope (existence -> teacher own-row gate -> proceed) — a teacher hitting a
+ * foreign course yields 403, soft-deleted course yields 404; admin/curator are not narrowed.
  *
  * Audit: 3 audited handlers (create / update / delete). GET is exempt.
  */

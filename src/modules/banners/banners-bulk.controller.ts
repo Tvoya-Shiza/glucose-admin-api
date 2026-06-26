@@ -16,7 +16,8 @@ import { BannersBulkService } from './banners-bulk.service';
  * Single endpoint serves both dry-run preview and commit (D-08 — `mode` discriminates).
  * Audit fires on every call (even uncommitted dry-runs are auditable signals).
  *
- * RBAC: admin-only.
+ * RBAC: runtime-driven. @Roles admits admin/curator/teacher; @RequirePermission('banners.publish')
+ * is the grantable gate.
  *
  * Returns the raw BulkStatusResult shape (NOT wrapped in apiResponse) — admin-client
  * useDryRunPreview hook + DryRunDialog consume it directly, mirroring the Phase 3

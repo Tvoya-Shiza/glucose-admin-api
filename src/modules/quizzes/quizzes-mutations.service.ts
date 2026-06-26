@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -30,8 +30,9 @@ import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
  *   - Quiz mutations DO NOT bump `version`. Version bumps are owned by Plan 05's
  *     destructive-edit detection on questions/answers (D-11/D-12).
  *
- *   - Scope check: curator -> 403 (defensive — controller @Roles excludes curator on
- *     create/update; @Roles excludes curator+teacher on delete). Teacher passes (D-21).
+ *   - Access is permission-driven: every route carries @RequirePermission('quizzes.*')
+ *     (create/edit/delete) and no role is hardcoded in this service (curator included),
+ *     per the runtime-RBAC contract.
  *
  *   - Cache invalidation (T-06-19 / D-26): every mutation calls
  *     `cache.invalidate(QUIZZES_INVALIDATE_PATTERN)` after the tx commits.
@@ -54,9 +55,7 @@ export class QuizzesMutationsService {
     ) {}
 
     public async create(actor: ScopeActor, dto: CreateQuizDto) {
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
+        // Access governed by @Roles + @RequirePermission('quizzes.create') at the controller.
 
         // Optional category existence check.
         if (typeof dto.category_id === 'number' && dto.category_id > 0) {
@@ -213,15 +212,10 @@ export class QuizzesMutationsService {
 
     /**
      * Soft delete: status='inactive' + bump updated_at. Children preserved.
-     * Admin-only (controller @Roles excludes teacher per D-21 safe default — teacher
-     * can EDIT but not DELETE).
+     * Access governed by @RequirePermission('quizzes.delete') at the controller.
      */
     public async softDelete(actor: ScopeActor, id: number) {
-        // Defensive scope check (controller already gates to admin).
         await this.assertScope(actor, id);
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
 
         const now = nowSec();
         await this.prisma.quizzes.update({
@@ -238,9 +232,6 @@ export class QuizzesMutationsService {
             select: { id: true },
         });
         if (!existing) throw new NotFoundException('quizzes.not_found');
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
         return { id: Number(existing.id) };
     }
 

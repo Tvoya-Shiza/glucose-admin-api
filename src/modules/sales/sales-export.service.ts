@@ -15,9 +15,9 @@ import { SALE_SCOPE_RULES } from './sales.scope';
  * formula-injection defense + spreadsheetml Content-Type contract. Worker
  * offload to `geonline-api-export` is deferred.
  *
- * Scope (D-18, D-20, T-09-03-01): same `SALE_SCOPE_RULES` as the list endpoint
- * — admin-only. Curators/teachers default-deny via `id: { in: [] }` (zero rows
- * even if the @Roles gate ever drifts).
+ * Scope (D-18, D-20): same `SALE_SCOPE_RULES` as the list endpoint — access is
+ * governed at runtime by @RequirePermission('sales.export'); any admitted role
+ * holding the grant exports all rows (SALE_SCOPE_RULES omits all roles -> {}).
  *
  * Filter parity: `fetchRows` reuses `SalesListService.buildFilterWhere` so
  * filters applied to the list page round-trip exactly into the export.

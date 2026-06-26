@@ -14,8 +14,9 @@ import { StoriesListService } from './stories-list.service';
  *
  * Returns the raw `{ rows, total, pageCount }` shape (NOT wrapped) per CLAUDE.md.
  *
- * RBAC (D-20): admin-only. Curator/teacher get 403 from RolesGuard. Belt-and-braces
- * via STORY_SCOPE_RULES (default-deny `id IN ()` if @Roles is somehow bypassed).
+ * RBAC (D-20): runtime-driven — @Roles admits admin/curator/teacher, access governed
+ * by the @RequirePermission('stories.view') grant. STORY_SCOPE_RULES is {} for all
+ * admitted roles (no per-row narrowing).
  *
  * Audit: GET endpoints are exempt from the `ci:audit-required` lint.
  */

@@ -12,13 +12,13 @@ import { ChangeBlogAuthorDto } from './dto/change-author.dto';
 import { BlogsAuthorService } from './blogs-author.service';
 
 /**
- * BLG-03 — admin-only blog author reassignment (Plan 04 / D-11).
+ * BLG-03 — blog author reassignment (Plan 04 / D-11).
  *
  * Single endpoint: `PATCH /admin-api/v1/admin/blogs/:id/author`.
  *
  * Mirrors Phase 3 Plan 04 UsersRoleController posture:
- *   - admin-only via `@Roles('admin')` (RolesGuard); service has belt-and-braces
- *     defensive admin check.
+ *   - governed by `@Roles('admin','curator','teacher')` + `@RequirePermission('blogs.edit')`;
+ *     no service-layer admin denial.
  *   - `@Audit('blogs.changeAuthor', 'blog')` — `ci:audit-required` enforces.
  *   - Server-side confirmation gate (T-07-04-04) — `confirmation === String(blog.id)`.
  *

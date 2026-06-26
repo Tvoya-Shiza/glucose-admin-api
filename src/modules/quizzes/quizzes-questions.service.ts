@@ -126,10 +126,6 @@ export class QuizzesQuestionsService {
 
     public async createQuestion(actor: ScopeActor, quizId: number, dto: UpsertQuestionDto) {
         const quiz = await this.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const now = nowSec();
 
         const created = await this.prisma.$transaction(async (tx) => {
@@ -194,10 +190,6 @@ export class QuizzesQuestionsService {
         dto: UpsertQuestionDto,
     ) {
         const quiz = await this.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const existing: any = await this.prisma.quizQuestion.findUnique({
             where: { id: questionId },
             include: { translations: true },
@@ -296,10 +288,6 @@ export class QuizzesQuestionsService {
         forceConfirmToken: string | null,
     ) {
         const quiz = await this.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const existing: any = await this.prisma.quizQuestion.findUnique({
             where: { id: questionId },
             select: { id: true, quiz_id: true },
@@ -352,10 +340,6 @@ export class QuizzesQuestionsService {
 
     public async reorderQuestions(actor: ScopeActor, quizId: number, dto: ReorderQuestionsDto) {
         await this.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
-
         const ids = dto.items.map((i) => i.id);
         // T-06-51 pre-flight: verify all ids belong to this quiz
         const owned: any[] = await this.prisma.quizQuestion.findMany({

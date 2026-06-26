@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -19,9 +19,10 @@ import { PrismaService } from '../../prisma/prisma.service';
  * deferred to v2; manual ops process"). This service does ONE thing: stamp
  * refund_at. The audit row is the paper trail.
  *
- * RBAC (D-20, T-09-03-01): controller's @Roles('admin') already 403s non-admin.
- * Service throws ForbiddenException as belt-and-braces in case the gate ever
- * drifts or the service is invoked from a non-controller caller.
+ * RBAC (D-20): access is governed at runtime by @RequirePermission
+ * ('payments.refund') on the controller. Refund is financial, but the admin
+ * grants payments.refund deliberately — any admitted role holding the grant may
+ * refund. No role is denied here.
  */
 export interface RefundResult {
     success: boolean;
@@ -39,11 +40,6 @@ export class SalesRefundService {
     constructor(private readonly prisma: PrismaService) {}
 
     public async refund(actor: ScopeActor, sale_id: number, reason: string): Promise<RefundResult> {
-        if (actor.role_name !== 'admin') {
-            // Belt-and-braces — RolesGuard already returns 403; explicit throw keeps
-            // service usable from non-controller callers (T-09-03-01).
-            throw new ForbiddenException('sales.refund.admin_only');
-        }
         const trimmed = (reason ?? '').trim();
         if (trimmed.length === 0) {
             // DTO already enforces @MinLength(3); this is a defensive last-mile guard.

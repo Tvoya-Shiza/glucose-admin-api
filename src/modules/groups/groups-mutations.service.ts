@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -20,8 +20,9 @@ import type { CascadePreviewResponseDto } from './dto/cascade-preview.dto';
  *     -> NotFoundException (404), NOT 403, because cascade-preview is a read-style
  *     operation and existence-leak prevention applies (Phase 3 posture). Plan 03's GET /:id
  *     is the explicit "fetch this resource" path and DOES return 403 per CONTEXT D-19.
- *   - PATCH/DELETE/POST are admin-only at the controller's @Roles decorator. Defensive
- *     `actor.role_name !== 'admin'` checks here are belt-and-suspenders.
+ *   - PATCH/DELETE/POST are gated at the controller via @Roles + a grantable
+ *     @RequirePermission (groups.create/edit/delete). No per-tenant WRITE narrowing
+ *     currently exists, so a granted curator/teacher can mutate ANY group.
  *
  * Audit (controller layer):
  *   - @Audit('groups.create','group') on create
@@ -41,9 +42,7 @@ export class GroupsMutationsService {
     constructor(private readonly prisma: PrismaService) {}
 
     public async create(actor: ScopeActor, dto: CreateGroupDto): Promise<GroupDetailDto> {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.create.forbidden');
-        }
+        // Access governed by @Roles + @RequirePermission('groups.create') at the controller.
         // If supervisor_id provided, verify the supervisor exists + is staff.
         if (typeof dto.supervisor_id === 'number' && dto.supervisor_id > 0) {
             const sup = await this.prisma.user.findFirst({
@@ -67,10 +66,8 @@ export class GroupsMutationsService {
     }
 
     public async update(actor: ScopeActor, id: number, dto: UpdateGroupDto): Promise<GroupDetailDto> {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.update.forbidden');
-        }
-        // Existence check (admin sees all; no scope spread needed).
+        // Access governed by @Roles + @RequirePermission('groups.edit') at the controller.
+        // Existence check (no per-tenant WRITE narrowing currently exists for groups).
         const exists = await this.prisma.group.findFirst({ where: { id }, select: { id: true } });
         if (!exists) throw new NotFoundException('groups.not_found');
 
@@ -93,9 +90,7 @@ export class GroupsMutationsService {
     }
 
     public async hardDelete(actor: ScopeActor, id: number): Promise<{ id: number; deleted: true }> {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.delete.forbidden');
-        }
+        // Access governed by @Roles + @RequirePermission('groups.delete') at the controller.
         const exists = await this.prisma.group.findFirst({ where: { id }, select: { id: true } });
         if (!exists) throw new NotFoundException('groups.not_found');
         // Hard delete — schema FKs `onDelete: Cascade` handle group_users + chapter_schedules.

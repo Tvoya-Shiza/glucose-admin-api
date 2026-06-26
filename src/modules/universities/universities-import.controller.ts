@@ -54,7 +54,7 @@ export class UniversitiesImportController {
     constructor(private readonly svc: UniversitiesImportService) {}
 
     @Get('template/:kind')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.view')
     @Throttle({ default: { limit: 30, ttl: 60_000 } })
     public async template(@Param('kind') kindRaw: string, @Res() res: Response): Promise<void> {
@@ -67,7 +67,7 @@ export class UniversitiesImportController {
     }
 
     @Post('export/:kind')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.view')
     @Audit('universities.export', 'university')
     @Throttle({ default: { limit: 10, ttl: 900_000 } })
@@ -83,7 +83,7 @@ export class UniversitiesImportController {
     }
 
     @Post('import')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.import')
     @Audit('universities.import', 'university')
     @UseInterceptors(

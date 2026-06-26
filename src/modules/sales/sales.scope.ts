@@ -3,18 +3,10 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
 /**
  * SALE_SCOPE_RULES — Phase 9 D-18 + D-20 (PAY-02, PAY-03, PAY-04).
  *
- * Sales / Orders are an admin-only surface. curator + teacher default-deny via
- * `id: { in: [] }` so any list/detail/refund/export returns empty result even
- * if they bypass the @Roles('admin') gate (belt-and-braces, T-09-01-01 in plan
- * threat register).
- *
- * Refund mutation (PAY-03 / D-07) is also admin-only — covered by @Roles('admin')
- * on the controller method; this scope rule additionally guarantees that a
- * non-admin's `findFirst` call before refund returns no row, so the 3-step
- * 403-not-404 pattern from Phase 4 can still apply if Plan 03 chooses it.
- *
- * admin role intentionally omitted -> buildScopeWhere() returns {} -> sees all
- * Sale rows.
+ * Access to Sales / Orders is governed at runtime by @RequirePermission grants
+ * (sales.view, sales.export, payments.refund) on the controller methods — NOT
+ * hardcoded by role. Any admitted role that holds the grant sees all Sale rows;
+ * roles without the grant are rejected by PermissionGuard.
  *
  * Spread into prisma.sale.findMany({ where: { ...filters, ...buildScopeWhere(actor, SALE_SCOPE_RULES) } }).
  *
@@ -23,6 +15,6 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
  */
 export const SALE_SCOPE_RULES: ScopeRules = {
     // admin: omitted -> buildScopeWhere returns {} -> sees all sales
-    curator: () => ({ id: { in: [] as number[] } }),
-    teacher: () => ({ id: { in: [] as number[] } }),
+    // curator: omitted -> {} -> governed by @RequirePermission
+    // teacher: omitted -> {} -> governed by @RequirePermission
 };

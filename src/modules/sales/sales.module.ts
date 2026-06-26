@@ -13,7 +13,9 @@ import { SalesRefundService } from './sales-refund.service';
  * SalesModule — Phase 9.
  *
  * Wave 1 (Plan 01): empty skeleton; AppModule registers it.
- *   SALE_SCOPE_RULES live in sales.scope.ts (admin-only per D-20).
+ *   SALE_SCOPE_RULES live in sales.scope.ts — they omit all roles so
+ *   buildScopeWhere returns {} and access is runtime-RBAC-driven via
+ *   @RequirePermission (sales.view, sales.export, payments.refund), not admin-only.
  *   SALES_*_PREFIX cache constants live in utils/sales-cache.ts.
  *
  * Wave 2 (Plan 03): controllers + services + DTOs land here:
@@ -22,9 +24,11 @@ import { SalesRefundService } from './sales-refund.service';
  *   - SalesRefundController      POST  /admin-api/v1/admin/sales/:id/refund  (Task 2)
  *   - SalesExportController      POST  /admin-api/v1/admin/sales/export (Task 3)
  *
- * Every controller method carries @Roles('admin') (D-18 + D-20). The refund
- * mutation carries @Audit('sales.refund', 'sale') (D-07, D-23). The export
- * mutation carries @Audit('sales.export', 'sale') + @Throttle 5/15min (D-09).
+ * Every controller method carries @Roles('admin', 'curator', 'teacher') +
+ * @RequirePermission (sales.view / payments.refund / sales.export) and is gated
+ * at runtime by PermissionGuard. The refund mutation carries
+ * @Audit('sales.refund', 'sale') (D-07, D-23). The export mutation carries
+ * @Audit('sales.export', 'sale') + @Throttle 5/15min (D-09).
  *
  * PrismaModule + RedisModule are global (registered in AppModule), so no imports
  * are needed here.

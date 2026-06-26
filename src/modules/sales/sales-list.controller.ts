@@ -18,8 +18,9 @@ import { SalesListService } from './sales-list.service';
  * is `{ rows, total, page, page_size, next_cursor }` per Plan 01's locked
  * lib/sales/types.ts contract.
  *
- * RBAC (D-18, D-20): admin-only. Curator + teacher receive 403 from RolesGuard.
- * Belt-and-braces in service via SALE_SCOPE_RULES default-deny.
+ * RBAC (D-18, D-20): runtime-driven via @RequirePermission('sales.view'). Any
+ * admitted role (admin/curator/teacher) holding the grant sees all rows; roles
+ * without the grant are rejected by PermissionGuard.
  *
  * Audit posture: GET endpoints exempt from the @Audit lint (only POST/PUT/PATCH/DELETE
  * trip the requirement) — no decorator needed here.

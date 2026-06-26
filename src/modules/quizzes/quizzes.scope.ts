@@ -20,8 +20,9 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
  *   teacher → omitted → per D-21 user spec, "teacher can edit any quiz/test" — VERY PERMISSIVE
  *             (intentional; the planner verified this with the user. Plans 02/04/05/06 enforce
  *             RBAC at the @Roles decorator only — no scope narrowing applied)
- *   curator → default-deny ({ id: { in: [] } }) — curators have NO author/edit access.
- *             They CAN view results filtered to their groups (see QUIZ_RESULT_SCOPE_RULES).
+ *   curator → omitted → {} → sees all quizzes; access is governed by the runtime
+ *             @RequirePermission('quizzes.*') grants, not hardcoded by role.
+ *             Results stay narrowed to their groups (see QUIZ_RESULT_SCOPE_RULES).
  *
  * Spread example (Plan 02+):
  *   prisma.quizzes.findMany({
@@ -31,7 +32,8 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
 export const QUIZ_SCOPE_RULES: ScopeRules = {
     // admin: omitted -> buildScopeWhere returns {} -> sees all quizzes
     // teacher: omitted -> per D-21, teacher edits ANY quiz/test
-    curator: () => ({ id: { in: [] as number[] } }),
+    // curator: omitted -> {} -> sees all quizzes. Access is governed by the runtime
+    //          @RequirePermission('quizzes.*') grants (RBAC UI), not hardcoded by role.
 };
 
 /**

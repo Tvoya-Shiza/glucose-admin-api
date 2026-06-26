@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -30,8 +30,8 @@ import { nowSec, readQuizDetail } from './quizzes-mutations.service';
  * `entity_id`, the rest of the payload is observable in NDJSON if logged downstream).
  *
  * Scope:
- *   - admin / teacher pass (D-21).
- *   - curator -> 403 quizzes.forbidden_scope (defensive — controller @Roles excludes).
+ *   - Access is permission-driven via @RequirePermission('quizzes.create') at the
+ *     controller; no role is hardcoded here (curator included).
  *
  * Performance: T-06-18 acceptance — single tx, MySQL row locks for ≤ several seconds
  * on a 200-question / 2000-answer source. Acceptable given admin-only operation.
@@ -46,9 +46,7 @@ export class QuizzesDuplicateService {
     ) {}
 
     public async duplicate(actor: ScopeActor, sourceId: number) {
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
+        // Access governed by @Roles + @RequirePermission('quizzes.create') at the controller.
 
         // Load source with full graph BEFORE the tx so we can 404 cleanly without
         // tx rollback.

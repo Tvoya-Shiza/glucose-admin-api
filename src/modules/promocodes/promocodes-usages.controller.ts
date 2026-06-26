@@ -12,8 +12,9 @@ import { PromocodesUsagesService } from './promocodes-usages.service';
 /**
  * PRM-02 — GET /admin-api/v1/admin/promocodes/:id/usages (Plan 05).
  *
- * Admin-only paginated list of PromocodeUsage rows joined to User (full_name +
- * email). Returns raw `{ rows, total, pageCount }` shape.
+ * Paginated list of PromocodeUsage rows joined to User (full_name + email).
+ * Access is runtime-RBAC-driven via @RequirePermission('promocodes.view').
+ * Returns raw `{ rows, total, pageCount }` shape.
  *
  * Audit posture: GET endpoints are exempt from the `ci:audit-required` lint.
  */

@@ -1,20 +1,17 @@
 import type { ScopeRules } from '../../common/scoping/scope.types';
 
 /**
- * D-20 (Phase 7 CONTEXT): Advertisement banners are admin-only. Curator/teacher
- * are default-denied.
+ * Advertisement banner visibility scope rules.
  *
- * Belt-and-braces alongside the @Roles('admin') hard gate that Plan 03 will pin
- * onto every controller method. The scope rules return a contradicting where
- * fragment (`id IN ()`) so even if a non-admin actor somehow reaches a list query,
- * Prisma returns zero rows.
+ * Access is runtime-RBAC-driven: governed by the @RequirePermission grants on the
+ * banner controllers, not hardcoded by role. No role narrows banner rows by ownership,
+ * so every admitted role that holds the relevant permission sees all banners.
  *
  * Schema mapping note: this scope rule targets the `Advertisement` Prisma model
  * (table `advertisements`); we call it "banners" in product copy / URLs.
  *
- * admin role intentionally omitted -> buildScopeWhere() returns {} -> sees all banners.
+ * admin role omitted -> buildScopeWhere() returns {} -> governed by @RequirePermission.
+ * teacher role omitted -> buildScopeWhere() returns {} -> governed by @RequirePermission.
+ * curator role omitted -> buildScopeWhere() returns {} -> governed by @RequirePermission.
  */
-export const BANNER_SCOPE_RULES: ScopeRules = {
-    teacher: () => ({ id: { in: [] as number[] } }),
-    curator: () => ({ id: { in: [] as number[] } }),
-};
+export const BANNER_SCOPE_RULES: ScopeRules = {};

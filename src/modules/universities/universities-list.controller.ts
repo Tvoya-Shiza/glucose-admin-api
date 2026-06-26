@@ -15,7 +15,7 @@ export class UniversitiesListController {
     constructor(private readonly svc: UniversitiesListService) {}
 
     @Get()
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.view')
     public async list(@CurrentUser() actor: AuthenticatedRequestUser, @Query() query: ListUniversitiesDto) {
         return this.svc.list({ id: actor.id, role_name: actor.role_name }, query);

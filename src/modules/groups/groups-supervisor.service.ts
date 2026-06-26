@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { ChangeSupervisorDto } from './dto/change-supervisor.dto';
@@ -10,8 +10,9 @@ import type { GroupDetailDto } from './dto/group-detail.dto';
  * PATCH /admin-api/v1/admin/groups/:id/supervisor
  *
  * Behavior:
- *   - admin-only at controller layer (@Roles('admin')); defensive belt-and-suspenders
- *     `actor.role_name !== 'admin'` check here.
+ *   - Access governed by @Roles + @RequirePermission('groups.edit') at the controller.
+ *     No per-tenant WRITE narrowing exists, so a granted curator/teacher can change the
+ *     supervisor of ANY group.
  *   - Validates target supervisor exists + is staff (`role_name in ('admin','curator')`).
  *     Rejects with NotFoundException('groups.supervisor.not_found') otherwise. Preserves
  *     invariant: Group.supervisor_id always references staff.
@@ -38,10 +39,7 @@ export class GroupsSupervisorService {
         id: number,
         dto: ChangeSupervisorDto,
     ): Promise<GroupDetailDto & { previous_supervisor_id: number | null }> {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.supervisor.forbidden');
-        }
-
+        // Access governed by @Roles + @RequirePermission('groups.edit') at the controller.
         // Fetch current group + supervisor for audit metadata.
         const current = await this.prisma.group.findFirst({
             where: { id },

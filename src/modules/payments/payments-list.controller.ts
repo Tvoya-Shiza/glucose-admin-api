@@ -18,8 +18,8 @@ import { PaymentsListService } from './payments-list.service';
  * is `{ rows, total, page, page_size, next_cursor }` per Plan 01's locked
  * lib/payments/types.ts contract.
  *
- * RBAC (D-18): admin-only. Curator + teacher receive 403 from RolesGuard. Belt-and-
- * braces in service via KASPI_SCOPE_RULES default-deny.
+ * RBAC (D-18): admitted to admin/curator/teacher; access governed at runtime by
+ * @RequirePermission('payments.view'). KASPI_SCOPE_RULES applies no per-row narrowing.
  *
  * Audit posture: GET endpoints exempt from the @Audit lint (only POST/PUT/PATCH/DELETE
  * trip the requirement) — no decorator needed here.

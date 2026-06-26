@@ -5,8 +5,9 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
  *
  *   admin   → omitted → buildScopeWhere returns {} (sees all groups)
  *   curator → narrows to groups they supervise: { supervisor_id: actor.id }
- *   teacher → teachers do not see Groups in admin panel (D-18). Default-deny:
- *               { id: { in: [] } } so any list/detail returns empty result.
+ *   teacher → omitted → buildScopeWhere returns {} → governed by @RequirePermission.
+ *               When granted groups.view, a teacher sees all groups (no per-tenant
+ *               row narrowing for teachers currently exists).
  *
  * Spread into prisma.group.findMany({ where: { ...filters, ...buildScopeWhere(actor, GROUP_SCOPE_RULES) } }).
  * Plans 02-04 list/detail/mutation services MUST spread this — forgetting it leaks data
@@ -30,5 +31,5 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
 export const GROUP_SCOPE_RULES: ScopeRules = {
     // admin: omitted -> buildScopeWhere returns {} -> sees all groups
     curator: (actor) => ({ supervisor_id: actor.id }),
-    teacher: () => ({ id: { in: [] as number[] } }),
+    // teacher: omitted -> buildScopeWhere returns {} -> governed by @RequirePermission
 };

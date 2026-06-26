@@ -17,7 +17,7 @@ export class UniversitiesAnalyticsController {
     constructor(private readonly svc: UniversitiesAnalyticsService) {}
 
     @Get('analytics')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.view')
     public async analytics() {
         return this.svc.build();

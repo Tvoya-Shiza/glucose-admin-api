@@ -15,8 +15,9 @@ import { UsersRoleService } from './users-role.service';
  *
  * Single endpoint: `PATCH /admin-api/v1/admin/users/:id/role`.
  *
- * RBAC: admin-only via `@Roles('admin')` + `RolesGuard`. Curator/teacher receive 403
- * (T-03-30 — they can never reach the service).
+ * RBAC: runtime-driven — `@Roles('admin', 'curator', 'teacher')` + `@RequirePermission('users.edit')`.
+ * Any granted role may change roles; the service enforces an anti-escalation guard so non-admins
+ * cannot assign or alter the `admin` role.
  *
  * Audit: `@Audit('users.changeRole', 'user')` — `ci:audit-required` lint enforces this.
  *

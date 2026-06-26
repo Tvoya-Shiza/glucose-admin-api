@@ -30,7 +30,8 @@ function sanitizeDescription(description: string | null | undefined): string | n
  *
  *   - 3-step assertScope (mirrors Phase 4 Plan 03 GroupsDetail pattern):
  *       1) Existence: findFirst({ where: { id, deleted_at: null } }) -> 404 on null.
- *       2) Teacher gate: if actor.role_name !== 'admin' AND existing.teacher_id !== actor.id -> 403.
+ *       2) Teacher own-row gate: if actor is teacher AND existing.teacher_id !== actor.id -> 403.
+ *          admin, curator and any other admitted role pass (governed by @RequirePermission).
  *       3) Proceed with mutation.
  *     This is the canonical "courses.forbidden_scope" surface.
  *
@@ -86,10 +87,7 @@ export class CoursesMutationsService {
         if (actor.role_name === 'teacher' && dto.teacher_id !== actor.id) {
             throw new ForbiddenException('courses.forbidden_assign_teacher');
         }
-        if (actor.role_name === 'curator') {
-            // Defensive — controller @Roles already excludes curator.
-            throw new ForbiddenException('courses.forbidden_scope');
-        }
+        // curator (and any other admitted role) is governed by @RequirePermission — no role denial here.
 
         this.validatePricing(dto);
 
@@ -323,15 +321,10 @@ export class CoursesMutationsService {
         if (!existing) {
             throw new NotFoundException('courses.not_found');
         }
-        if (actor.role_name !== 'admin') {
-            // Teacher path: must own the course. Curator path: never reached (controller
-            // @Roles excludes curator) — defensive.
-            if (actor.role_name === 'teacher' && Number(existing.teacher_id) !== actor.id) {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
-            if (actor.role_name === 'curator') {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
+        // Teacher path: narrowed to own course (per-tenant ownership). admin, curator and
+        // any other admitted role pass — governed by @RequirePermission on the controller.
+        if (actor.role_name === 'teacher' && Number(existing.teacher_id) !== actor.id) {
+            throw new ForbiddenException('courses.forbidden_scope');
         }
         return {
             id: Number(existing.id),

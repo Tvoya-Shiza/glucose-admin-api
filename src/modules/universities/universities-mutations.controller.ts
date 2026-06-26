@@ -26,7 +26,7 @@ export class UniversitiesMutationsController {
     constructor(private readonly svc: UniversitiesMutationsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.create')
     @Audit('universities.create', 'university')
     public async create(@Body() dto: UpsertUniversityDto) {
@@ -35,7 +35,7 @@ export class UniversitiesMutationsController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.edit')
     @Audit('universities.update', 'university')
     public async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertUniversityDto) {
@@ -44,7 +44,7 @@ export class UniversitiesMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.delete')
     @Audit('universities.delete', 'university')
     @HttpCode(HttpStatus.OK)

@@ -15,8 +15,9 @@ import { SalesDetailService } from './sales-detail.service';
  * the list endpoint shape so admin-client TanStack Query consumes a consistent
  * payload across list + detail (no envelope-strip needed for either).
  *
- * RBAC (D-18, D-20): admin-only — curator + teacher hit RolesGuard 403. Service
- * additionally throws ForbiddenException as belt-and-braces.
+ * RBAC (D-18, D-20): runtime-driven via @RequirePermission('sales.view'). Any
+ * admitted role holding the grant sees the row; roles without the grant are
+ * rejected by PermissionGuard.
  *
  * Audit posture: GET exempt from @Audit lint (only mutations require it).
  */

@@ -21,9 +21,10 @@ import type { GroupDetailDto } from './dto/group-detail.dto';
  *   1. Existence check WITHOUT scope spread — was the group ever real?
  *   2. Scope check on the loaded row — does this actor have access?
  *      - admin           → always allowed
- *      - curator         → allowed iff supervisor_id === actor.id
- *      - teacher / other → never allowed (default-deny per GROUP_SCOPE_RULES)
- *      Failure → ForbiddenException('groups.forbidden_scope').
+ *      - curator         → allowed iff supervisor_id === actor.id (per-tenant narrowing)
+ *      - teacher / other → allowed (governed by @RequirePermission grant; no per-tenant
+ *                          row narrowing for these roles currently exists)
+ *      Curator-on-foreign-group failure → ForbiddenException('groups.forbidden_scope').
  *   3. Re-read with full select shape — return GroupDetailDto.
  *
  * Note: this DIVERGES from groups-mutations.service.ts cascadePreview which spreads
@@ -48,14 +49,11 @@ export class GroupsDetailService {
         }
 
         // Step 2: Scope check on the loaded row.
-        // admin always passes; curator must own the group; teacher (and any other role)
-        // is default-deny per GROUP_SCOPE_RULES.teacher = { id: { in: [] } }.
-        if (actor.role_name !== 'admin') {
-            const allowed =
-                actor.role_name === 'curator' && Number(exists.supervisor_id ?? 0) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('groups.forbidden_scope');
-            }
+        // admin always passes; curator must own the group (per-tenant narrowing);
+        // teacher (and any other admitted role) is governed by @RequirePermission — no
+        // per-tenant row narrowing applies, so they are allowed once the grant admits them.
+        if (actor.role_name === 'curator' && Number(exists.supervisor_id ?? 0) !== actor.id) {
+            throw new ForbiddenException('groups.forbidden_scope');
         }
 
         // Step 3: Re-read with full select.

@@ -23,14 +23,15 @@ import { UpsertStoryDto } from './dto/upsert-story.dto';
 import { StoriesMutationsService } from './stories-mutations.service';
 
 /**
- * STY-01 — admin-only story mutations (Plan 02).
+ * STY-01 — story mutations (Plan 02).
  *
  * Routes:
- *   POST   /admin-api/v1/admin/stories       -> create     (admin)
- *   PATCH  /admin-api/v1/admin/stories/:id   -> update     (admin)
- *   DELETE /admin-api/v1/admin/stories/:id   -> hard delete (admin)
+ *   POST   /admin-api/v1/admin/stories       -> create      (stories.create)
+ *   PATCH  /admin-api/v1/admin/stories/:id   -> update      (stories.edit)
+ *   DELETE /admin-api/v1/admin/stories/:id   -> hard delete (stories.delete)
  *
- * RBAC: admin-only. Curator/teacher excluded at @Roles + STORY_SCOPE_RULES default-deny.
+ * RBAC: runtime-driven — @Roles admits admin/curator/teacher, access governed by
+ * each method's @RequirePermission grant. STORY_SCOPE_RULES is {} for all admitted roles.
  *
  * Audit (D-17): every handler decorated with `@Audit('stories.<action>', 'story')`.
  * `ci:audit-required` enforces.

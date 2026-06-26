@@ -11,7 +11,8 @@ import { PaymentsListService } from './payments-list.service';
  * PaymentsModule — Phase 9.
  *
  * Wave 1 (Plan 01): empty skeleton; AppModule registers it.
- *   KASPI_SCOPE_RULES live in payments.scope.ts (admin-only per D-18).
+ *   KASPI_SCOPE_RULES live in payments.scope.ts (no per-row narrowing; access
+ *   governed at runtime by @RequirePermission per D-18).
  *   PAYMENTS_*_PREFIX cache constants live in utils/payments-cache.ts.
  *
  * Wave 2 (Plan 02): list + detail land here:
@@ -21,8 +22,9 @@ import { PaymentsListService } from './payments-list.service';
  * Wave 2 (Plan 02 Task 2): export controller + service added below:
  *   - PaymentsExportController   POST  /admin-api/v1/admin/payments/export
  *
- * Every controller method carries @Roles('admin') (D-18). GET reads carry no
- * @Audit (D-23 — list/detail reads are not audited; lint exempts GET handlers).
+ * Every controller method carries @Roles('admin', 'curator', 'teacher') plus a
+ * grantable @RequirePermission (D-18). GET reads carry no @Audit (D-23 —
+ * list/detail reads are not audited; lint exempts GET handlers).
  *
  * PrismaModule + RedisModule are global (registered in AppModule), so no imports
  * are needed here.

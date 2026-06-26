@@ -15,10 +15,9 @@ import { BLOG_SCOPE_RULES } from './blogs.scope';
  *   - Blog.created_at / updated_at are Unix seconds.
  *   - BlogTranslation has NO @@unique([blog_id, locale]); service-side dedup.
  *
- * Scope (D-20):
- *   - admin   -> rule omitted -> {} -> sees all
- *   - teacher -> { id: { in: [] } } -> empty result
- *   - curator -> { id: { in: [] } } -> empty result
+ * Scope (D-20): runtime-RBAC-driven, no blanket row-narrowing.
+ *   - admin / curator / teacher -> rule omitted -> {} -> sees all rows IF granted blogs.view
+ *   - unknown roles -> still fail closed via buildScopeWhere default ({ id: { in: [] } })
  *
  * Response shape: raw `{ rows, total, pageCount }` (CLAUDE.md — list endpoints don't
  * wrap with apiResponse; admin-client TanStack Table consumes the raw shape).

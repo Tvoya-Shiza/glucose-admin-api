@@ -12,7 +12,7 @@ export class UniversitiesDetailController {
     constructor(private readonly svc: UniversitiesDetailService) {}
 
     @Get(':id')
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('universities.view')
     public async get(@Param('id', ParseIntPipe) id: number) {
         return this.svc.getDetail(id);

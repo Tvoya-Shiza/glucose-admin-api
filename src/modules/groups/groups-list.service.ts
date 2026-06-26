@@ -25,7 +25,7 @@ import { GROUP_SCOPE_RULES } from './groups.scope';
  *     mysql provider). Implemented as in-memory page reorder. Same trade-off as above.
  *
  * Scope (D-18): admin sees all (rules omitted -> {}); curator narrows to
- * `supervisor_id === actor.id`; teacher gets `id: { in: [] }` -> empty result.
+ * `supervisor_id === actor.id`; teacher omitted -> {} -> governed by @RequirePermission.
  *
  * Performance: explicit `select` (NOT `include`); `_count.members` computed inline so
  * no N+1. Uses `prisma.$transaction([count, findMany])` like Phase 3 list endpoint.

@@ -10,7 +10,8 @@ import { PromocodesDetailService } from './promocodes-detail.service';
 /**
  * PRM-01 — GET /admin-api/v1/admin/promocodes/:id (Plan 05).
  *
- * Admin-only. apiResponse-wrapped detail: `{ success, status, message, data }`.
+ * Access is runtime-RBAC-driven via @RequirePermission('promocodes.view').
+ * apiResponse-wrapped detail: `{ success, status, message, data }`.
  *
  * Audit posture: GET endpoints are exempt from the `ci:audit-required` lint.
  */

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -21,7 +21,8 @@ import { ASSIGNMENT_SCOPE_RULES } from './assignments.scope';
  *
  * Concurrency / rules:
  *   - Attachment cap (5) enforced in-service. Reject 6th with 422 + i18n key.
- *   - Curator scope = default-deny; only admin + teacher pass.
+ *   - Write endpoints admit admin + teacher via @Roles (curator is not in @Roles
+ *     for this controller); ASSIGNMENT_SCOPE_RULES no longer default-denies curator.
  *   - Translations are FULL-REPLACE on update for simplicity (matches quizzes pattern).
  *     Caller must always send both ru + kz if either changes.
  */
@@ -32,10 +33,6 @@ export class AssignmentsMutationsService {
     constructor(private readonly prisma: PrismaService) {}
 
     public async create(actor: ScopeActor, dto: CreateAssignmentDto) {
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException({ message: 'assignment.curator_cannot_author', trans: 'admin.assignments.forbidden' });
-        }
-
         // Course/chapter binding is OPTIONAL at create time. When both are
         // supplied, the chapter must belong to the webinar; when only one is
         // supplied the request is rejected (ambiguous half-binding).

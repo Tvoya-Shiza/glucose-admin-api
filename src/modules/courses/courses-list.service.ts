@@ -44,10 +44,10 @@ import { deriveTranslationCompleteness } from './utils/translation-completeness'
  *       'teacher'    -> { teacher: { full_name: order } }   (relation orderBy)
  *       'slug'       -> { slug: order }
  *
- * Scope (CONTEXT D-19 + WEBINAR_SCOPE_RULES):
+ * Scope (WEBINAR_SCOPE_RULES):
  *   - admin   -> rule omitted -> {} -> sees all
  *   - teacher -> { teacher_id: actor.id } -> own courses only
- *   - curator -> { id: { in: [] } } -> empty result
+ *   - curator -> rule omitted -> {} -> sees all (governed by @RequirePermission)
  *
  * Performance: explicit `select` (NOT `include`); `prisma.$transaction([count, findMany])`
  * mirrors Phase 3/4 list endpoints. No cursor field on the surface (Plan 02 ships

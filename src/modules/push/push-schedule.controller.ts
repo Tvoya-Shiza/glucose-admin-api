@@ -24,15 +24,16 @@ import { PushScheduleService } from './push-schedule.service';
  * Phase 8 Plan 04 — schedule queue surfaces (PSH-02).
  *
  * Routes:
- *   POST /admin-api/v1/admin/push/schedule           — admin-only, audited 'push.schedule'
- *   GET  /admin-api/v1/admin/push/scheduled          — admin-only, GET (audit-exempt)
- *   POST /admin-api/v1/admin/push/scheduled/:id/cancel — admin-only, audited 'push.schedule.cancel'
+ *   POST /admin-api/v1/admin/push/schedule           — audited 'push.schedule'
+ *   GET  /admin-api/v1/admin/push/scheduled          — GET (audit-exempt)
+ *   POST /admin-api/v1/admin/push/scheduled/:id/cancel — audited 'push.schedule.cancel'
  *
  * The schedule controller is split from the broadcast controller so the
  * `controller count grows by 1` invariant in the plan is met cleanly
  * (broadcast + audience + history + schedule = 4 push controllers; +1 from Plan 03).
  *
- * RBAC (D-19): @Roles('admin'). Curator + teacher receive 403 from RolesGuard.
+ * RBAC (D-19): runtime-RBAC-driven. @Roles admits the role; the route is gated by a
+ * grantable @RequirePermission (push.schedule for writes, push.view for the list).
  *
  * Audit (D-17): both write endpoints carry @Audit. The audit row's entity_id is
  * the ScheduledPush id (response.id). The handler returns BigInt-as-string per

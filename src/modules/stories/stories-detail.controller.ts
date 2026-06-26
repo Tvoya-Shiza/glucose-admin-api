@@ -10,7 +10,8 @@ import { StoriesDetailService } from './stories-detail.service';
 /**
  * STY-01 — GET /admin-api/v1/admin/stories/:id (Plan 02).
  *
- * Admin-only. apiResponse-wrapped detail: `{ success, status, message, data }`.
+ * Runtime-RBAC-driven (@RequirePermission('stories.view')). apiResponse-wrapped
+ * detail: `{ success, status, message, data }`.
  *
  * Audit posture: GET endpoints are exempt from the @Audit lint.
  */

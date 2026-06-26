@@ -14,10 +14,11 @@ import { MailingsSendService } from './mailings-send.service';
  * Phase 8 Plan 05 — mailings send surface (PSH-05).
  *
  * Route:
- *   POST /admin-api/v1/admin/mailings/send — admin-only, audited as 'mail.send'
+ *   POST /admin-api/v1/admin/mailings/send — audited as 'mail.send'
  *
- * RBAC (D-19): @Roles('admin'). Curator/teacher receive 403 from RolesGuard
- * BEFORE the service is reached (T-08-05-01). v1 mailings are admin-only.
+ * RBAC (D-19): runtime-driven. @Roles admits admin/curator/teacher; access is
+ * governed by @RequirePermission('mailings.create') via PermissionGuard. The
+ * send path's audience.resolve is RBAC-narrowed per-actor (T-08-05-01).
  *
  * Audit (D-17): AuditInterceptor writes one NDJSON line per request with
  * action='mail.send' + entity='mailing_log' + entity_id (response.broadcast_id

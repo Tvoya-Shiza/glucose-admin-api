@@ -29,14 +29,14 @@ export class AdmissionStatsController {
     constructor(private readonly svc: AdmissionStatsService) {}
 
     @Get()
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('admission_stats.view')
     public async list(@Query() query: ListAdmissionStatsDto) {
         return this.svc.list(query);
     }
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('admission_stats.edit')
     @Audit('admission_stats.upsert', 'admission_stat')
     public async upsert(@Body() dto: UpsertAdmissionStatDto) {
@@ -45,7 +45,7 @@ export class AdmissionStatsController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('admission_stats.edit')
     @Audit('admission_stats.update', 'admission_stat')
     public async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertAdmissionStatDto) {
@@ -54,7 +54,7 @@ export class AdmissionStatsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('admission_stats.edit')
     @Audit('admission_stats.delete', 'admission_stat')
     @HttpCode(HttpStatus.OK)

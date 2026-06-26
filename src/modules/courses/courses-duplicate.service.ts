@@ -45,8 +45,8 @@ import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
  * students; slug gets a collision-proof '-copy' suffix (Webinar.slug has no @unique —
  * we de-dupe defensively). position is reset to null (catalog-ordering slot).
  *
- * Scope: admin / teacher (own course) pass; curator → 403 (defensive — controller
- * @Roles still lists curator for surface uniformity, the service gate enforces it).
+ * Scope: teacher is narrowed to their own course; admin, curator and any other admitted
+ * role pass — access is governed by @RequirePermission on the controller (no role denial).
  *
  * Performance: interactive $transaction with an explicit timeout — a deep course is
  * many sequential writes and would blow Prisma's default 5s interactive-tx budget
@@ -63,10 +63,8 @@ export class CoursesDuplicateService {
     ) {}
 
     public async duplicate(actor: ScopeActor, sourceId: number): Promise<{ success: boolean }> {
-        // ── Scope gate (3-step: existence → teacher gate; curator default-deny) ──────
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException('courses.forbidden_scope');
-        }
+        // ── Scope gate (3-step: existence → teacher own-row narrowing) ───────────────
+        // curator (and any other admitted role) is governed by @RequirePermission — no role denial.
         const existing: any = await this.prisma.webinar.findFirst({
             where: { id: sourceId, deleted_at: null },
             select: { id: true, teacher_id: true },
@@ -74,11 +72,9 @@ export class CoursesDuplicateService {
         if (!existing) {
             throw new NotFoundException('courses.not_found');
         }
-        if (actor.role_name !== 'admin') {
-            const allowed = actor.role_name === 'teacher' && Number(existing.teacher_id) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
+        // Teacher is narrowed to own course (per-tenant ownership); admin/curator/others pass.
+        if (actor.role_name === 'teacher' && Number(existing.teacher_id) !== actor.id) {
+            throw new ForbiddenException('courses.forbidden_scope');
         }
 
         // ── Load the full source graph BEFORE the tx ────────────────────────────────

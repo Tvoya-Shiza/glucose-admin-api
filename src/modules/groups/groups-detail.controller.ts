@@ -14,17 +14,13 @@ import { GroupsDetailService } from './groups-detail.service';
  * RBAC: admin / curator / teacher hit the route; the service layer enforces the
  * 403-not-404 distinction:
  *   - admin           → 200 (sees all)
- *   - curator         → 200 if supervisor_id === actor.id else 403
- *   - teacher / other → 403 (GROUP_SCOPE_RULES default-deny)
+ *   - curator         → 200 if supervisor_id === actor.id else 403 (per-tenant narrowing)
+ *   - teacher / other → 200 (governed by @RequirePermission grant; no per-tenant narrowing)
  *
  * 404 is reserved for "group genuinely does not exist" (existence check first, then
  * scope check). See GroupsDetailService header for the rationale (CONTEXT D-19).
  *
  * Audit posture: GET endpoints are exempt from the @Audit lint — no decorator needed.
- *
- * Note: `teacher` is included in @Roles for surface uniformity. Teachers always hit
- * the ForbiddenException branch in service code because GROUP_SCOPE_RULES.teacher is
- * default-deny — same effective outcome (403) as curator-on-foreign-group.
  */
 @Controller('admin-api/v1/admin/groups')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

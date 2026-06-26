@@ -32,14 +32,14 @@ export class UniversitySpecialtiesController {
     constructor(private readonly svc: UniversitySpecialtiesService) {}
 
     @Get()
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.view')
     public async list(@Param('uid', ParseIntPipe) uid: number) {
         return this.svc.listForUniversity(uid);
     }
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.create')
     @Audit('university_specialties.link', 'university_specialty')
     public async link(@Param('uid', ParseIntPipe) uid: number, @Body() dto: UpsertUniversitySpecialtyDto) {
@@ -48,7 +48,7 @@ export class UniversitySpecialtiesController {
     }
 
     @Patch(':lid')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.edit')
     @Audit('university_specialties.update', 'university_specialty')
     public async update(
@@ -61,7 +61,7 @@ export class UniversitySpecialtiesController {
     }
 
     @Delete(':lid')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.delete')
     @Audit('university_specialties.unlink', 'university_specialty')
     @HttpCode(HttpStatus.OK)

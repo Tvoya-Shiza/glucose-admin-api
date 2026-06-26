@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { PaymentDetailDto } from './dto/payment-row.dto';
@@ -17,9 +17,9 @@ import type { PaymentDetailDto } from './dto/payment-row.dto';
  *     `KaspiPayment.account` on payment creation. The match is BEST-EFFORT
  *     because there is NO FK constraint between the two tables.
  *
- * Scope (D-18, T-09-02-01): RolesGuard already rejects non-admin at the
- * controller (@Roles('admin')). Service throws ForbiddenException as belt-and-
- * braces if the gate ever drifts.
+ * Scope (D-18, T-09-02-01): access is governed at runtime by the controller's
+ * @RequirePermission('payments.view') grant. No per-row narrowing applies — any
+ * role granted the permission sees the requested payment row.
  */
 @Injectable()
 export class PaymentsDetailService {
@@ -32,11 +32,6 @@ export class PaymentsDetailService {
     constructor(private readonly prisma: PrismaService) {}
 
     public async get(actor: ScopeActor, id: number): Promise<PaymentDetailDto> {
-        if (actor.role_name !== 'admin') {
-            // Belt-and-braces — RolesGuard already rejects this; throw to be explicit.
-            throw new ForbiddenException('payments.admin_only');
-        }
-
         const row = await this.prisma.kaspiPayment.findUnique({ where: { id } });
         if (!row) {
             throw new NotFoundException('payment.not_found');

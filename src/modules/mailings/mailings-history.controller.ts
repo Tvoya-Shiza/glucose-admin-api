@@ -14,8 +14,8 @@ import { MailingsHistoryService } from './mailings-history.service';
  *
  * GET /admin-api/v1/admin/mailings/history?page=1&page_size=25&...
  *
- * RBAC (D-19): admin-only. Curator/teacher receive 403 from RolesGuard
- * BEFORE the service is reached.
+ * RBAC (D-19): runtime-driven. @Roles admits admin/curator/teacher; access is
+ * governed by @RequirePermission('mailings.history_view') via PermissionGuard.
  *
  * Audit: GET endpoints are exempt from ci:audit-required (CLAUDE.md AUTH-12).
  * The list shape itself is read-only — no audit row is written for browsing.

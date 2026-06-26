@@ -31,7 +31,8 @@ import { CoursesMutationsService } from './courses-mutations.service';
  *   DELETE /admin-api/v1/admin/courses/:id      -> soft-delete   (admin / teacher own)
  *
  * RBAC:
- *   - Curators are excluded at the @Roles decorator (CONTEXT D-19 — curators don't author).
+ *   - @Roles('admin', 'curator', 'teacher') + a grantable @RequirePermission per handler;
+ *     access is governed at runtime by the permission grant (no blanket role denial).
  *   - Teachers may create courses where teacher_id === self.id (T-05-10 service-side gate).
  *   - Teachers may PATCH/DELETE only their own courses (T-05-11 3-step assertScope).
  *

@@ -19,8 +19,9 @@ import { SalesRefundService } from './sales-refund.service';
  * apiResponse(...)". Differs from list/detail endpoints which return raw shape
  * for TanStack Table consumption — but mutations follow the apiResponse contract.
  *
- * RBAC (D-20, T-09-03-01): admin-only. Curator + teacher receive 403 from
- * RolesGuard. Service additionally throws ForbiddenException belt-and-braces.
+ * RBAC (D-20): runtime-driven via @RequirePermission('payments.refund'). Any
+ * admitted role holding the grant may refund; roles without the grant are
+ * rejected by PermissionGuard.
  *
  * Audit (D-07, D-23, T-09-03-03): @Audit('sales.refund', 'sale') writes one
  * audit row per attempt (success OR failure — AuditInterceptor's catchError

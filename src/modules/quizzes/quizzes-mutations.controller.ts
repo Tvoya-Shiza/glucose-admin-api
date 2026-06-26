@@ -23,18 +23,17 @@ import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { QuizzesMutationsService } from './quizzes-mutations.service';
 
 /**
- * QZ-01 / QZ-08 — admin/teacher quiz mutations (Plan 02).
+ * QZ-01 / QZ-08 — quiz mutations (Plan 02).
  *
  * Routes:
- *   POST   /admin-api/v1/admin/quizzes        -> create        (admin / teacher)
- *   PATCH  /admin-api/v1/admin/quizzes/:id    -> update fields (admin / teacher per D-21)
- *   DELETE /admin-api/v1/admin/quizzes/:id    -> soft-delete   (admin only — teacher
- *                                                cannot delete per safe default)
+ *   POST   /admin-api/v1/admin/quizzes        -> create      (quizzes.create)
+ *   PATCH  /admin-api/v1/admin/quizzes/:id    -> update       (quizzes.edit)
+ *   DELETE /admin-api/v1/admin/quizzes/:id    -> soft-delete (quizzes.delete)
  *
- * RBAC:
- *   - Curators are excluded at the @Roles decorator (D-21 — curators don't author).
- *   - Teachers may create / update any quiz (D-21 user spec — VERY PERMISSIVE).
- *   - Teachers may NOT delete (D-21 safe default — admin-only destructive lifecycle action).
+ * RBAC: runtime-driven. Every route lists admin/curator/teacher in @Roles and gates
+ *   on a grantable @RequirePermission('quizzes.*'). Access is decided entirely by the
+ *   permissions granted to the actor's role in the RBAC UI — no role is hardcoded in
+ *   the controller or service layer.
  *
  * Audit (T-06-15): every handler decorated. CI lint enforces this on non-GET endpoints.
  */

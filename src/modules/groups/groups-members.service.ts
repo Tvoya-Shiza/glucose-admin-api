@@ -82,7 +82,8 @@ function phoneStorageVariants(nsn: string): string[] {
  *
  * Scope check (3-step pattern, mirrors GroupsDetailService):
  *   1. existence-check (no scope)         -> 404 if absent
- *   2. role + own-supervisor scope check  -> 403 if foreign-curator / teacher
+ *   2. own-supervisor scope check         -> 403 only for foreign-curator (per-tenant
+ *                                            narrowing); teacher/other governed by grant
  *   3. perform action                     -> resource is allowed
  *
  * Idempotency (no @@unique on GroupUser — Plan 01 schema-gap note):
@@ -143,13 +144,11 @@ export class GroupsMembersService {
         if (!exists) {
             throw new NotFoundException('groups.not_found');
         }
-        if (actor.role_name !== 'admin') {
-            const allowed =
-                actor.role_name === 'curator' &&
-                Number(exists.supervisor_id ?? 0) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('groups.forbidden_scope');
-            }
+        // admin always passes; curator must own the group (per-tenant narrowing);
+        // teacher (and any other admitted role) is governed by @RequirePermission — no
+        // per-tenant row narrowing applies, so they are allowed once the grant admits them.
+        if (actor.role_name === 'curator' && Number(exists.supervisor_id ?? 0) !== actor.id) {
+            throw new ForbiddenException('groups.forbidden_scope');
         }
     }
 
@@ -225,11 +224,8 @@ export class GroupsMembersService {
         groupId: number,
         dto: BulkMembersDto,
     ): Promise<BulkMembersResultDto> {
-        // Defensive belt-and-suspenders — controller carries @Roles('admin'); RolesGuard
-        // rejects before this service runs. Reaching here means actor.role_name === 'admin'.
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.members.forbidden');
-        }
+        // Access is governed by @Roles + @RequirePermission('groups.edit') at the controller;
+        // assertScope keeps curator's per-tenant own-group narrowing.
         await this.assertScope(actor, groupId);
 
         const bulk_op_id =
@@ -314,9 +310,8 @@ export class GroupsMembersService {
         groupId: number,
         dto: BulkMembersDto,
     ): Promise<BulkMembersResultDto> {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException('groups.members.forbidden');
-        }
+        // Access is governed by @Roles + @RequirePermission('groups.edit') at the controller;
+        // assertScope keeps curator's per-tenant own-group narrowing.
         await this.assertScope(actor, groupId);
 
         const bulk_op_id =

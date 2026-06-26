@@ -34,10 +34,12 @@ import { CoursesContentService } from './courses-content.service';
  *   PATCH  /:id/items/:itemId                — update item + linked Files row + translations
  *   DELETE /:id/items/:itemId                — delete item (Files row retained)
  *
- * RBAC: admin / teacher (curators excluded — they don't author courses, CONTEXT D-19).
+ * RBAC: @Roles('admin', 'curator', 'teacher') + a grantable @RequirePermission('courses.edit').
+ * Access is governed at runtime by the permission grant.
  *
- * Service layer enforces 3-step assertScope (existence -> teacher gate -> proceed).
- * Reorder pre-flights every id to defend against TOCTOU + foreign-id attacks.
+ * Service layer enforces 3-step assertScope (existence -> teacher own-row gate -> proceed);
+ * only teacher is narrowed to own courses, admin/curator are not. Reorder pre-flights every
+ * id to defend against TOCTOU + foreign-id attacks.
  *
  * Audit: 7 audited handlers (1 reorder + 3 chapter + 3 item).
  */

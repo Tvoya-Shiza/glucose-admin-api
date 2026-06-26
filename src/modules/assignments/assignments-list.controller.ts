@@ -18,10 +18,9 @@ import { AssignmentsListService } from './assignments-list.service';
  *   GET /admin-api/v1/admin/assignments/:id                — full detail with translations + attachments
  *   GET /admin-api/v1/admin/assignments/:id/analytics      — per-assignment analytics
  *
- * RBAC: admin / curator / teacher all reach the route. Scope narrows at the service:
- *   - admin / teacher: see all
- *   - curator: default-deny (empty result on list — they don't author assignments;
- *     they grade submissions via the separate submissions surface).
+ * RBAC: admin / curator / teacher all reach the route. Access is governed by the
+ * grantable @RequirePermission('assignments.view'); scope narrows at the service:
+ *   - admin / teacher / curator: see all rows (scope omits these roles → {}).
  */
 @Controller('admin-api/v1/admin/assignments')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

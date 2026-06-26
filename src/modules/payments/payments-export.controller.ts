@@ -21,9 +21,9 @@ import { PaymentsExportService } from './payments-export.service';
  * causes the BigIntStringInterceptor to sidestep the binary (per
  * glucose-admin-api/CLAUDE.md). Mirrors UsersExportController (Phase 3 Plan 07).
  *
- * RBAC (D-18): admin-only. Curator + teacher receive 403 from RolesGuard. This is
- * the differentiator from the users-export reference impl (which allows
- * admin/curator/teacher) — payments are an admin-only surface per the threat model.
+ * RBAC (D-18): admitted to admin/curator/teacher; access governed at runtime by
+ * @RequirePermission('payments.export'). Matches the users-export reference impl
+ * (admin/curator/teacher admitted; the grant decides who can actually export).
  *
  * Throttle: 5 requests / 15 minutes / IP. Exports are expensive (50k row cap); the
  * global 100/min limit is too loose for this endpoint. Mirrors users-export and the

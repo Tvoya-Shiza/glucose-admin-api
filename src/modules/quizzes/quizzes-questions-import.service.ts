@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -98,9 +98,6 @@ export class QuizzesQuestionsImportService {
 
     public async importFromBuffer(actor: ScopeActor, quizId: number, buf: Buffer) {
         await this.questionsService.assertQuizScope(actor, quizId);
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException(apiResponse(0, 'forbidden_scope', 'quizzes.forbidden_scope'));
-        }
 
         const parsed = await this.builder.parse(buf);
         const rows: QuestionImportRow[] = [];

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
@@ -26,15 +26,11 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
  *      Quizzes has no `deleted_at` column (soft-delete = `status='inactive'`); the
  *      existence check ignores status entirely. Inactive quizzes are visible on the
  *      detail page so admins can re-activate via PATCH.
- *   2. Scope check on the loaded row — does this actor have access?
- *        admin            → always allowed (D-21)
- *        teacher          → always allowed (D-21 — VERY PERMISSIVE; the user spec is
- *                            explicit that teachers can edit any quiz/test)
- *        curator          → 403 'quizzes.forbidden_scope' (default-deny per
- *                            QUIZ_SCOPE_RULES.curator; controller @Roles still
- *                            permits curator for surface uniformity, the service
- *                            assertion is what actually enforces the gate).
- *      Failure → ForbiddenException('quizzes.forbidden_scope').
+ *   2. Access check — governed entirely by the controller guards
+ *      (@Roles + @RequirePermission('quizzes.view')). Quizzes are global content
+ *      with no per-tenant ownership, so there is NO row-level scope re-check here:
+ *      admin/curator/teacher who pass both guards may read the detail. (Historically
+ *      curators were hard-denied here per D-21; that is now runtime-RBAC-driven.)
  *   3. Re-read with full select shape (single Prisma findUnique with nested includes
  *      — translations + quiz_category + quiz_badge_items.quiz_badge + questions
  *      + answers + subject — bounded query, no N+1). Race window between step 1
@@ -74,15 +70,10 @@ export class QuizzesDetailService {
             throw new NotFoundException('quizzes.not_found');
         }
 
-        // Step 2: Scope check on the loaded row.
-        // admin & teacher always pass (D-21). curator is default-deny.
-        if (actor.role_name === 'curator') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
-        // Defensive: any unexpected role_name not in {admin, curator, teacher} also rejects.
-        if (actor.role_name !== 'admin' && actor.role_name !== 'teacher') {
-            throw new ForbiddenException('quizzes.forbidden_scope');
-        }
+        // Step 2: Access is governed at the controller by RolesGuard (@Roles) +
+        // PermissionGuard (@RequirePermission('quizzes.view')). Quizzes are global
+        // content with no per-tenant ownership, so there is no row-level scope to
+        // re-check here — admin/curator/teacher with the granted permission all read it.
 
         // Step 3: Re-read with full select shape (cached read-through).
         const cacheKey = this.buildCacheKey(actor, id);

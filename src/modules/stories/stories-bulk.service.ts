@@ -18,7 +18,7 @@ import { STORIES_INVALIDATE_PATTERN, STORIES_PUBLIC_INVALIDATE_PATTERN } from '.
  *   - Status taxonomy:
  *       'update'  current status differs from requested        -> counts toward affected
  *       'skip'    'already_in_status' (current === requested)  -> not committed
- *       'error'   'story_not_found' (id missing or out of scope under STORY_SCOPE_RULES)
+ *       'error'   'story_not_found' (id genuinely missing — STORY_SCOPE_RULES now {} for all admitted roles)
  *
  *   - TX_CHUNK_SIZE = 500 (Phase 3 constant).
  *   - confirmed_count === affected gate when affected > CONFIRM_THRESHOLD (50).
@@ -67,7 +67,7 @@ export class StoriesBulkService {
             dto.bulk_op_id && /^[0-9a-f-]{8,}$/i.test(dto.bulk_op_id) ? dto.bulk_op_id : randomUUID();
 
         // 1. Resolve scope: which story_ids is the actor allowed to touch?
-        //    Admin sees all (rule omitted -> {}); others -> default-deny (id IN ()).
+        //    All admitted roles see all rows ({}); access governed by @RequirePermission.
         const scopeWhere = buildScopeWhere(actor, STORY_SCOPE_RULES);
         const allowedRows: Array<{ id: number; status: 'pending' | 'publish' }> =
             (await this.prisma.story.findMany({

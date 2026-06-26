@@ -14,8 +14,8 @@ import { BlogsListService } from './blogs-list.service';
  *
  * Returns the raw `{ rows, total, pageCount }` shape (NOT wrapped) per CLAUDE.md.
  *
- * RBAC (D-20): admin-only. Curator/teacher get 403 from RolesGuard. Belt-and-braces
- * via BLOG_SCOPE_RULES (default-deny `id IN ()` if @Roles is somehow bypassed).
+ * RBAC: runtime-driven. @Roles('admin','curator','teacher') + @RequirePermission('blogs.view')
+ * govern visibility — no scope-level row-narrowing.
  */
 @Controller('admin-api/v1/admin/blogs')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

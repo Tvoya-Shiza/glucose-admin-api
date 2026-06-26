@@ -22,8 +22,9 @@ import { SalesExportService } from './sales-export.service';
  * (per glucose-admin-api/CLAUDE.md). Mirrors PaymentsExportController (Phase 9
  * Plan 02) verbatim.
  *
- * RBAC (D-18, D-20): admin-only. Curator + teacher receive 403 from
- * RolesGuard.
+ * RBAC (D-18, D-20): runtime-driven via @RequirePermission('sales.export').
+ * Any admitted role holding the grant may export; roles without the grant are
+ * rejected by PermissionGuard.
  *
  * Throttle (T-09-03-06): `@Throttle({ default: { limit: 5, ttl: 900_000 } })`
  * — 5 req / 15 min / IP. Exports are expensive (50k row cap); the global

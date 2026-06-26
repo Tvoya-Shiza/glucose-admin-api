@@ -11,12 +11,13 @@ import { ChangeSupervisorDto } from './dto/change-supervisor.dto';
 import { GroupsSupervisorService } from './groups-supervisor.service';
 
 /**
- * GRP-02 — admin-only supervisor change (Plan 03).
+ * GRP-02 — supervisor change (Plan 03).
  *
  * Routes:
- *   PATCH /admin-api/v1/admin/groups/:id/supervisor   -> change supervisor (admin)
+ *   PATCH /admin-api/v1/admin/groups/:id/supervisor   -> change supervisor
  *
- * RBAC: admin-only. Curator/teacher get 403 from RolesGuard before reaching the service.
+ * RBAC: @Roles('admin','curator','teacher') + @RequirePermission('groups.edit'). Access
+ * is grant-driven; no per-tenant WRITE narrowing exists for this mutation.
  *
  * Audit: @Audit('groups.supervisor.change', 'group') — AuditInterceptor records the
  * full response shape (which includes `previous_supervisor_id` for before-state capture).

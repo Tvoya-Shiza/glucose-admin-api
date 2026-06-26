@@ -29,10 +29,8 @@ import { itemTypeToRestrictionKind, loadAllowedGroupsByNode, nodeKey, type NodeK
  *        admin            → always allowed
  *        teacher (own)    → allowed iff teacher_id === actor.id
  *        teacher (other)  → 403 'courses.forbidden_scope'
- *        curator          → 403 'courses.forbidden_scope' (default-deny per
- *                            WEBINAR_SCOPE_RULES.curator; controller @Roles still
- *                            permits curator for surface uniformity, the service
- *                            assertion is what actually enforces the gate).
+ *        curator / others → allowed — governed by @RequirePermission on the controller
+ *                            (no blanket role denial; only teacher is narrowed to own).
  *      Failure → ForbiddenException('courses.forbidden_scope').
  *   3. Re-read with full select shape (single Prisma query with nested selects —
  *      no N+1; chapters + items + translations all ride the same query). Race
@@ -73,14 +71,10 @@ export class CoursesDetailService {
         }
 
         // Step 2: Scope check on the loaded row.
-        // admin always passes; teacher must own the course; curator (and any other
-        // role) is default-deny per WEBINAR_SCOPE_RULES.
-        if (actor.role_name !== 'admin') {
-            const allowed =
-                actor.role_name === 'teacher' && Number(exists.teacher_id) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
+        // teacher is narrowed to own courses (per-tenant ownership); admin, curator and
+        // any other admitted role pass — governed by @RequirePermission on the controller.
+        if (actor.role_name === 'teacher' && Number(exists.teacher_id) !== actor.id) {
+            throw new ForbiddenException('courses.forbidden_scope');
         }
 
         // Step 3: Re-read with full select shape (cached read-through).

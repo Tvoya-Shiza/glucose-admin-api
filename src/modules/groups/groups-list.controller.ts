@@ -22,10 +22,10 @@ import { GroupsListService } from './groups-list.service';
  * RBAC: admin / curator / teacher all hit the route. The scope rule narrows visibility:
  *   - admin   -> all groups
  *   - curator -> groups they supervise (supervisor_id === actor.id)
- *   - teacher -> default-deny (id: { in: [] }) -> empty result
+ *   - teacher -> omitted -> {} -> governed by @RequirePermission (sees all if granted)
  *
  * Per CONTEXT D-18 the empty-state UI surfaces the appropriate copy ('You aren't assigned
- * to any group') for non-admin actors.
+ * to any group') for non-admin actors who have no in-scope rows.
  */
 @Controller('admin-api/v1/admin/groups')
 @UseGuards(JwtGuard, RolesGuard, PermissionGuard)

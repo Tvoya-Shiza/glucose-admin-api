@@ -16,7 +16,8 @@ import { StoriesBulkService } from './stories-bulk.service';
  * Single endpoint serves both dry-run preview and commit (D-13 — `mode` discriminates).
  * Audit fires on every call (even uncommitted dry-runs are auditable signals).
  *
- * RBAC: admin-only.
+ * RBAC: runtime-driven — @Roles admits admin/curator/teacher, governed by the
+ * @RequirePermission('stories.publish') grant.
  *
  * Returns the raw BulkStatusResult shape (NOT wrapped in apiResponse) — admin-client
  * useDryRunPreview hook + DryRunDialog consume it directly, mirroring the Phase 3

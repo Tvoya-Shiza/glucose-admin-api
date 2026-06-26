@@ -95,11 +95,10 @@ export class CoursesContentService {
         if (!existing) {
             throw new NotFoundException('courses.not_found');
         }
-        if (actor.role_name !== 'admin') {
-            const allowed = actor.role_name === 'teacher' && Number(existing.teacher_id) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
+        // Teacher is narrowed to own course (per-tenant ownership); admin, curator and any
+        // other admitted role pass — governed by @RequirePermission on the controller.
+        if (actor.role_name === 'teacher' && Number(existing.teacher_id) !== actor.id) {
+            throw new ForbiddenException('courses.forbidden_scope');
         }
         return { id: Number(existing.id), teacher_id: Number(existing.teacher_id) };
     }

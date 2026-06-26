@@ -92,11 +92,11 @@ export class QuizzesQuestionsController {
 
     /**
      * Bulk-import questions from an uploaded workbook. Purely additive (mirrors
-     * create) — gated by quizzes.edit; curator excluded. Partial success: valid
-     * rows import even if others fail; failures are returned per-row.
+     * create) — gated by quizzes.edit. Partial success: valid rows import even if
+     * others fail; failures are returned per-row.
      */
     @Post('import')
-    @Roles('admin', 'teacher')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('quizzes.edit')
     @Audit('quizzes.question.import', 'quiz_question')
     @UseInterceptors(

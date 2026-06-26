@@ -4,8 +4,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 /**
  * BLG-01 — blog detail (Plan 04).
  *
- * Admin-only (controller @Roles('admin') + BLOG_SCOPE_RULES default-deny). Returns
- * full Blog + translations[] + category (with translations) + author (full_name).
+ * Access governed by @Roles('admin','curator','teacher') + @RequirePermission('blogs.view');
+ * no default-deny scoping. Returns full Blog + translations[] + category (with translations)
+ * + author (full_name).
  *
  * Schema-truth: no soft-delete column. 404 = row genuinely absent.
  *

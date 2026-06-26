@@ -10,7 +10,8 @@ import { BannersDetailService } from './banners-detail.service';
 /**
  * BAN-01 — GET /admin-api/v1/admin/banners/:id (Plan 03).
  *
- * Admin-only. apiResponse-wrapped detail: `{ success, status, message, data }`.
+ * RBAC: runtime-driven via @RequirePermission('banners.view'). apiResponse-wrapped
+ * detail: `{ success, status, message, data }`.
  *
  * Audit posture: GET endpoints are exempt from the @Audit lint.
  */

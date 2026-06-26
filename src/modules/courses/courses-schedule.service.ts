@@ -54,12 +54,11 @@ import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
  *
  * SCOPE GATE (3-step assert):
  *   1. Existence: prisma.webinar.findFirst({ id, deleted_at: null }) -> 404 on null.
- *   2. Teacher gate: actor not admin AND not (teacher AND teacher_id === actor.id) -> 403.
+ *   2. Teacher gate: teacher narrowed to own course (teacher_id === actor.id) -> else 403.
  *   3. Proceed.
  *
- * Curator hits step 2's 403 branch (default-deny per WEBINAR_SCOPE_RULES.curator).
- * Controller @Roles excludes curator at the surface; service-layer assertion is
- * defense in depth.
+ * admin, curator and any other admitted role pass the teacher gate — access is governed
+ * by @RequirePermission on the controller (no blanket role denial; only teacher narrows).
  *
  * AUDIT: 3 audited handlers in the controller (create / update / delete). GET is
  * audit-exempt per project policy.
@@ -92,12 +91,10 @@ export class CoursesScheduleService {
         if (!existing) {
             throw new NotFoundException('courses.not_found');
         }
-        if (actor.role_name !== 'admin') {
-            const allowed =
-                actor.role_name === 'teacher' && Number(existing.teacher_id) === actor.id;
-            if (!allowed) {
-                throw new ForbiddenException('courses.forbidden_scope');
-            }
+        // Teacher is narrowed to own course (per-tenant ownership); admin, curator and any
+        // other admitted role pass — governed by @RequirePermission on the controller.
+        if (actor.role_name === 'teacher' && Number(existing.teacher_id) !== actor.id) {
+            throw new ForbiddenException('courses.forbidden_scope');
         }
         return { id: Number(existing.id), teacher_id: Number(existing.teacher_id) };
     }

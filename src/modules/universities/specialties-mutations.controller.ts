@@ -26,7 +26,7 @@ export class SpecialtiesMutationsController {
     constructor(private readonly svc: SpecialtiesMutationsService) {}
 
     @Post()
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.create')
     @Audit('specialties.create', 'specialty')
     public async create(@Body() dto: UpsertSpecialtyDto) {
@@ -35,7 +35,7 @@ export class SpecialtiesMutationsController {
     }
 
     @Patch(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.edit')
     @Audit('specialties.update', 'specialty')
     public async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpsertSpecialtyDto) {
@@ -44,7 +44,7 @@ export class SpecialtiesMutationsController {
     }
 
     @Delete(':id')
-    @Roles('admin')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.delete')
     @Audit('specialties.delete', 'specialty')
     @HttpCode(HttpStatus.OK)

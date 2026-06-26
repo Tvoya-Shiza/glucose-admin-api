@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { SaleDetailDto } from './dto/sale-row.dto';
@@ -18,9 +18,9 @@ import type { SaleDetailDto } from './dto/sale-row.dto';
  *     user.id into `KaspiPayment.account` on payment creation. NO FK
  *     constraint — match is best-effort.
  *
- * Scope (D-18, D-20, T-09-03-01): RolesGuard already rejects non-admin at the
- * controller (@Roles('admin')). Service throws ForbiddenException as belt-and-
- * braces if the gate ever drifts.
+ * Scope (D-18, D-20): access is governed at runtime by @RequirePermission
+ * ('sales.view') on the controller — any admitted role holding the grant sees
+ * the row. No role is denied here.
  */
 @Injectable()
 export class SalesDetailService {
@@ -33,11 +33,6 @@ export class SalesDetailService {
     constructor(private readonly prisma: PrismaService) {}
 
     public async get(actor: ScopeActor, id: number): Promise<SaleDetailDto> {
-        if (actor.role_name !== 'admin') {
-            // Belt-and-braces — RolesGuard already rejects this; throw to be explicit.
-            throw new ForbiddenException('sales.admin_only');
-        }
-
         const row: any = await this.prisma.sale.findUnique({
             where: { id },
             select: {

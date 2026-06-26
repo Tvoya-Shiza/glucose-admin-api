@@ -13,7 +13,7 @@ export class SpecialtiesListController {
     constructor(private readonly svc: SpecialtiesListService) {}
 
     @Get()
-    @Roles('admin', 'curator')
+    @Roles('admin', 'curator', 'teacher')
     @RequirePermission('specialties.view')
     public async list(@Query() query: ListSpecialtiesDto) {
         return this.svc.list(query);

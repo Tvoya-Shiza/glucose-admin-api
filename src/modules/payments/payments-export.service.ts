@@ -15,9 +15,9 @@ import { KASPI_SCOPE_RULES } from './payments.scope';
  * defense + spreadsheetml Content-Type contract. Worker offload to
  * `geonline-api-export` is deferred to a phase-9 follow-up.
  *
- * Scope (D-18, T-09-02-01): same `KASPI_SCOPE_RULES` as the list endpoint — admin-
- * only. Curators/teachers default-deny via `id: { in: [] }` (zero rows even if the
- * @Roles gate ever drifts).
+ * Scope (D-18, T-09-02-01): same `KASPI_SCOPE_RULES` as the list endpoint —
+ * governed at runtime by @RequirePermission('payments.export'). No per-row
+ * narrowing applies; any granted role exports all matching KaspiPayment rows.
  *
  * Filter parity: `fetchRows` reuses `PaymentsListService.buildFilterWhere` so
  * filters applied to the list page round-trip exactly into the export.

@@ -3,12 +3,11 @@ import type { ScopeRules } from '../../common/scoping/scope.types';
 /**
  * MAILING_SCOPE_RULES — Phase 8 D-19.
  *
- * v1: mailings are admin-only (send + history). Curator/teacher default-denied
- * via `id: { in: [] }`. If Phase 9+ surfaces curator-mailing flows, narrow here.
- *
- * Send actions are also @Roles('admin')-gated at the controller layer.
+ * Mailings access is runtime-RBAC-driven (governed by @RequirePermission grants),
+ * not hardcoded by role. curator/teacher are omitted here -> buildScopeWhere
+ * returns {} -> the role sees all rows IF granted the permission.
  */
 export const MAILING_SCOPE_RULES: ScopeRules = {
-    curator: () => ({ id: { in: [] as bigint[] } }),
-    teacher: () => ({ id: { in: [] as bigint[] } }),
+    // curator: omitted -> {} -> governed by @RequirePermission grant.
+    // teacher: omitted -> {} -> governed by @RequirePermission grant.
 };

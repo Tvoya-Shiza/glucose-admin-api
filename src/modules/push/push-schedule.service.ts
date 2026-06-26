@@ -1,11 +1,4 @@
-import {
-    BadRequestException,
-    ConflictException,
-    ForbiddenException,
-    Injectable,
-    Logger,
-    NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import { AudienceService } from '../audience/audience.service';
@@ -19,13 +12,14 @@ import { PUSH_INVALIDATE_PATTERN, PUSH_SCHEDULED_PREFIX } from './utils/push-cac
  * Responsibilities (D-07, D-08, D-09):
  *   1. schedule(input, actor) — validate scheduled_at > now+30s, snapshot audience JSON
  *      onto the row, write `scheduled_pushes` row with status='pending'. Cron picks it up.
- *   2. list(query, actor) — admin-only paginated queue view; 60s Redis cache.
+ *   2. list(query, actor) — paginated queue view; 60s Redis cache.
  *   3. cancel(id, actor) — atomic transition pending → cancelled (updateMany count guard).
  *      Returns 404 if missing, 409 if already in_progress/completed/cancelled/failed.
  *
- * RBAC (D-19): every method requires admin. Curator + teacher are blocked at the
- * controller level by @Roles('admin'); the service mirrors the check belt-and-braces
- * so a future controller-less caller (e.g. a test) cannot escalate.
+ * RBAC (D-19): access is runtime-RBAC-driven — the controller admits roles via @Roles
+ * and gates each route with a grantable @RequirePermission (push.schedule / push.view).
+ * The service applies no role checks of its own; per-tenant narrowing on the audience
+ * happens inside AudienceService.resolve()/preview() against the actor's scope.
  *
  * Audience JSON is stored as-is. Cron re-runs AudienceService.resolve() at fire-time
  * so RBAC narrowing happens against the CURRENT user/group state — not a stale snapshot.
@@ -48,8 +42,6 @@ export class PushScheduleService {
 
     /** D-07: write a pending ScheduledPush row. */
     public async schedule(input: PushScheduleDto, actor: ScopeActor) {
-        this.requireAdmin(actor, 'schedule.create.admin_only');
-
         const nowSec = Math.floor(Date.now() / 1000);
         if (input.scheduled_at <= nowSec + PushScheduleService.SCHEDULE_AT_FUTURE_BUFFER_S) {
             throw new BadRequestException('schedule.scheduled_at_in_past');
@@ -88,10 +80,8 @@ export class PushScheduleService {
         return this.mapDetail(created, preview.audience_hash);
     }
 
-    /** D-08: admin-only paginated list of scheduled pushes. */
+    /** D-08: paginated list of scheduled pushes. */
     public async list(query: PushScheduledListQueryDto, actor: ScopeActor) {
-        this.requireAdmin(actor, 'schedule.list.admin_only');
-
         const page = Math.max(1, query.page ?? 1);
         const pageSize = Math.min(100, Math.max(1, query.page_size ?? 25));
         const sort = query.sort ?? 'scheduled_at';
@@ -134,8 +124,6 @@ export class PushScheduleService {
      *   or it already completed/failed/was cancelled).
      */
     public async cancel(id: bigint, actor: ScopeActor) {
-        this.requireAdmin(actor, 'schedule.cancel.admin_only');
-
         const nowSec = Math.floor(Date.now() / 1000);
         const result = await this.prisma.scheduledPush.updateMany({
             where: { id, status: 'pending' },
@@ -163,12 +151,6 @@ export class PushScheduleService {
         // the cancel response surfaces an empty string. The schedule-list endpoint is
         // authoritative when consumers need the hash.
         return this.mapDetail(updated, '');
-    }
-
-    private requireAdmin(actor: ScopeActor, key: string): void {
-        if (actor.role_name !== 'admin') {
-            throw new ForbiddenException(key);
-        }
     }
 
     private mapRow(r: any) {
