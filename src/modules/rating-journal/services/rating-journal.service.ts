@@ -3,7 +3,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { apiResponse } from '../../../common/utils/api-response';
 import { buildScopeWhere } from '../../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../../common/scoping/scope.types';
-import type { Prisma } from '../../../../generated/prisma';
+import type { Prisma, UserStatus } from '../../../../generated/prisma';
 import { CreateJournalDto } from '../dto/create-journal.dto';
 import { GridQueryDto } from '../dto/grid-query.dto';
 import { ListJournalsDto } from '../dto/list-journals.dto';
@@ -190,7 +190,7 @@ export class RatingJournalService {
                 cells[col.id] = { column_id: col.id, value: cell.value, is_manual_override: cell.is_manual_override };
                 if (cell.value != null && visibleColumnIds.has(col.id)) total += cell.value;
             }
-            return { student_id: student.id, full_name: student.full_name, cells, total };
+            return { student_id: student.id, full_name: student.full_name, status: student.status, cells, total };
         });
 
         return {
@@ -201,17 +201,18 @@ export class RatingJournalService {
         };
     }
 
-    private async groupStudents(groupId: number): Promise<Array<{ id: number; full_name: string | null }>> {
+    private async groupStudents(groupId: number): Promise<Array<{ id: number; full_name: string | null; status: UserStatus }>> {
         const members = await this.prisma.groupUser.findMany({
             where: { group_id: groupId },
-            select: { user_id: true, user: { select: { full_name: true } } },
+            select: { user_id: true, user: { select: { full_name: true, status: true } } },
         });
-        const byId = new Map<number, string | null>();
+        const byId = new Map<number, { full_name: string | null; status: UserStatus }>();
         for (const m of members) {
-            if (!byId.has(m.user_id)) byId.set(m.user_id, m.user?.full_name ?? null); // group_users has no unique — de-dup
+            // group_users has no unique — de-dup, first membership wins
+            if (!byId.has(m.user_id)) byId.set(m.user_id, { full_name: m.user?.full_name ?? null, status: m.user?.status ?? 'active' });
         }
         return Array.from(byId.entries())
-            .map(([id, full_name]) => ({ id, full_name }))
+            .map(([id, v]) => ({ id, full_name: v.full_name, status: v.status }))
             .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? '', 'ru') || a.id - b.id);
     }
 }

@@ -1,4 +1,4 @@
-import type { RatingJournalSourceKind } from '../../../../generated/prisma';
+import type { RatingJournalSourceKind, UserStatus } from '../../../../generated/prisma';
 
 /**
  * Wire shapes for the «Рейтинг-журнал» grid (Block 1 of the platform TZ).
@@ -31,6 +31,8 @@ export interface JournalCellDto {
 export interface JournalRowDto {
     student_id: number;
     full_name: string | null;
+    /** Account status (active/pending/inactive) — drives the optional roster status filter (TZ 2.2). */
+    status: UserStatus;
     /** keyed by column_id (string). Absent column = ungraded cell. */
     cells: Record<string, JournalCellDto>;
     /** Σ of visible (non-hidden) cell values, null → 0. */
