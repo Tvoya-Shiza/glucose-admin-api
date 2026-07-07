@@ -18,7 +18,8 @@ import { CreditsMutationsService } from './credits-mutations.service';
 import { CreditsSettingsController } from './credits-settings.controller';
 import { CreditsSettingsService } from './credits-settings.service';
 import { CREDIT_JOURNAL_PORT } from './journal/credit-journal.port';
-import { CreditJournalStub } from './journal/credit-journal.stub';
+import { RatingJournalModule } from '../rating-journal/rating-journal.module';
+import { RatingJournalCreditAdapter } from '../rating-journal/services/rating-journal-credit.adapter';
 
 /**
  * CreditsModule — «Зачёт» oral credit surface (Phase 34).
@@ -34,13 +35,14 @@ import { CreditJournalStub } from './journal/credit-journal.stub';
  *   CreditsConductController   — conduct console   (/credit-sessions)
  *   CreditsSettingsController  — result texts      (/credit-settings)
  *
- * CREDIT_JOURNAL_PORT is bound to the logging stub (contract decision 3) —
- * swap the provider when the real rating journal ships.
+ * CREDIT_JOURNAL_PORT is bound to RatingJournalCreditAdapter (Phase 35) — a
+ * finalized session's result lands in the «Зачет» column of the rating journal.
+ * The stub (CreditJournalStub) is retired.
  *
  * PrismaModule / RedisModule / CronLockModule are global in AppModule.
  */
 @Module({
-    imports: [AccessModule],
+    imports: [AccessModule, RatingJournalModule],
     controllers: [
         CreditsListController,
         CreditsLaunchController,
@@ -61,7 +63,7 @@ import { CreditJournalStub } from './journal/credit-journal.stub';
         CreditsConductService,
         CreditsSettingsService,
         CreditsExpiryCronService,
-        { provide: CREDIT_JOURNAL_PORT, useClass: CreditJournalStub },
+        { provide: CREDIT_JOURNAL_PORT, useExisting: RatingJournalCreditAdapter },
     ],
     exports: [],
 })

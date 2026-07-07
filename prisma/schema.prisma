@@ -308,6 +308,10 @@ model User {
   credit_launches_curated  CreditLaunch[]   @relation("CreditLaunchCurator")
   credit_sessions          CreditSession[]  @relation("CreditSessionStudent")
 
+  created_rating_journals        RatingJournal[]       @relation("RatingJournalCreator")
+  created_rating_journal_columns RatingJournalColumn[] @relation("RatingJournalColumnCreator")
+  rating_journal_cells           RatingJournalCell[]   @relation("RatingJournalCellStudent")
+
   @@index([created_at], name: "idx_users_created_at")
   @@map("users")
 }
@@ -394,6 +398,8 @@ model Group {
   access_restrictions LessonAccessRestriction[] @relation("GroupAccessRestrictions")
 
   credits Credit[] @relation("GroupCredits")
+
+  rating_journals RatingJournal[] @relation("GroupRatingJournals")
 
   @@map("groups")
 }
@@ -954,6 +960,8 @@ model Webinar {
 
   credits Credit[] @relation("WebinarCredits")
 
+  rating_journals RatingJournal[] @relation("WebinarRatingJournals")
+
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
 }
@@ -1049,6 +1057,8 @@ model WebinarChapter {
   assignments WebinarAssignment[]  @relation("WebinarAssignments")
 
   credits Credit[] @relation("ChapterCredits")
+
+  rating_journal_columns RatingJournalColumn[] @relation("ChapterRatingJournalColumns")
 
   @@map("webinar_chapters")
 }
@@ -2465,4 +2475,109 @@ enum CreditQuestionMark {
   correct
   incorrect
   skipped
+}
+
+// Phase 35 — «Рейтинг-журнал» (rating journal). One journal per (group, course);
+// rows derive from group_users at read time. See glucose-api migrations/phase-35.
+model RatingJournal {
+  id         BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  group_id   Int    @db.UnsignedInt
+  course_id  Int
+  title      String @db.VarChar(255)
+  created_by Int
+  created_at Int    @db.UnsignedInt
+  updated_at Int?   @db.UnsignedInt
+  deleted_at Int?   @db.UnsignedInt
+
+  group   Group   @relation("GroupRatingJournals", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  course  Webinar @relation("WebinarRatingJournals", fields: [course_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User    @relation("RatingJournalCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  columns RatingJournalColumn[] @relation("RatingJournalColumns")
+
+  @@unique([group_id, course_id], name: "uniq_rj_group_course")
+  @@index([group_id], name: "idx_rj_group")
+  @@map("rating_journals")
+}
+
+model RatingJournalColumn {
+  id            BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  journal_id    BigInt                  @db.UnsignedBigInt
+  title         String                  @db.VarChar(255)
+  source_kind   RatingJournalSourceKind
+  // Polymorphic soft ref (no FK): quiz_id / webinar_assignment_id / credit_id
+  // per source_kind; NULL for custom & attendance.
+  source_ref_id BigInt?                 @db.UnsignedBigInt
+  // Module attribution (display grouping); NULL for custom columns.
+  chapter_id    Int?
+  max_score     Int                     @db.UnsignedInt
+  position      Int                     @default(0) @db.UnsignedInt
+  is_hidden     Boolean                 @default(false)
+  created_by    Int
+  created_at    Int                     @db.UnsignedInt
+  updated_at    Int?                    @db.UnsignedInt
+  deleted_at    Int?                    @db.UnsignedInt
+
+  journal RatingJournal   @relation("RatingJournalColumns", fields: [journal_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter WebinarChapter? @relation("ChapterRatingJournalColumns", fields: [chapter_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  creator User            @relation("RatingJournalColumnCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  cells RatingJournalCell[] @relation("RatingJournalCells")
+
+  @@unique([journal_id, source_kind, source_ref_id], name: "uniq_rjc_source")
+  @@index([journal_id, position], name: "idx_rjc_journal_pos")
+  @@map("rating_journal_columns")
+}
+
+model RatingJournalCell {
+  id                 BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  column_id          BigInt  @db.UnsignedBigInt
+  student_id         Int
+  // 0..column.max_score; NULL = not yet graded.
+  value              Int?    @db.UnsignedInt
+  // Curator hand-edit; the module/credit sync must NOT clobber while true.
+  is_manual_override Boolean @default(false)
+  // Soft ref credit_sessions.id (no FK) — credit-adapter dedupe key.
+  source_session_id  BigInt? @db.UnsignedBigInt
+  // Soft ref users.id (audit only, no FK).
+  updated_by         Int?
+  updated_at         Int     @db.UnsignedInt
+
+  column  RatingJournalColumn @relation("RatingJournalCells", fields: [column_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  student User                @relation("RatingJournalCellStudent", fields: [student_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([column_id, student_id], name: "uniq_rjcell_col_student")
+  @@index([student_id], name: "idx_rjcell_student")
+  @@map("rating_journal_cells")
+}
+
+// Append-only edit log (кто/когда/было→стало). Standalone (soft refs, no FK)
+// like AdminAuditLog — survives cell/column deletion.
+model RatingJournalCellHistory {
+  id         BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  cell_id    BigInt?                 @db.UnsignedBigInt
+  column_id  BigInt                  @db.UnsignedBigInt
+  student_id Int
+  old_value  Int?                    @db.UnsignedInt
+  new_value  Int?                    @db.UnsignedInt
+  source     RatingJournalCellSource
+  changed_by Int?
+  changed_at Int                     @db.UnsignedInt
+
+  @@index([column_id, student_id, changed_at], name: "idx_rjch_lookup")
+  @@map("rating_journal_cell_history")
+}
+
+enum RatingJournalSourceKind {
+  module_quiz
+  module_assignment
+  attendance
+  credit
+  custom
+}
+
+enum RatingJournalCellSource {
+  manual
+  sync_module
+  sync_credit
 }

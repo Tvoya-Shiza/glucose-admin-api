@@ -379,6 +379,20 @@ const CATALOG: SeedGroup[] = [
             { action: 'texts_manage', display_order: 90, name_ru: 'Управление текстами результатов', name_kz: 'Нәтиже мәтіндерін басқару' },
         ],
     },
+    {
+        // Phase 35 — «Рейтинг-журнал» rating journal (gradebook).
+        code: 'rating_journal',
+        display_order: 2700,
+        name_ru: 'Рейтинг-журнал',
+        name_kz: 'Рейтинг-журнал',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'edit', display_order: 20, name_ru: 'Редактирование оценок', name_kz: 'Бағаларды өңдеу' },
+            { action: 'columns_manage', display_order: 30, name_ru: 'Управление колонками', name_kz: 'Бағандарды басқару' },
+            { action: 'export', display_order: 40, name_ru: 'Экспорт', name_kz: 'Экспорт' },
+            { action: 'history_view', display_order: 50, name_ru: 'Просмотр истории правок', name_kz: 'Өңдеу тарихын көру' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
@@ -443,6 +457,11 @@ const CORE_ROLES: SeedRole[] = [
             'credits.conduct',
             'credits.results_view',
             'credits.texts_manage',
+            // Phase 35 — rating journal. Curator edits grades/columns for own
+            // groups; export + edit-log stay admin-only (TZ 2.4).
+            'rating_journal.view',
+            'rating_journal.edit',
+            'rating_journal.columns_manage',
         ],
     },
     {

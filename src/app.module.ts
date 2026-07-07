@@ -25,6 +25,7 @@ import { BoardsModule } from './modules/boards/boards.module';
 import { CourseAccessModule } from './modules/course-access/course-access.module';
 import { CoursesModule } from './modules/courses/courses.module';
 import { CreditsModule } from './modules/credits/credits.module';
+import { RatingJournalModule } from './modules/rating-journal/rating-journal.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailingsModule } from './modules/mailings/mailings.module';
@@ -128,6 +129,10 @@ import { PrismaModule } from './prisma/prisma.module';
         // Phase 34 — «Зачёт» oral credits: topic/question bank, credit CRUD, launch
         // wizard, curator conduct console, result texts, expiry crons.
         CreditsModule,
+        // Phase 35 — «Рейтинг-журнал»: gradebook grid (module auto-pull + custom
+        // columns + «Зачет» from finalized credits), cell autosave, edit-log.
+        // Exports RatingJournalCreditAdapter → bound as CREDIT_JOURNAL_PORT.
+        RatingJournalModule,
     ],
     controllers: [AppController],
     providers: [
