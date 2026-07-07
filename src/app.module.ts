@@ -24,6 +24,7 @@ import { BlogsModule } from './modules/blogs/blogs.module';
 import { BoardsModule } from './modules/boards/boards.module';
 import { CourseAccessModule } from './modules/course-access/course-access.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { CreditsModule } from './modules/credits/credits.module';
 import { GroupsModule } from './modules/groups/groups.module';
 import { HealthModule } from './modules/health/health.module';
 import { MailingsModule } from './modules/mailings/mailings.module';
@@ -124,6 +125,9 @@ import { PrismaModule } from './prisma/prisma.module';
         RewardsModule,
         // Phase 31 — Global app settings (ҰБТ exam date for the dashboard countdown).
         SettingsModule,
+        // Phase 34 — «Зачёт» oral credits: topic/question bank, credit CRUD, launch
+        // wizard, curator conduct console, result texts, expiry crons.
+        CreditsModule,
     ],
     controllers: [AppController],
     providers: [

@@ -302,6 +302,12 @@ model User {
   mailing_logs_received      MailingLog[]    @relation("MailingLogRecipient")
   mailing_logs_sent          MailingLog[]    @relation("MailingLogSender")
 
+  created_credit_topics    CreditTopic[]    @relation("CreditTopicCreator")
+  created_credit_questions CreditQuestion[] @relation("CreditQuestionCreator")
+  created_credits          Credit[]         @relation("CreditCreator")
+  credit_launches_curated  CreditLaunch[]   @relation("CreditLaunchCurator")
+  credit_sessions          CreditSession[]  @relation("CreditSessionStudent")
+
   @@index([created_at], name: "idx_users_created_at")
   @@map("users")
 }
@@ -386,6 +392,8 @@ model Group {
   content_overrides CourseContentOverride[]  @relation("GroupContentOverrides")
 
   access_restrictions LessonAccessRestriction[] @relation("GroupAccessRestrictions")
+
+  credits Credit[] @relation("GroupCredits")
 
   @@map("groups")
 }
@@ -944,6 +952,8 @@ model Webinar {
 
   access_restrictions LessonAccessRestriction[] @relation("WebinarAccessRestrictions")
 
+  credits Credit[] @relation("WebinarCredits")
+
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
 }
@@ -1038,6 +1048,8 @@ model WebinarChapter {
   files       Files[]              @relation("WebinarChapterFiles")
   assignments WebinarAssignment[]  @relation("WebinarAssignments")
 
+  credits Credit[] @relation("ChapterCredits")
+
   @@map("webinar_chapters")
 }
 
@@ -1071,6 +1083,8 @@ model WebinarChapterItem {
   pdf_files         WebinarChapterItemPdfFile[] @relation("ChapterItemPdfFiles")
   // Phase 30 — up to 3 lecture-notes attachments (any document), download-only.
   attachments       WebinarChapterItemAttachment[] @relation("ChapterItemAttachments")
+
+  credit_links CreditLessonLink[] @relation("ChapterItemCreditLinks")
 
   @@map("webinar_chapter_items")
 }
@@ -2223,4 +2237,232 @@ model AppSetting {
   updated_at Int?   @db.UnsignedInt
 
   @@map("app_settings")
+}
+//* Phase 34 — «Зачёт» (oral credit module). See ЗАЧЁТ_ТЗ.md and
+// prisma/migrations/phase-34-credits.MANUAL.sql.md.
+//
+// Curator conducts an oral check: a random question set is generated per
+// student from the bank (standalone topic tree + difficulty A/B/C template),
+// the timer starts when the curator opens the student's session, marks are
+// polled by the student app, and an unpassed credit locks every chapter item
+// after the max-ordered linked lesson (resolver:
+// src/modules/courses/utils/credit-gating.ts). Snapshots in
+// credit_session_questions are authoritative — bank edits never mutate a
+// session. FK signedness mirrors the real PKs (webinars/users/chapters/items
+// signed INT, groups INT UNSIGNED) — do not trust legacy FK annotations.
+
+model CreditTopic {
+  id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  parent_id  BigInt?          @db.UnsignedBigInt
+  name       String           @db.VarChar(255)
+  position   Int              @default(0) @db.UnsignedInt
+  status     CreditBankStatus @default(active)
+  created_by Int
+  created_at Int              @db.UnsignedInt
+  updated_at Int?             @db.UnsignedInt
+
+  parent   CreditTopic?  @relation("CreditTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children CreditTopic[] @relation("CreditTopicParent")
+  creator  User          @relation("CreditTopicCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  questions CreditQuestion[] @relation("CreditTopicQuestions")
+
+  @@index([parent_id], name: "idx_ct_parent")
+  @@map("credit_topics")
+}
+
+model CreditQuestion {
+  id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  topic_id   BigInt           @db.UnsignedBigInt
+  difficulty CreditDifficulty
+  question   String           @db.Text
+  // Reference answer revealed to the curator only — must never reach the
+  // student payload.
+  answer     String           @db.Text
+  score      Int              @default(1) @db.UnsignedInt
+  status     CreditBankStatus @default(active)
+  created_by Int
+  created_at Int              @db.UnsignedInt
+  updated_at Int?             @db.UnsignedInt
+
+  topic   CreditTopic @relation("CreditTopicQuestions", fields: [topic_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  creator User        @relation("CreditQuestionCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  session_questions CreditSessionQuestion[] @relation("CreditQuestionSnapshots")
+
+  @@index([topic_id, difficulty, status], name: "idx_cq_pick")
+  @@map("credit_questions")
+}
+
+model Credit {
+  id           BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  course_id    Int
+  chapter_id   Int
+  group_id     Int          @db.UnsignedInt
+  title        String       @db.VarChar(255)
+  description  String?      @db.Text
+  scheduled_at Int?         @db.UnsignedInt
+  status       CreditStatus @default(active)
+  created_by   Int
+  created_at   Int          @db.UnsignedInt
+  updated_at   Int?         @db.UnsignedInt
+  deleted_at   Int?         @db.UnsignedInt
+
+  course  Webinar        @relation("WebinarCredits", fields: [course_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter WebinarChapter @relation("ChapterCredits", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  group   Group          @relation("GroupCredits", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator User           @relation("CreditCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  links    CreditLessonLink[] @relation("CreditLessonLinks")
+  launches CreditLaunch[]     @relation("CreditLaunches")
+  sessions CreditSession[]    @relation("CreditSessions")
+
+  @@index([course_id, chapter_id], name: "idx_cr_course_chapter")
+  @@index([group_id, status, deleted_at], name: "idx_cr_group_status")
+  @@index([scheduled_at], name: "idx_cr_scheduled")
+  @@map("credits")
+}
+
+model CreditLessonLink {
+  id              BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  credit_id       BigInt @db.UnsignedBigInt
+  chapter_item_id Int
+  created_at      Int    @db.UnsignedInt
+
+  credit       Credit             @relation("CreditLessonLinks", fields: [credit_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  chapter_item WebinarChapterItem @relation("ChapterItemCreditLinks", fields: [chapter_item_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([credit_id, chapter_item_id], name: "uniq_cll_credit_item")
+  @@index([chapter_item_id], name: "idx_cll_item")
+  @@map("credit_lesson_links")
+}
+
+model CreditLaunch {
+  id                  BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  credit_id           BigInt             @db.UnsignedBigInt
+  curator_id          Int
+  // Snapshot of the wizard settings. topic_ids: BigInt[] as JSON numbers;
+  // question_count is PER TOPIC; difficulty_template is a JSON array of
+  // 'A'|'B'|'C' with exactly question_count slots (validated in the app).
+  topic_ids           Json
+  question_count      Int                @default(5) @db.UnsignedInt
+  difficulty_template Json
+  duration_sec        Int                @default(420) @db.UnsignedInt
+  pass_type           CreditPassType     @default(percent)
+  pass_value          Int                @default(50) @db.UnsignedInt
+  status              CreditLaunchStatus @default(active)
+  created_at          Int                @db.UnsignedInt
+
+  credit  Credit @relation("CreditLaunches", fields: [credit_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  curator User   @relation("CreditLaunchCurator", fields: [curator_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  sessions CreditSession[] @relation("CreditLaunchSessions")
+
+  @@index([credit_id, created_at], name: "idx_cl_credit")
+  @@index([curator_id, created_at], name: "idx_cl_curator")
+  @@map("credit_launches")
+}
+
+model CreditSession {
+  id               BigInt              @id @default(autoincrement()) @db.UnsignedBigInt
+  launch_id        BigInt              @db.UnsignedBigInt
+  // Denormalized from launch.credit so the lesson gate resolves on one index.
+  credit_id        BigInt              @db.UnsignedBigInt
+  student_id       Int
+  attempt_number   Int                 @db.UnsignedInt
+  status           CreditSessionStatus @default(pending)
+  current_position Int?                @db.UnsignedInt
+  started_at       Int?                @db.UnsignedInt
+  // started_at + duration_sec, fixed at session start (curator opens it).
+  ends_at          Int?                @db.UnsignedInt
+  finished_at      Int?                @db.UnsignedInt
+  score            Int?                @db.UnsignedInt
+  max_score        Int                 @db.UnsignedInt
+  // Absolute points threshold resolved at generation (percent -> ceil), so
+  // finalize never re-reads launch settings.
+  pass_threshold   Int                 @db.UnsignedInt
+  passed           Boolean?
+  retake_at        Int?                @db.UnsignedInt
+  created_at       Int                 @db.UnsignedInt
+
+  launch  CreditLaunch @relation("CreditLaunchSessions", fields: [launch_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  credit  Credit       @relation("CreditSessions", fields: [credit_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  student User         @relation("CreditSessionStudent", fields: [student_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  questions CreditSessionQuestion[] @relation("CreditSessionQuestions")
+
+  @@unique([launch_id, student_id], name: "uniq_cs_launch_student")
+  @@unique([credit_id, student_id, attempt_number], name: "uniq_cs_attempt")
+  @@index([credit_id, student_id, passed], name: "idx_cs_gate")
+  @@index([student_id, status], name: "idx_cs_student")
+  @@index([status, ends_at], name: "idx_cs_sweep")
+  @@index([student_id, retake_at], name: "idx_cs_retake")
+  @@map("credit_sessions")
+}
+
+model CreditSessionQuestion {
+  id          BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  session_id  BigInt             @db.UnsignedBigInt
+  // Provenance only — the snapshot columns below are authoritative.
+  question_id BigInt?            @db.UnsignedBigInt
+  // Soft ref (no FK), kept for per-topic stats.
+  topic_id    BigInt?            @db.UnsignedBigInt
+  position    Int                @db.UnsignedInt
+  difficulty  CreditDifficulty
+  question    String             @db.Text
+  answer      String             @db.Text
+  score       Int                @db.UnsignedInt
+  mark        CreditQuestionMark @default(pending)
+  marked_at   Int?               @db.UnsignedInt
+  // Soft ref users.id (audit only, no FK).
+  marked_by   Int?
+
+  session       CreditSession   @relation("CreditSessionQuestions", fields: [session_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  bank_question CreditQuestion? @relation("CreditQuestionSnapshots", fields: [question_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+
+  @@unique([session_id, position], name: "uniq_csq_session_pos")
+  @@map("credit_session_questions")
+}
+
+enum CreditDifficulty {
+  A
+  B
+  C
+}
+
+enum CreditBankStatus {
+  active
+  archived
+}
+
+enum CreditStatus {
+  draft
+  active
+  archived
+}
+
+enum CreditPassType {
+  percent
+  points
+}
+
+enum CreditLaunchStatus {
+  active
+  completed
+  cancelled
+}
+
+enum CreditSessionStatus {
+  pending
+  in_progress
+  finished
+  expired
+  cancelled
+}
+
+enum CreditQuestionMark {
+  pending
+  correct
+  incorrect
+  skipped
 }

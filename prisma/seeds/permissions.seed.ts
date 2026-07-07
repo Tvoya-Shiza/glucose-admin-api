@@ -361,6 +361,24 @@ const CATALOG: SeedGroup[] = [
             { action: 'edit', display_order: 20, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
         ],
     },
+    {
+        // Phase 34 — «Зачёт» oral credits (contract §permissions seed).
+        code: 'credits',
+        display_order: 2600,
+        name_ru: 'Зачёты',
+        name_kz: 'Сынақтар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'topics_manage', display_order: 50, name_ru: 'Управление темами', name_kz: 'Тақырыптарды басқару' },
+            { action: 'questions_manage', display_order: 60, name_ru: 'Управление вопросами', name_kz: 'Сұрақтарды басқару' },
+            { action: 'conduct', display_order: 70, name_ru: 'Проведение зачётов', name_kz: 'Сынақтарды өткізу' },
+            { action: 'results_view', display_order: 80, name_ru: 'Просмотр результатов', name_kz: 'Нәтижелерді көру' },
+            { action: 'texts_manage', display_order: 90, name_ru: 'Управление текстами результатов', name_kz: 'Нәтиже мәтіндерін басқару' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
@@ -416,6 +434,15 @@ const CORE_ROLES: SeedRole[] = [
             'admission_stats.view',
             'course_access.view',
             'progress_overrides.view',
+            'credits.view',
+            'credits.create',
+            'credits.edit',
+            'credits.delete',
+            'credits.topics_manage',
+            'credits.questions_manage',
+            'credits.conduct',
+            'credits.results_view',
+            'credits.texts_manage',
         ],
     },
     {
