@@ -12,3 +12,6 @@ generated/
 # The directory is committed via .gitkeep; everything else is regenerated.
 vendor/shared-types/*
 !vendor/shared-types/.gitkeep
+
+# TypeScript incremental build cache — never commit (breaks Docker builds)
+*.tsbuildinfo

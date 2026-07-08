@@ -9,3 +9,4 @@ generated
 logs
 README.md
 .DS_Store
+*.tsbuildinfo
