@@ -5,6 +5,7 @@
     "private": true,
     "license": "UNLICENSED",
     "scripts": {
+        "prebuild": "SYNC=../glucose-infrastructure/scripts/sync-shared-types.sh; test -f \"$SYNC\" && bash \"$SYNC\" || true",
         "build": "nest build",
         "format": "prettier --write \"src/**/*.ts\"",
         "start": "nest start",
