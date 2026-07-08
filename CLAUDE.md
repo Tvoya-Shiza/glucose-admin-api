@@ -63,16 +63,20 @@ Quick reference:
 
 Cross-repo TypeScript types live in `glucose-api/shared-types/` (the canonical source).
 A vendored copy lives at `vendor/shared-types/` here, populated by
-`scripts/sync-shared-types.sh` from the project root.
+`glucose-infrastructure/scripts/sync-shared-types.sh`.
 
 Import shared types via the path alias `@shared/*` configured in tsconfig.json.
 
+The vendored copy is **gitignored** — a fresh checkout / CI runner / prod box has an
+EMPTY `vendor/shared-types/` (only `.gitkeep`), and `nest build` then fails with
+`Cannot find module '@shared/...'`. You MUST run the sync script before building.
+
 Workflow:
 1. Edit canonical types in `glucose-api/shared-types/`.
-2. Run `bash ../scripts/sync-shared-types.sh` from the project root.
-3. Commit canonical changes in glucose-api AND the updated `vendor/shared-types/.checksum` here.
+2. Run `bash glucose-infrastructure/scripts/sync-shared-types.sh` from the project root.
+3. Commit canonical changes in glucose-api (the vendored copy here is not committed).
 
-CI runs `bash ../scripts/check-shared-types-sync.sh` to fail on drift.
+CI / pre-build runs `bash glucose-infrastructure/scripts/check-shared-types-sync.sh` to fail on drift.
 
 DO NOT edit anything inside `vendor/shared-types/` directly. The sync script will overwrite your changes, and CI will reject any PR that touches it without a matching canonical update.
 
