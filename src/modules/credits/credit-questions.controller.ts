@@ -53,8 +53,12 @@ export class CreditQuestionsController {
     @Roles('admin', 'curator')
     @RequirePermission('credits.questions_manage')
     @Audit('credits.question_update', 'credit_question')
-    public async update(@Param('id') idRaw: string, @Body() dto: UpdateCreditQuestionDto) {
-        return this.svc.update(parseBigIntId(idRaw), dto);
+    public async update(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('id') idRaw: string,
+        @Body() dto: UpdateCreditQuestionDto,
+    ) {
+        return this.svc.update({ id: actor.id, role_name: actor.role_name }, parseBigIntId(idRaw), dto);
     }
 
     /** Hard delete of bank content — admin-only per contract. */

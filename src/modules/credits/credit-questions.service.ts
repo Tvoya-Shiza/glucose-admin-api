@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import type { CreditDifficulty } from '@shared/credits';
+import { CreditsListService } from './credits-list.service';
 import { CreateCreditQuestionDto } from './dto/create-credit-question.dto';
 import { ListCreditQuestionsDto } from './dto/list-credit-questions.dto';
 import { UpdateCreditQuestionDto } from './dto/update-credit-question.dto';
@@ -24,7 +25,10 @@ export class CreditQuestionsService {
     private static readonly DEFAULT_PAGE_SIZE = 50;
     private static readonly MAX_PAGE_SIZE = 200;
 
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly listService: CreditsListService,
+    ) {}
 
     public async list(query: ListCreditQuestionsDto) {
         const page = Math.max(1, query.page ?? 1);
@@ -88,8 +92,7 @@ export class CreditQuestionsService {
     }
 
     public async create(actor: ScopeActor, dto: CreateCreditQuestionDto) {
-        const topicId = parseBigIntId(dto.topic_id, 'topic_id');
-        await this.assertTopicExists(topicId);
+        const topicId = await this.resolveTargetTopicId(actor, dto.topic_id, dto.chapter_item_id);
 
         const created = await this.prisma.creditQuestion.create({
             data: {
@@ -108,15 +111,14 @@ export class CreditQuestionsService {
         return apiResponse(1, 'created', 'admin.credits.question_created', { question });
     }
 
-    public async update(id: bigint, dto: UpdateCreditQuestionDto) {
+    public async update(actor: ScopeActor, id: bigint, dto: UpdateCreditQuestionDto) {
         const existing = await this.prisma.creditQuestion.findUnique({ where: { id }, select: { id: true } });
         if (!existing) throw new NotFoundException({ code: 'credits.question_not_found', message: 'credits.question_not_found' });
 
         const data: Record<string, unknown> = { updated_at: nowSec() };
-        if (dto.topic_id !== undefined) {
-            const topicId = parseBigIntId(dto.topic_id, 'topic_id');
-            await this.assertTopicExists(topicId);
-            data.topic_id = topicId;
+        // Re-tag only when a new target is supplied; the helper rejects both-at-once.
+        if (dto.topic_id !== undefined || dto.chapter_item_id !== undefined) {
+            data.topic_id = await this.resolveTargetTopicId(actor, dto.topic_id, dto.chapter_item_id);
         }
         if (dto.difficulty !== undefined) data.difficulty = dto.difficulty;
         if (dto.question !== undefined) data.question = dto.question;
@@ -186,6 +188,85 @@ export class CreditQuestionsService {
         }
     }
 
+    /**
+     * Resolves the credit_topics.id a question should hang off, from EXACTLY ONE
+     * of `topic_id` (an existing custom topic) or `chapter_item_id` (a course
+     * lesson — its lesson-topic is materialized/reused lazily). Rejects
+     * zero-or-both so `credit_questions.topic_id` always ends up non-null.
+     */
+    private async resolveTargetTopicId(
+        actor: ScopeActor,
+        topicIdRaw: string | undefined,
+        chapterItemId: number | undefined,
+    ): Promise<bigint> {
+        const hasTopic = topicIdRaw !== undefined;
+        const hasLesson = chapterItemId !== undefined;
+        if (hasTopic && hasLesson) {
+            throw new BadRequestException({ code: 'credits.topic_or_lesson', message: 'credits.topic_or_lesson' });
+        }
+        if (hasTopic) {
+            const topicId = parseBigIntId(topicIdRaw, 'topic_id');
+            await this.assertTopicExists(topicId);
+            return topicId;
+        }
+        if (hasLesson) {
+            return this.resolveLessonTopicId(actor, chapterItemId!);
+        }
+        throw new BadRequestException({ code: 'credits.topic_required', message: 'credits.topic_required' });
+    }
+
+    /**
+     * Find-or-create the lesson-backed topic for a course lesson. The lesson-topic
+     * is a normal credit_topics row with `chapter_item_id` set, `course_id`
+     * denormalized from the lesson's chapter, and `name` snapshotted from the
+     * lesson title at attach time. Concurrent first-saves race on the
+     * `uniq_ct_chapter_item` unique key — the P2002 branch re-reads the winner.
+     */
+    private async resolveLessonTopicId(actor: ScopeActor, chapterItemId: number): Promise<bigint> {
+        const existing = await this.prisma.creditTopic.findFirst({
+            where: { chapter_item_id: chapterItemId },
+            select: { id: true },
+        });
+        if (existing) return existing.id;
+
+        const item = await this.prisma.webinarChapterItem.findUnique({
+            where: { id: chapterItemId },
+            select: { id: true, webinar_chapter: { select: { webinar_id: true } } },
+        });
+        if (!item) {
+            throw new BadRequestException({ code: 'credits.lesson_not_found', message: 'credits.lesson_not_found' });
+        }
+
+        const titles = await this.listService.resolveChapterItemTitles([chapterItemId]);
+        const name = (titles.get(chapterItemId) ?? '').trim() || `#${chapterItemId}`;
+
+        try {
+            const created = await this.prisma.creditTopic.create({
+                data: {
+                    parent_id: null,
+                    course_id: item.webinar_chapter.webinar_id,
+                    chapter_item_id: chapterItemId,
+                    name,
+                    position: 0,
+                    created_by: actor.id,
+                    created_at: nowSec(),
+                },
+                select: { id: true },
+            });
+            return created.id;
+        } catch (err) {
+            // Lost the race — the unique key already holds the lesson-topic.
+            if ((err as { code?: string })?.code === 'P2002') {
+                const won = await this.prisma.creditTopic.findFirst({
+                    where: { chapter_item_id: chapterItemId },
+                    select: { id: true },
+                });
+                if (won) return won.id;
+            }
+            throw err;
+        }
+    }
+
     private rowSelect() {
         return {
             id: true,
@@ -196,14 +277,19 @@ export class CreditQuestionsService {
             status: true,
             created_at: true,
             updated_at: true,
-            topic: { select: { id: true, name: true } },
+            topic: { select: { id: true, name: true, course_id: true, chapter_item_id: true } },
         };
     }
 
     private mapRow(r: any): CreditQuestionRow {
         return {
             id: r.id,
-            topic: { id: r.topic.id, name: r.topic.name },
+            topic: {
+                id: r.topic.id,
+                name: r.topic.name,
+                course_id: r.topic.course_id ?? null,
+                chapter_item_id: r.topic.chapter_item_id ?? null,
+            },
             difficulty: r.difficulty,
             question: r.question,
             answer: r.answer,

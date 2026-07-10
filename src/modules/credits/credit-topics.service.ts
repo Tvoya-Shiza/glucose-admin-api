@@ -35,6 +35,8 @@ export class CreditTopicsService {
                 name: true,
                 position: true,
                 status: true,
+                course_id: true,
+                chapter_item_id: true,
                 _count: { select: { questions: true, children: true } },
             },
         });
@@ -44,6 +46,8 @@ export class CreditTopicsService {
             name: r.name,
             position: r.position,
             status: r.status,
+            course_id: r.course_id ?? null,
+            chapter_item_id: r.chapter_item_id ?? null,
             question_count: r._count.questions,
             child_count: r._count.children,
         }));
@@ -163,6 +167,8 @@ export class CreditTopicsService {
                 name: true,
                 position: true,
                 status: true,
+                course_id: true,
+                chapter_item_id: true,
                 _count: { select: { questions: true, children: true } },
             },
         });
@@ -173,6 +179,8 @@ export class CreditTopicsService {
             name: r.name,
             position: r.position,
             status: r.status,
+            course_id: r.course_id ?? null,
+            chapter_item_id: r.chapter_item_id ?? null,
             question_count: r._count.questions,
             child_count: r._count.children,
         };

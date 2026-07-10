@@ -25,11 +25,14 @@ export interface CreditTopicNode {
     status: CreditBankStatus;
     question_count: number;
     child_count: number;
+    /** Phase 36 — set when the topic mirrors a course lesson (else both null). */
+    course_id: number | null;
+    chapter_item_id: number | null;
 }
 
 export interface CreditQuestionRow {
     id: bigint;
-    topic: { id: bigint; name: string };
+    topic: { id: bigint; name: string; course_id: number | null; chapter_item_id: number | null };
     difficulty: CreditDifficulty;
     question: string;
     answer: string;

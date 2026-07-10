@@ -1095,6 +1095,8 @@ model WebinarChapterItem {
   attachments       WebinarChapterItemAttachment[] @relation("ChapterItemAttachments")
 
   credit_links CreditLessonLink[] @relation("ChapterItemCreditLinks")
+  // Phase 36 — lesson-backed credit topics (question bank tagged to this lesson).
+  credit_topics CreditTopic[] @relation("ChapterItemCreditTopics")
 
   @@map("webinar_chapter_items")
 }
@@ -2264,6 +2266,13 @@ model AppSetting {
 model CreditTopic {
   id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
   parent_id  BigInt?          @db.UnsignedBigInt
+  // Phase 36 — when set, this topic mirrors a course lesson (a WebinarChapterItem):
+  // the question bank can be tagged to a lesson instead of a free-form topic.
+  // `course_id` is denormalized (no FK — avoids a second cascade path to webinars)
+  // for cheap course grouping/filtering. Custom topics keep both NULL;
+  // `chapter_item_id` is UNIQUE so at most one topic mirrors a given lesson.
+  course_id       Int?
+  chapter_item_id Int?
   name       String           @db.VarChar(255)
   position   Int              @default(0) @db.UnsignedInt
   status     CreditBankStatus @default(active)
@@ -2271,13 +2280,18 @@ model CreditTopic {
   created_at Int              @db.UnsignedInt
   updated_at Int?             @db.UnsignedInt
 
-  parent   CreditTopic?  @relation("CreditTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  children CreditTopic[] @relation("CreditTopicParent")
-  creator  User          @relation("CreditTopicCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  parent       CreditTopic?        @relation("CreditTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children     CreditTopic[]       @relation("CreditTopicParent")
+  creator      User                @relation("CreditTopicCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  // SetNull: deleting a lesson degrades its topic to a plain custom topic
+  // (name snapshot + questions survive) rather than cascading questions away.
+  chapter_item WebinarChapterItem? @relation("ChapterItemCreditTopics", fields: [chapter_item_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   questions CreditQuestion[] @relation("CreditTopicQuestions")
 
+  @@unique([chapter_item_id], name: "uniq_ct_chapter_item")
   @@index([parent_id], name: "idx_ct_parent")
+  @@index([course_id], name: "idx_ct_course")
   @@map("credit_topics")
 }
 
