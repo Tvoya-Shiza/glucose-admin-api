@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { apiResponse } from '../../common/utils/api-response';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import type { CreditDifficulty } from '@shared/credits';
+import { sanitizeTiptapHtmlServer } from '../courses/utils/sanitize-html-server';
 import { CreditsListService } from './credits-list.service';
 import { CreateCreditQuestionDto } from './dto/create-credit-question.dto';
 import { ListCreditQuestionsDto } from './dto/list-credit-questions.dto';
@@ -98,8 +99,11 @@ export class CreditQuestionsService {
             data: {
                 topic_id: topicId,
                 difficulty: dto.difficulty,
-                question: dto.question,
-                answer: dto.answer,
+                // Rich text — re-sanitized server-side (defense in depth over the client sanitize).
+                question: sanitizeTiptapHtmlServer(dto.question),
+                answer: sanitizeTiptapHtmlServer(dto.answer),
+                question_image: normalizeImage(dto.question_image),
+                answer_image: normalizeImage(dto.answer_image),
                 score: dto.score ?? 1,
                 created_by: actor.id,
                 created_at: nowSec(),
@@ -121,8 +125,10 @@ export class CreditQuestionsService {
             data.topic_id = await this.resolveTargetTopicId(actor, dto.topic_id, dto.chapter_item_id);
         }
         if (dto.difficulty !== undefined) data.difficulty = dto.difficulty;
-        if (dto.question !== undefined) data.question = dto.question;
-        if (dto.answer !== undefined) data.answer = dto.answer;
+        if (dto.question !== undefined) data.question = sanitizeTiptapHtmlServer(dto.question);
+        if (dto.answer !== undefined) data.answer = sanitizeTiptapHtmlServer(dto.answer);
+        if (dto.question_image !== undefined) data.question_image = normalizeImage(dto.question_image);
+        if (dto.answer_image !== undefined) data.answer_image = normalizeImage(dto.answer_image);
         if (dto.score !== undefined) data.score = dto.score;
         if (dto.status !== undefined) data.status = dto.status;
 
@@ -193,8 +199,11 @@ export class CreditQuestionsService {
      * of `topic_id` (an existing custom topic) or `chapter_item_id` (a course
      * lesson — its lesson-topic is materialized/reused lazily). Rejects
      * zero-or-both so `credit_questions.topic_id` always ends up non-null.
+     *
+     * Public: the Excel-import service reuses it to resolve the batch's target
+     * topic once before inserting rows.
      */
-    private async resolveTargetTopicId(
+    public async resolveTargetTopicId(
         actor: ScopeActor,
         topicIdRaw: string | undefined,
         chapterItemId: number | undefined,
@@ -273,6 +282,8 @@ export class CreditQuestionsService {
             difficulty: true,
             question: true,
             answer: true,
+            question_image: true,
+            answer_image: true,
             score: true,
             status: true,
             created_at: true,
@@ -293,6 +304,8 @@ export class CreditQuestionsService {
             difficulty: r.difficulty,
             question: r.question,
             answer: r.answer,
+            question_image: r.question_image ?? null,
+            answer_image: r.answer_image ?? null,
             score: r.score,
             status: r.status,
             created_at: r.created_at,
@@ -305,4 +318,11 @@ export class CreditQuestionsService {
         if (!r) throw new NotFoundException({ code: 'credits.question_not_found', message: 'credits.question_not_found' });
         return this.mapRow(r);
     }
+}
+
+/** Trim an optional image URL; blank/undefined → null (clears the photo). */
+function normalizeImage(raw: string | undefined): string | null {
+    if (raw === undefined) return null;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
 }

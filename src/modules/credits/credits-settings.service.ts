@@ -23,6 +23,19 @@ export class CreditsSettingsService {
         return apiResponse(1, 'retrieved', 'admin.credits.result_texts_retrieved', { ranges });
     }
 
+    /**
+     * Motivational text for a score percent, from the admin-editable ranges.
+     * Percent is clamped into [0, 100]; ranges use inclusive bounds; KZ text is
+     * preferred with RU fallback. Misconfigured ranges (no match) → ''.
+     * Used by the conduct console + student result to show a per-student message.
+     */
+    public async resolveMotivationalText(percent: number): Promise<string> {
+        const ranges = await this.readRanges();
+        const clamped = Math.min(100, Math.max(0, percent));
+        const range = ranges.find((r) => clamped >= r.min && clamped <= r.max);
+        return range ? range.text_kz || range.text_ru || '' : '';
+    }
+
     public async updateResultTexts(dto: UpdateResultTextsDto) {
         this.assertContiguous(dto.ranges);
 

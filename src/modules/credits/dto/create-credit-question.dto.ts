@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import type { CreditDifficulty } from '@shared/credits';
 
 /**
@@ -25,14 +25,29 @@ export class CreateCreditQuestionDto {
     @IsIn(['A', 'B', 'C'])
     difficulty!: CreditDifficulty;
 
+    /** Rich text (sanitized Tiptap HTML). Server re-sanitizes on write. */
     @IsString()
     @IsNotEmpty()
+    @MaxLength(50000)
     question!: string;
 
     /** Reference answer for the curator — never reaches student payloads (decision 8). */
     @IsString()
     @IsNotEmpty()
+    @MaxLength(50000)
     answer!: string;
+
+    /** Optional photo shown WITH the question (relative upload URL). Student-visible. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(2048)
+    question_image?: string;
+
+    /** Optional photo shown WITH the reference answer (relative upload URL). Curator-only. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(2048)
+    answer_image?: string;
 
     @IsOptional()
     @Type(() => Number)

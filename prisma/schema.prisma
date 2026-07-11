@@ -2303,6 +2303,10 @@ model CreditQuestion {
   // Reference answer revealed to the curator only — must never reach the
   // student payload.
   answer     String           @db.Text
+  // Optional photos — relative upload URL strings (e.g. /static/credits/<ULID>.webp).
+  // question_image is student-visible; answer_image is curator-only, like `answer`.
+  question_image String?      @db.Text
+  answer_image   String?      @db.Text
   score      Int              @default(1) @db.UnsignedInt
   status     CreditBankStatus @default(active)
   created_by Int
@@ -2435,6 +2439,9 @@ model CreditSessionQuestion {
   difficulty  CreditDifficulty
   question    String             @db.Text
   answer      String             @db.Text
+  // Snapshot copies of the bank question's optional photos (see CreditQuestion).
+  question_image String?         @db.Text
+  answer_image   String?         @db.Text
   score       Int                @db.UnsignedInt
   mark        CreditQuestionMark @default(pending)
   marked_at   Int?               @db.UnsignedInt

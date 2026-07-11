@@ -208,10 +208,9 @@ export class RatingJournalWriterService {
         }
 
         const journal = await this.resolveOrCreateJournal(entry.group_id, entry.course_id, credit.created_by);
-        const column = await this.resolveOrCreateColumn({
+        const column = await this.resolveOrCreateCreditColumn({
             journalId: journal.id,
-            sourceKind: 'credit',
-            sourceRefId: creditId,
+            creditId,
             title: credit.title,
             maxScore: entry.max_score,
             chapterId: credit.chapter_id,
@@ -220,6 +219,105 @@ export class RatingJournalWriterService {
 
         const authoritative = await this.computeCreditAuthoritative(creditId, entry.student_id);
         await this.writeAutoCell(column.id, entry.student_id, authoritative.value, authoritative.sessionId, 'sync_credit');
+    }
+
+    /**
+     * Resolve (or create) the «Зачет» column. Unlike a plain auto column it is NOT
+     * appended to the tail: on FIRST creation it is inserted right after the last
+     * journal column that corresponds to one of the credit's linked lessons
+     * (тақырып) — item 3. Columns at/after that slot shift down by one, all in one
+     * transaction. Fallback: append to the tail when no linked lesson has a column
+     * yet (e.g. the grid was never opened, so module columns don't exist). Once the
+     * column exists it is returned as-is, so a later curator drag-reorder is never
+     * snapped back.
+     */
+    private async resolveOrCreateCreditColumn(params: {
+        journalId: bigint;
+        creditId: bigint;
+        title: string;
+        maxScore: number;
+        chapterId: number | null;
+        actorId: number;
+    }): Promise<ResolvedColumn> {
+        const existing = await this.prisma.ratingJournalColumn.findFirst({
+            where: { journal_id: params.journalId, source_kind: 'credit', source_ref_id: params.creditId },
+            select: { id: true, source_kind: true, source_ref_id: true, max_score: true },
+        });
+        if (existing) return existing;
+
+        const afterPos = await this.lastLinkedLessonPosition(params.journalId, params.creditId);
+        const tail = await this.prisma.ratingJournalColumn.aggregate({
+            where: { journal_id: params.journalId },
+            _max: { position: true },
+        });
+        const maxPos = tail._max.position ?? -1;
+        const position = afterPos != null ? afterPos + 1 : maxPos + 1;
+
+        try {
+            return await this.prisma.$transaction(async (tx) => {
+                if (afterPos != null) {
+                    // Open a slot: everything at/after the target shifts down by 1.
+                    await tx.ratingJournalColumn.updateMany({
+                        where: { journal_id: params.journalId, position: { gte: position } },
+                        data: { position: { increment: 1 } },
+                    });
+                }
+                return tx.ratingJournalColumn.create({
+                    data: {
+                        journal_id: params.journalId,
+                        title: params.title.trim() || 'Зачет',
+                        source_kind: 'credit',
+                        source_ref_id: params.creditId,
+                        chapter_id: params.chapterId,
+                        max_score: params.maxScore,
+                        position,
+                        created_by: params.actorId,
+                        created_at: nowSec(),
+                    },
+                    select: { id: true, source_kind: true, source_ref_id: true, max_score: true },
+                });
+            });
+        } catch (err) {
+            if ((err as { code?: string })?.code === 'P2002') {
+                const winner = await this.prisma.ratingJournalColumn.findFirst({
+                    where: { journal_id: params.journalId, source_kind: 'credit', source_ref_id: params.creditId },
+                    select: { id: true, source_kind: true, source_ref_id: true, max_score: true },
+                });
+                if (winner) return winner;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Position of the last journal column that maps to one of the credit's linked
+     * lessons. A lesson (webinar_chapter_items row) of type quiz/assignment maps to
+     * a module column via (source_kind, source_ref_id = item_id). Returns null when
+     * the credit has no lesson links or none of them has a column yet.
+     */
+    private async lastLinkedLessonPosition(journalId: bigint, creditId: bigint): Promise<number | null> {
+        const links = await this.prisma.creditLessonLink.findMany({
+            where: { credit_id: creditId },
+            select: { chapter_item_id: true },
+        });
+        if (links.length === 0) return null;
+
+        const items = await this.prisma.webinarChapterItem.findMany({
+            where: { id: { in: links.map((l) => l.chapter_item_id) }, type: { in: ['quiz', 'assignment'] } },
+            select: { item_id: true, type: true },
+        });
+        if (items.length === 0) return null;
+
+        const orClauses = items.map((it) => ({
+            source_kind: (it.type === 'quiz' ? 'module_quiz' : 'module_assignment') as RatingJournalSourceKind,
+            source_ref_id: BigInt(it.item_id),
+        }));
+        const cols = await this.prisma.ratingJournalColumn.findMany({
+            where: { journal_id: journalId, deleted_at: null, OR: orClauses },
+            select: { position: true },
+        });
+        if (cols.length === 0) return null;
+        return cols.reduce((max, c) => (c.position > max ? c.position : max), cols[0].position);
     }
 
     /**

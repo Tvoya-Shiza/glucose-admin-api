@@ -5,6 +5,7 @@ import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import type { CreditFinishReason } from '@shared/credits';
 import { assertLaunchOwnership, CREDIT_SESSION_SCOPE_RULES } from './credits.scope';
+import { CreditsSettingsService } from './credits-settings.service';
 import { CREDIT_JOURNAL_PORT, type CreditJournalPort } from './journal/credit-journal.port';
 import { MarkQuestionDto } from './dto/mark-question.dto';
 import { NavigateSessionDto } from './dto/navigate-session.dto';
@@ -64,6 +65,8 @@ interface SessionRecord {
         score: number;
         question: string;
         answer: string;
+        question_image: string | null;
+        answer_image: string | null;
         mark: 'pending' | 'correct' | 'incorrect' | 'skipped';
         marked_at: number | null;
     }>;
@@ -90,6 +93,7 @@ export class CreditsConductService {
 
     constructor(
         private readonly prisma: PrismaService,
+        private readonly settings: CreditsSettingsService,
         @Inject(CREDIT_JOURNAL_PORT) private readonly journal: CreditJournalPort,
     ) {}
 
@@ -97,7 +101,7 @@ export class CreditsConductService {
 
     public async getSession(actor: ScopeActor, id: bigint) {
         const session = await this.loadScoped(actor, id);
-        return apiResponse(1, 'retrieved', 'admin.credits.session_retrieved', this.buildDetail(session));
+        return apiResponse(1, 'retrieved', 'admin.credits.session_retrieved', await this.buildDetail(session));
     }
 
     // ------------------------------------------------------------- mutations
@@ -372,6 +376,8 @@ export class CreditsConductService {
                     score: true,
                     question: true,
                     answer: true,
+                    question_image: true,
+                    answer_image: true,
                     mark: true,
                     marked_at: true,
                 },
@@ -397,12 +403,25 @@ export class CreditsConductService {
 
     private async respondWithDetail(actor: ScopeActor, id: bigint, message: string) {
         const fresh = await this.loadScoped(actor, id);
-        return apiResponse(1, 'success', message, this.buildDetail(fresh));
+        return apiResponse(1, 'success', message, await this.buildDetail(fresh));
     }
 
-    private buildDetail(s: SessionRecord): CreditSessionDetail {
+    private async buildDetail(s: SessionRecord): Promise<CreditSessionDetail> {
         const server_now = nowSec();
         const finalized = s.status === 'finished' || s.status === 'expired';
+        const result =
+            finalized && s.score != null && s.passed != null
+                ? {
+                      score: s.score,
+                      max_score: s.max_score,
+                      percent: computePercent(s.score, s.max_score),
+                      passed: s.passed,
+                      pass_threshold: s.pass_threshold,
+                      finish_reason: (s.status === 'expired' ? 'timeout' : 'manual') as CreditFinishReason,
+                      // Per-student motivational message for the completion screen (item 4).
+                      motivational_text: await this.settings.resolveMotivationalText(computePercent(s.score, s.max_score)),
+                  }
+                : null;
         return {
             id: s.id,
             launch_id: s.launch_id,
@@ -422,20 +441,12 @@ export class CreditsConductService {
                 score: q.score,
                 question: q.question,
                 answer: q.answer,
+                question_image: q.question_image ?? null,
+                answer_image: q.answer_image ?? null,
                 mark: q.mark,
                 marked_at: q.marked_at,
             })),
-            result:
-                finalized && s.score != null && s.passed != null
-                    ? {
-                          score: s.score,
-                          max_score: s.max_score,
-                          percent: computePercent(s.score, s.max_score),
-                          passed: s.passed,
-                          pass_threshold: s.pass_threshold,
-                          finish_reason: s.status === 'expired' ? 'timeout' : 'manual',
-                      }
-                    : null,
+            result,
             retake_at: s.retake_at,
         };
     }

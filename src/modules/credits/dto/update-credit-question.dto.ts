@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min } from 'class-validator';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Matches, MaxLength, Min } from 'class-validator';
 import type { CreditBankStatus, CreditDifficulty } from '@shared/credits';
 
 /**
@@ -29,12 +29,26 @@ export class UpdateCreditQuestionDto {
     @IsOptional()
     @IsString()
     @IsNotEmpty()
+    @MaxLength(50000)
     question?: string;
 
     @IsOptional()
     @IsString()
     @IsNotEmpty()
+    @MaxLength(50000)
     answer?: string;
+
+    /** Photo shown WITH the question. Empty string clears it. Student-visible. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(2048)
+    question_image?: string;
+
+    /** Photo shown WITH the reference answer. Empty string clears it. Curator-only. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(2048)
+    answer_image?: string;
 
     @IsOptional()
     @Type(() => Number)

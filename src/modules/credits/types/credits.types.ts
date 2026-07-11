@@ -34,8 +34,12 @@ export interface CreditQuestionRow {
     id: bigint;
     topic: { id: bigint; name: string; course_id: number | null; chapter_item_id: number | null };
     difficulty: CreditDifficulty;
+    /** Sanitized Tiptap HTML. */
     question: string;
     answer: string;
+    /** Optional relative upload URLs (null when no photo). answer_image is curator-only. */
+    question_image: string | null;
+    answer_image: string | null;
     score: number;
     status: CreditBankStatus;
     created_at: number;
@@ -92,6 +96,23 @@ export interface CreditHistoryRow {
     retake_at: number | null;
 }
 
+/** One row of the cross-credit results page (item 9). */
+export interface CreditResultRow {
+    session_id: bigint;
+    launch_id: bigint;
+    credit: { id: bigint; title: string; course: { id: number; title: string | null }; group: { id: number; name: string } };
+    student: { id: number; full_name: string | null; mobile: string | null };
+    attempt_number: number;
+    started_at: number | null;
+    finished_at: number | null;
+    score: number | null;
+    max_score: number;
+    percent: number | null;
+    status: CreditSessionStatus;
+    passed: boolean | null;
+    retake_at: number | null;
+}
+
 export interface EligibleStudent {
     id: number;
     full_name: string | null;
@@ -136,8 +157,12 @@ export interface CreditSessionQuestionView {
     position: number;
     difficulty: CreditDifficulty;
     score: number;
+    /** Sanitized Tiptap HTML. */
     question: string;
     answer: string;
+    /** Optional relative upload URLs (null when no photo). answer_image is curator-only. */
+    question_image: string | null;
+    answer_image: string | null;
     mark: CreditQuestionMark;
     marked_at: number | null;
 }
@@ -149,6 +174,8 @@ export interface CreditSessionResultView {
     passed: boolean;
     pass_threshold: number;
     finish_reason: CreditFinishReason;
+    /** Admin-editable motivational message for the % range (item 4); '' if unset. */
+    motivational_text: string;
 }
 
 /** FULL curator view of one session (contract §conduct GET; every mutation returns the same shape). */

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
 import { CreditQuestionsController } from './credit-questions.controller';
 import { CreditQuestionsService } from './credit-questions.service';
+import { CreditQuestionsImportService } from './credit-questions-import.service';
 import { CreditTopicsController } from './credit-topics.controller';
 import { CreditTopicsService } from './credit-topics.service';
 import { CreditsConductController } from './credits-conduct.controller';
@@ -15,6 +16,8 @@ import { CreditsListController } from './credits-list.controller';
 import { CreditsListService } from './credits-list.service';
 import { CreditsMutationsController } from './credits-mutations.controller';
 import { CreditsMutationsService } from './credits-mutations.service';
+import { CreditsResultsController } from './credits-results.controller';
+import { CreditsResultsService } from './credits-results.service';
 import { CreditsSettingsController } from './credits-settings.controller';
 import { CreditsSettingsService } from './credits-settings.service';
 import { CREDIT_JOURNAL_PORT } from './journal/credit-journal.port';
@@ -45,6 +48,7 @@ import { RatingJournalCreditAdapter } from '../rating-journal/services/rating-jo
     imports: [AccessModule, RatingJournalModule],
     controllers: [
         CreditsListController,
+        CreditsResultsController,
         CreditsLaunchController,
         CreditsDetailController,
         CreditsMutationsController,
@@ -55,11 +59,13 @@ import { RatingJournalCreditAdapter } from '../rating-journal/services/rating-jo
     ],
     providers: [
         CreditsListService,
+        CreditsResultsService,
         CreditsDetailService,
         CreditsMutationsService,
         CreditsLaunchService,
         CreditTopicsService,
         CreditQuestionsService,
+        CreditQuestionsImportService,
         CreditsConductService,
         CreditsSettingsService,
         CreditsExpiryCronService,

@@ -14,6 +14,8 @@ import { nowSec } from './utils/time';
 interface CandidateSnapshot {
     question: string;
     answer: string;
+    question_image: string | null;
+    answer_image: string | null;
     score: number;
 }
 
@@ -127,7 +129,16 @@ export class CreditsLaunchService {
                     // 6. Load ACTIVE candidates + availability check per (topic × template).
                     const bank = await tx.creditQuestion.findMany({
                         where: { topic_id: { in: topicIds }, status: 'active' },
-                        select: { id: true, topic_id: true, difficulty: true, question: true, answer: true, score: true },
+                        select: {
+                            id: true,
+                            topic_id: true,
+                            difficulty: true,
+                            question: true,
+                            answer: true,
+                            question_image: true,
+                            answer_image: true,
+                            score: true,
+                        },
                     });
                     const candidates: PickerCandidates = {};
                     const snapshots = new Map<string, CandidateSnapshot>();
@@ -136,7 +147,13 @@ export class CreditsLaunchService {
                         const idKey = q.id.toString();
                         if (!candidates[topicKey]) candidates[topicKey] = { A: [], B: [], C: [] };
                         candidates[topicKey][q.difficulty as CreditDifficulty]!.push(idKey);
-                        snapshots.set(idKey, { question: q.question, answer: q.answer, score: q.score });
+                        snapshots.set(idKey, {
+                            question: q.question,
+                            answer: q.answer,
+                            question_image: q.question_image ?? null,
+                            answer_image: q.answer_image ?? null,
+                            score: q.score,
+                        });
                     }
 
                     const required = templateRequirements(template);
@@ -158,16 +175,55 @@ export class CreditsLaunchService {
                         });
                     }
 
+                    // 6b. Questions this student already got (any prior non-cancelled
+                    //     attempt of THIS credit) — excluded on a retake so questions
+                    //     don't repeat (item 10). Passed students are already blocked
+                    //     above, so this only ever narrows a failed student's retake.
+                    const priorServed = await tx.creditSessionQuestion.findMany({
+                        where: {
+                            question_id: { not: null },
+                            session: { credit_id: creditId, student_id: { in: studentIds }, status: { not: 'cancelled' } },
+                        },
+                        select: { question_id: true, session: { select: { student_id: true } } },
+                    });
+                    const servedByStudent = new Map<number, Set<string>>();
+                    for (const row of priorServed) {
+                        if (row.question_id == null) continue;
+                        const sid = row.session.student_id;
+                        let set = servedByStudent.get(sid);
+                        if (!set) {
+                            set = new Set<string>();
+                            servedByStudent.set(sid, set);
+                        }
+                        set.add(row.question_id.toString());
+                    }
+
                     // 7. Per-student pick + threshold resolution (decision 7).
                     const topicKeyList = topicIds.map((id) => id.toString());
                     const perStudent = studentIds.map((studentId) => {
-                        const pick = pickSessionQuestions({
+                        const served = servedByStudent.get(studentId);
+                        // Prefer a pool with the student's previously-served questions removed.
+                        const freshCandidates =
+                            served && served.size > 0 ? excludeServedCandidates(candidates, served) : candidates;
+                        let pick = pickSessionQuestions({
                             topicIds: topicKeyList,
                             questionCount: question_count,
                             template,
-                            candidates,
+                            candidates: freshCandidates,
                             rng: this.rng,
                         });
+                        // Best-effort: if removing seen questions leaves too few for some
+                        // (topic × difficulty), fall back to the full pool so a legitimate
+                        // retake against a small bank still launches (repeats then allowed).
+                        if (!pick.ok && served && served.size > 0) {
+                            pick = pickSessionQuestions({
+                                topicIds: topicKeyList,
+                                questionCount: question_count,
+                                template,
+                                candidates,
+                                rng: this.rng,
+                            });
+                        }
                         if (!pick.ok) {
                             // Defensive — the availability pass above already covers this.
                             throw new UnprocessableEntityException({
@@ -244,6 +300,8 @@ export class CreditsLaunchService {
                                     difficulty: q.difficulty,
                                     question: snap.question,
                                     answer: snap.answer,
+                                    question_image: snap.question_image,
+                                    answer_image: snap.answer_image,
                                     score: snap.score,
                                 };
                             }),
@@ -413,4 +471,22 @@ export class CreditsLaunchService {
 function jsonIdsToStrings(value: unknown): string[] {
     if (!Array.isArray(value)) return [];
     return value.map((v) => String(v));
+}
+
+/**
+ * Returns a copy of the candidate pool with `exclude`d question ids removed from
+ * every (topic × difficulty) bucket. Used to keep a retake from repeating any
+ * question the student already saw (item 10).
+ */
+function excludeServedCandidates(candidates: PickerCandidates, exclude: Set<string>): PickerCandidates {
+    const out: PickerCandidates = {};
+    for (const [topicKey, byDifficulty] of Object.entries(candidates)) {
+        const next: Partial<Record<CreditDifficulty, string[]>> = {};
+        for (const d of ['A', 'B', 'C'] as CreditDifficulty[]) {
+            const pool = byDifficulty[d];
+            if (pool) next[d] = pool.filter((id) => !exclude.has(id));
+        }
+        out[topicKey] = next;
+    }
+    return out;
 }

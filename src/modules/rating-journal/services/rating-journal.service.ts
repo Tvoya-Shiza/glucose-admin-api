@@ -69,7 +69,7 @@ export class RatingJournalService {
             this.logger.warn(`grid auto-sync failed journal=${journal.id.toString()}: ${(err as Error)?.message}`);
         }
 
-        const grid = await this.buildGrid(journal);
+        const grid = await this.buildGrid(journal, { dateFrom: query.date_from, dateTo: query.date_to });
         return grid; // raw shape — TanStack consumes it directly
     }
 
@@ -131,7 +131,10 @@ export class RatingJournalService {
         if (!course) throw new NotFoundException({ code: 'rating_journal.course_not_found', message: 'rating_journal.course_not_found' });
     }
 
-    private async buildGrid(journal: JournalRef): Promise<JournalGridDto> {
+    private async buildGrid(
+        journal: JournalRef,
+        dateRange: { dateFrom?: number; dateTo?: number } = {},
+    ): Promise<JournalGridDto> {
         const columnRows = await this.prisma.ratingJournalColumn.findMany({
             where: { journal_id: journal.id, deleted_at: null },
             orderBy: [{ position: 'asc' }, { id: 'asc' }],
@@ -177,6 +180,10 @@ export class RatingJournalService {
             cellsByStudent.set(cell.student_id, perStudent);
         }
 
+        // Calendar filter (item 5): keep only cells graded/edited within the range,
+        // per the append-only edit log (changed_at). Null = no filter → all cells.
+        const inRange = await this.cellsGradedInRange(columnIds, dateRange);
+
         const visibleColumnIds = new Set(columns.filter((c) => !c.is_hidden).map((c) => c.id));
         const maxTotal = columns.filter((c) => !c.is_hidden).reduce((s, c) => s + c.max_score, 0);
 
@@ -187,6 +194,8 @@ export class RatingJournalService {
             for (const col of columns) {
                 const cell = perStudent?.get(col.id);
                 if (!cell) continue;
+                // When a date range is active, skip cells not graded within it.
+                if (inRange && !inRange.has(`${col.id}:${student.id}`)) continue;
                 cells[col.id] = { column_id: col.id, value: cell.value, is_manual_override: cell.is_manual_override };
                 if (cell.value != null && visibleColumnIds.has(col.id)) total += cell.value;
             }
@@ -199,6 +208,32 @@ export class RatingJournalService {
             rows,
             max_total: maxTotal,
         };
+    }
+
+    /**
+     * (column_id:student_id) keys of cells whose grade was entered/edited within
+     * the [dateFrom, dateTo] range (inclusive), via the append-only edit log. Returns
+     * null when no date bound is set (→ caller shows all cells).
+     */
+    private async cellsGradedInRange(
+        columnIds: bigint[],
+        range: { dateFrom?: number; dateTo?: number },
+    ): Promise<Set<string> | null> {
+        if (range.dateFrom == null && range.dateTo == null) return null;
+        const set = new Set<string>();
+        if (columnIds.length === 0) return set;
+        const history = await this.prisma.ratingJournalCellHistory.findMany({
+            where: {
+                column_id: { in: columnIds },
+                changed_at: {
+                    ...(range.dateFrom != null ? { gte: range.dateFrom } : {}),
+                    ...(range.dateTo != null ? { lte: range.dateTo } : {}),
+                },
+            },
+            select: { column_id: true, student_id: true },
+        });
+        for (const h of history) set.add(`${h.column_id.toString()}:${h.student_id}`);
+        return set;
     }
 
     private async groupStudents(groupId: number): Promise<Array<{ id: number; full_name: string | null; status: UserStatus }>> {
