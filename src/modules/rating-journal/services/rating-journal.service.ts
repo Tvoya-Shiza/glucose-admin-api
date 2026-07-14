@@ -184,14 +184,21 @@ export class RatingJournalService {
         // per the append-only edit log (changed_at). Null = no filter → all cells.
         const inRange = await this.cellsGradedInRange(columnIds, dateRange);
 
-        const visibleColumnIds = new Set(columns.filter((c) => !c.is_hidden).map((c) => c.id));
-        const maxTotal = columns.filter((c) => !c.is_hidden).reduce((s, c) => s + c.max_score, 0);
+        // When a date range is active, drop columns that received no grade within
+        // it, so the grid shows ONLY the columns touched in that range (item 4 fix
+        // — previously every column stayed and just rendered empty cells). Headers,
+        // totals and exports all derive from `columns`, so filtering here is enough.
+        const inRangeColumnIds = inRange ? new Set(Array.from(inRange, (k) => k.slice(0, k.lastIndexOf(':')))) : null;
+        const effectiveColumns = inRangeColumnIds ? columns.filter((c) => inRangeColumnIds.has(c.id)) : columns;
+
+        const visibleColumnIds = new Set(effectiveColumns.filter((c) => !c.is_hidden).map((c) => c.id));
+        const maxTotal = effectiveColumns.filter((c) => !c.is_hidden).reduce((s, c) => s + c.max_score, 0);
 
         const rows: JournalRowDto[] = students.map((student) => {
             const perStudent = cellsByStudent.get(student.id);
             const cells: JournalRowDto['cells'] = {};
             let total = 0;
-            for (const col of columns) {
+            for (const col of effectiveColumns) {
                 const cell = perStudent?.get(col.id);
                 if (!cell) continue;
                 // When a date range is active, skip cells not graded within it.
@@ -204,7 +211,7 @@ export class RatingJournalService {
 
         return {
             journal: { id: journal.id.toString(), group_id: journal.group_id, course_id: journal.course_id, title: journal.title },
-            columns,
+            columns: effectiveColumns,
             rows,
             max_total: maxTotal,
         };
