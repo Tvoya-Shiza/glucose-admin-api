@@ -230,7 +230,7 @@ datasource db {
 }
 
 model User {
-  id                Int        @id @default(autoincrement()) @db.UnsignedInt
+  id                Int        @id @default(autoincrement())
   full_name         String?    @db.VarChar(255)
   last_activity     DateTime?
   role_name         String     @db.VarChar(64)
