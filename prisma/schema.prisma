@@ -30,6 +30,30 @@ enum QuizResultStatus {
   failed
 }
 
+enum QuizKind {
+  test
+  trainer
+}
+
+enum TrainerAttemptMode {
+  trainer
+  flashcards
+}
+
+enum TrainerAttemptStatus {
+  in_progress
+  paused
+  finished
+  abandoned
+}
+
+enum TrainerQuestionOutcome {
+  pending
+  correct
+  incorrect
+  skipped
+}
+
 enum PaymentMethod {
   credit
   payment_channel
@@ -210,7 +234,7 @@ model User {
   full_name         String?    @db.VarChar(255)
   last_activity     DateTime?
   role_name         String     @db.VarChar(64)
-  role_id           Int        @db.UnsignedInt 
+  role_id           Int        @db.UnsignedInt
   referrer_id       Int?
   mobile            String?    @unique @db.VarChar(32)
   email             String?    @unique @db.VarChar(255)
@@ -240,6 +264,7 @@ model User {
 
   quiz_results       QuizResult[]      @relation("QuizResults")
   quiz_badge_results QuizBadgeResult[] @relation("QuizBadgeResults")
+  trainer_attempts   TrainerAttempt[]  @relation("TrainerAttemptUser")
 
   codes Verification[]
 
@@ -336,12 +361,12 @@ model Role {
 // Phase 11 — RBAC. Tables created by glucose-api/prisma/migrations/phase-11-rbac-permissions.draft.sql.
 // PascalCase model names + @@map for client API ergonomics (allowed under PRISMA.md "trim manually").
 model PermissionGroup {
-  id            Int          @id @default(autoincrement()) @db.UnsignedInt
-  code          String       @unique @db.VarChar(64)
-  name_ru       String       @db.VarChar(128)
-  name_kz       String       @db.VarChar(128)
-  display_order Int          @db.UnsignedInt
-  created_at    Int          @db.UnsignedInt
+  id            Int    @id @default(autoincrement()) @db.UnsignedInt
+  code          String @unique @db.VarChar(64)
+  name_ru       String @db.VarChar(128)
+  name_kz       String @db.VarChar(128)
+  display_order Int    @db.UnsignedInt
+  created_at    Int    @db.UnsignedInt
 
   permissions Permission[] @relation("GroupPermissions")
 
@@ -562,6 +587,7 @@ model Quizzes {
   pass_mark                  Int
   certificate                Boolean
   status                     QuizStatus @default(active)
+  kind                       QuizKind   @default(test)
   total_mark                 Int?       @db.UnsignedInt
   display_questions_randomly Boolean    @default(false)
   expiry_days                Int?       @db.UnsignedInt
@@ -583,7 +609,12 @@ model Quizzes {
   webinar_quizzes WebinarQuiz[] @relation("WebinarQuizzes")
   order_items     OrderItem[]
 
+  trainer_settings TrainerSettings? @relation("TrainerSettings")
+  trainer_courses  TrainerCourse[]  @relation("TrainerCourses")
+  trainer_attempts TrainerAttempt[] @relation("TrainerAttempts")
+
   @@index([created_at], name: "idx_quizzes_created_at")
+  @@index([kind], map: "idx_quizzes_kind")
   @@map("quizzes")
 }
 
@@ -599,11 +630,12 @@ model QuizTranslation {
 }
 
 model QuizCategory {
-  id         Int  @id @default(autoincrement())
-  parent_id  Int?
-  subject_id Int?
-  created_at Int?
-  updated_at Int?
+  id               Int     @id @default(autoincrement())
+  parent_id        Int?
+  subject_id       Int?
+  background_image String? @db.VarChar(512)
+  created_at       Int?
+  updated_at       Int?
 
   quizzes Quizzes[] @relation("QuizCategories")
 
@@ -668,6 +700,8 @@ model QuizQuestion {
   quiz    Quizzes              @relation("QuizQuestions", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   answers QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
 
+  trainer_attempt_questions TrainerAttemptQuestion[] @relation("TrainerQuestionProvenance")
+
   translations QuizQuestionTranslation[] @relation("QuizQuestionTranslations")
 
   @@map("quizzes_questions")
@@ -690,7 +724,7 @@ model QuizQuestionAnswer {
   id              Int     @id @default(autoincrement())
   question_id     Int     @db.UnsignedInt
   parent_id       Int?    @db.UnsignedInt
-  match_target_id Int?    @db.UnsignedInt
+  match_target_id Int?
   image           String? @db.Text
   correct         Boolean @default(false)
   created_at      Int
@@ -735,6 +769,94 @@ model QuizResult {
 
   @@index([user_id, quiz_id, status], name: "idx_quiz_results_lookup")
   @@map("quizzes_results")
+}
+
+model TrainerSettings {
+  quiz_id              Int     @id
+  timer_enabled        Boolean @default(false)
+  seconds_per_question Int?    @db.UnsignedInt
+  shuffle_answers      Boolean @default(false)
+  available_from       Int?    @db.UnsignedInt
+  available_to         Int?    @db.UnsignedInt
+  flashcards_enabled   Boolean @default(true)
+  background_image     String? @db.VarChar(512)
+  created_at           Int     @db.UnsignedInt
+  updated_at           Int?    @db.UnsignedInt
+
+  quiz Quizzes @relation("TrainerSettings", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_settings_quiz_id_fkey")
+
+  @@map("trainer_settings")
+}
+
+model TrainerCourse {
+  id         BigInt @id @default(autoincrement()) @db.UnsignedBigInt
+  quiz_id    Int
+  webinar_id Int
+  created_at Int    @db.UnsignedInt
+
+  quiz    Quizzes @relation("TrainerCourses", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_courses_quiz_id_fkey")
+  webinar Webinar @relation("WebinarTrainerCourses", fields: [webinar_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_courses_webinar_id_fkey")
+
+  @@unique([quiz_id, webinar_id], map: "uniq_tc_quiz_webinar")
+  @@index([webinar_id, quiz_id], map: "idx_tc_webinar_quiz")
+  @@map("trainer_courses")
+}
+
+model TrainerAttempt {
+  id                    BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  quiz_id               Int
+  user_id               Int
+  quiz_version_at_start Int
+  mode                  TrainerAttemptMode   @default(trainer)
+  attempt_number        Int?                 @db.UnsignedInt
+  status                TrainerAttemptStatus @default(in_progress)
+  score                 Int                  @default(0) @db.UnsignedInt
+  max_score             Int                  @default(0) @db.UnsignedInt
+  correct_count         Int                  @default(0) @db.UnsignedInt
+  incorrect_count       Int                  @default(0) @db.UnsignedInt
+  skipped_count         Int                  @default(0) @db.UnsignedInt
+  current_round         Int                  @default(1) @db.UnsignedInt
+  current_position      Int                  @default(0) @db.UnsignedInt
+  started_at            Int                  @db.UnsignedInt
+  finished_at           Int?                 @db.UnsignedInt
+  elapsed_sec           Int                  @default(0) @db.UnsignedInt
+  paused_at             Int?                 @db.UnsignedInt
+  settings_snapshot     Json
+  created_at            Int                  @db.UnsignedInt
+  updated_at            Int?                 @db.UnsignedInt
+
+  quiz      Quizzes                  @relation("TrainerAttempts", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_attempts_quiz_id_fkey")
+  user      User                     @relation("TrainerAttemptUser", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_attempts_user_id_fkey")
+  questions TrainerAttemptQuestion[] @relation("TrainerAttemptQuestions")
+
+  @@unique([quiz_id, user_id, mode, attempt_number], map: "uniq_ta_quiz_user_mode_no")
+  @@index([quiz_id, mode, status, started_at], map: "idx_ta_quiz_mode_status_started")
+  @@index([user_id, quiz_id, mode, started_at], map: "idx_ta_user_quiz_mode_started")
+  @@map("trainer_attempts")
+}
+
+model TrainerAttemptQuestion {
+  id                BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  attempt_id        BigInt                 @db.UnsignedBigInt
+  question_id       Int?
+  question_snapshot Json
+  round_number      Int                    @db.UnsignedInt
+  position          Int                    @db.UnsignedInt
+  answer_payload    Json?
+  outcome           TrainerQuestionOutcome @default(pending)
+  points_awarded    Int                    @default(0) @db.UnsignedInt
+  answered_at       Int?                   @db.UnsignedInt
+  time_spent_sec    Int?                   @db.UnsignedInt
+  created_at        Int                    @db.UnsignedInt
+  updated_at        Int?                   @db.UnsignedInt
+
+  attempt  TrainerAttempt @relation("TrainerAttemptQuestions", fields: [attempt_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_attempt_questions_attempt_id_fkey")
+  question QuizQuestion?  @relation("TrainerQuestionProvenance", fields: [question_id], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "trainer_attempt_questions_question_id_fkey")
+
+  @@unique([attempt_id, round_number, position], map: "uniq_taq_attempt_round_pos")
+  @@unique([attempt_id, round_number, question_id], map: "uniq_taq_attempt_round_question")
+  @@index([question_id], map: "idx_taq_question")
+  @@map("trainer_attempt_questions")
 }
 
 model QuizBadge {
@@ -910,25 +1032,25 @@ model KaspiPayment {
 
 //* Курсы
 model Webinar {
-  id          Int           @id @default(autoincrement())
-  teacher_id  Int           @db.UnsignedInt
-  creator_id  Int           @db.UnsignedInt
-  category_id Int?          @db.UnsignedInt
-  type        WebinarType   @default(course)
-  slug        String        @db.VarChar(255)
-  start_date  Int?          @db.UnsignedInt
-  duration    Int?          @db.UnsignedInt
-  thumbnail   String        @db.VarChar(255)
-  image_cover String        @db.VarChar(255)
-  capacity    Int?          @db.UnsignedInt
-  certificate Boolean       @default(false)
-  is_paid     Boolean       @default(false)
-  strict_progress Boolean   @default(false)
-  status      WebinarStatus @default(pending)
-  position    Int?          @db.UnsignedInt
-  created_at  Int
-  updated_at  Int?
-  deleted_at  Int?
+  id              Int           @id @default(autoincrement())
+  teacher_id      Int           @db.UnsignedInt
+  creator_id      Int           @db.UnsignedInt
+  category_id     Int?          @db.UnsignedInt
+  type            WebinarType   @default(course)
+  slug            String        @db.VarChar(255)
+  start_date      Int?          @db.UnsignedInt
+  duration        Int?          @db.UnsignedInt
+  thumbnail       String        @db.VarChar(255)
+  image_cover     String        @db.VarChar(255)
+  capacity        Int?          @db.UnsignedInt
+  certificate     Boolean       @default(false)
+  is_paid         Boolean       @default(false)
+  strict_progress Boolean       @default(false)
+  status          WebinarStatus @default(pending)
+  position        Int?          @db.UnsignedInt
+  created_at      Int
+  updated_at      Int?
+  deleted_at      Int?
 
   translations WebinarTranslations[] @relation("WebinarTranslations")
 
@@ -961,6 +1083,8 @@ model Webinar {
   credits Credit[] @relation("WebinarCredits")
 
   rating_journals RatingJournal[] @relation("WebinarRatingJournals")
+
+  trainer_courses TrainerCourse[] @relation("WebinarTrainerCourses")
 
   @@index([created_at], name: "idx_webinars_created_at")
   @@map("webinars")
@@ -1085,18 +1209,18 @@ model WebinarChapterItem {
   accessibility FileAccessbility       @default(free)
   created_at    Int
 
-  webinar_chapter   WebinarChapter           @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  creator           User                     @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
-  schedules         WebinarChapterSchedule[] @relation("WebinarChapterSchedule")
-  content_overrides CourseContentOverride[]  @relation("ItemContentOverrides")
+  webinar_chapter   WebinarChapter                 @relation("WebinarChapterItems", fields: [chapter_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  creator           User                           @relation("ChapterItemCreator", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  schedules         WebinarChapterSchedule[]       @relation("WebinarChapterSchedule")
+  content_overrides CourseContentOverride[]        @relation("ItemContentOverrides")
   // Phase 29 — extra PDF files attached to this item (type='file' PDF blocks).
-  pdf_files         WebinarChapterItemPdfFile[] @relation("ChapterItemPdfFiles")
+  pdf_files         WebinarChapterItemPdfFile[]    @relation("ChapterItemPdfFiles")
   // Phase 30 — up to 3 lecture-notes attachments (any document), download-only.
   attachments       WebinarChapterItemAttachment[] @relation("ChapterItemAttachments")
 
-  credit_links CreditLessonLink[] @relation("ChapterItemCreditLinks")
+  credit_links  CreditLessonLink[] @relation("ChapterItemCreditLinks")
   // Phase 36 — lesson-backed credit topics (question bank tagged to this lesson).
-  credit_topics CreditTopic[] @relation("ChapterItemCreditTopics")
+  credit_topics CreditTopic[]      @relation("ChapterItemCreditTopics")
 
   @@map("webinar_chapter_items")
 }
@@ -1217,7 +1341,7 @@ model Files {
   translations FileTranslations[] @relation("FileTranslations")
 
   // Phase 29 — chapter-item PDF block links (this file used as a PDF material).
-  pdf_links WebinarChapterItemPdfFile[] @relation("PdfFileLinks")
+  pdf_links        WebinarChapterItemPdfFile[]    @relation("PdfFileLinks")
   // Phase 30 — chapter-item attachment links (this file used as a konspekt).
   attachment_links WebinarChapterItemAttachment[] @relation("AttachmentFileLinks")
 
@@ -1766,7 +1890,7 @@ model UploadAsset {
   created_at    DateTime  @default(now())
   deleted_at    DateTime?
 
-  folder        FileFolder? @relation("FolderUploads", fields: [folder_id], references: [id])
+  folder FileFolder? @relation("FolderUploads", fields: [folder_id], references: [id])
 
   @@index([actor_id, created_at], name: "idx_upload_assets_actor_ts")
   @@index([kind, created_at], name: "idx_upload_assets_kind_ts")
@@ -1779,19 +1903,19 @@ model UploadAsset {
 // Canonical schema + migration live in glucose-api. Mirror only here.
 // See glucose-api/prisma/migrations/phase-10-file-folders.MANUAL.sql.md.
 model FileFolder {
-  id         Int           @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   parent_id  Int?
-  name       String        @db.VarChar(120)
-  slug       String        @db.VarChar(120)
-  path       String        @db.VarChar(512)
+  name       String    @db.VarChar(120)
+  slug       String    @db.VarChar(120)
+  path       String    @db.VarChar(512)
   created_by Int
-  created_at DateTime      @default(now())
-  updated_at DateTime      @updatedAt
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
   deleted_at DateTime?
 
-  parent     FileFolder?   @relation("FolderParent", fields: [parent_id], references: [id])
-  children   FileFolder[]  @relation("FolderParent")
-  uploads    UploadAsset[] @relation("FolderUploads")
+  parent   FileFolder?   @relation("FolderParent", fields: [parent_id], references: [id])
+  children FileFolder[]  @relation("FolderParent")
+  uploads  UploadAsset[] @relation("FolderUploads")
 
   @@unique([parent_id, slug], name: "uniq_file_folders_parent_slug")
   @@index([path], name: "idx_file_folders_path")
@@ -2065,23 +2189,23 @@ model AdminNotification {
 // Phase 15 — Lesson schedules. See glucose-api/prisma/migrations/phase-15-lesson-schedules.MANUAL.sql.md
 // for the recipe. Polymorphic content references via (kind, ref_id) — no FK on ref_id.
 model LessonSchedule {
-  id          BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
-  curator_id  Int                  @db.UnsignedInt
+  id                 BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  curator_id         Int                  @db.UnsignedInt
   // Phase 32 — nullable: NULL = GENERAL schedule (applies to all students of the
   // course). A non-null group_id scopes the schedule (and its access gate) to a group.
-  group_id    Int?                 @db.UnsignedInt
-  course_id   Int?                 @db.UnsignedInt
-  start_at    Int                  @db.UnsignedInt
-  end_at      Int                  @db.UnsignedInt
-  description String?              @db.Text
-  status      LessonScheduleStatus @default(scheduled)
+  group_id           Int?                 @db.UnsignedInt
+  course_id          Int?                 @db.UnsignedInt
+  start_at           Int                  @db.UnsignedInt
+  end_at             Int                  @db.UnsignedInt
+  description        String?              @db.Text
+  status             LessonScheduleStatus @default(scheduled)
   // Phase 32 — independent access-gate toggles (see glucose-api gating).
-  block_before_start Boolean       @default(false) @db.TinyInt
-  block_after_end    Boolean       @default(false) @db.TinyInt
-  created_by  Int                  @db.UnsignedInt
-  created_at  Int                  @db.UnsignedInt
-  updated_at  Int?                 @db.UnsignedInt
-  deleted_at  Int?                 @db.UnsignedInt
+  block_before_start Boolean              @default(false) @db.TinyInt
+  block_after_end    Boolean              @default(false) @db.TinyInt
+  created_by         Int                  @db.UnsignedInt
+  created_at         Int                  @db.UnsignedInt
+  updated_at         Int?                 @db.UnsignedInt
+  deleted_at         Int?                 @db.UnsignedInt
 
   curator User                 @relation("LessonScheduleCurator", fields: [curator_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   group   Group?               @relation("LessonScheduleGroup", fields: [group_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
@@ -2250,6 +2374,7 @@ model AppSetting {
 
   @@map("app_settings")
 }
+
 //* Phase 34 — «Зачёт» (oral credit module). See ЗАЧЁТ_ТЗ.md and
 // prisma/migrations/phase-34-credits.MANUAL.sql.md.
 //
@@ -2264,8 +2389,8 @@ model AppSetting {
 // signed INT, groups INT UNSIGNED) — do not trust legacy FK annotations.
 
 model CreditTopic {
-  id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
-  parent_id  BigInt?          @db.UnsignedBigInt
+  id              BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  parent_id       BigInt?          @db.UnsignedBigInt
   // Phase 36 — when set, this topic mirrors a course lesson (a WebinarChapterItem):
   // the question bank can be tagged to a lesson instead of a free-form topic.
   // `course_id` is denormalized (no FK — avoids a second cascade path to webinars)
@@ -2273,12 +2398,12 @@ model CreditTopic {
   // `chapter_item_id` is UNIQUE so at most one topic mirrors a given lesson.
   course_id       Int?
   chapter_item_id Int?
-  name       String           @db.VarChar(255)
-  position   Int              @default(0) @db.UnsignedInt
-  status     CreditBankStatus @default(active)
-  created_by Int
-  created_at Int              @db.UnsignedInt
-  updated_at Int?             @db.UnsignedInt
+  name            String           @db.VarChar(255)
+  position        Int              @default(0) @db.UnsignedInt
+  status          CreditBankStatus @default(active)
+  created_by      Int
+  created_at      Int              @db.UnsignedInt
+  updated_at      Int?             @db.UnsignedInt
 
   parent       CreditTopic?        @relation("CreditTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
   children     CreditTopic[]       @relation("CreditTopicParent")
@@ -2296,22 +2421,22 @@ model CreditTopic {
 }
 
 model CreditQuestion {
-  id         BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
-  topic_id   BigInt           @db.UnsignedBigInt
-  difficulty CreditDifficulty
-  question   String           @db.Text
+  id             BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  topic_id       BigInt           @db.UnsignedBigInt
+  difficulty     CreditDifficulty
+  question       String           @db.Text
   // Reference answer revealed to the curator only — must never reach the
   // student payload.
-  answer     String           @db.Text
+  answer         String           @db.Text
   // Optional photos — relative upload URL strings (e.g. /static/credits/<ULID>.webp).
   // question_image is student-visible; answer_image is curator-only, like `answer`.
-  question_image String?      @db.Text
-  answer_image   String?      @db.Text
-  score      Int              @default(1) @db.UnsignedInt
-  status     CreditBankStatus @default(active)
-  created_by Int
-  created_at Int              @db.UnsignedInt
-  updated_at Int?             @db.UnsignedInt
+  question_image String?          @db.Text
+  answer_image   String?          @db.Text
+  score          Int              @default(1) @db.UnsignedInt
+  status         CreditBankStatus @default(active)
+  created_by     Int
+  created_at     Int              @db.UnsignedInt
+  updated_at     Int?             @db.UnsignedInt
 
   topic   CreditTopic @relation("CreditTopicQuestions", fields: [topic_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
   creator User        @relation("CreditQuestionCreator", fields: [created_by], references: [id], onDelete: Restrict, onUpdate: Restrict)
@@ -2429,24 +2554,24 @@ model CreditSession {
 }
 
 model CreditSessionQuestion {
-  id          BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
-  session_id  BigInt             @db.UnsignedBigInt
+  id             BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  session_id     BigInt             @db.UnsignedBigInt
   // Provenance only — the snapshot columns below are authoritative.
-  question_id BigInt?            @db.UnsignedBigInt
+  question_id    BigInt?            @db.UnsignedBigInt
   // Soft ref (no FK), kept for per-topic stats.
-  topic_id    BigInt?            @db.UnsignedBigInt
-  position    Int                @db.UnsignedInt
-  difficulty  CreditDifficulty
-  question    String             @db.Text
-  answer      String             @db.Text
+  topic_id       BigInt?            @db.UnsignedBigInt
+  position       Int                @db.UnsignedInt
+  difficulty     CreditDifficulty
+  question       String             @db.Text
+  answer         String             @db.Text
   // Snapshot copies of the bank question's optional photos (see CreditQuestion).
-  question_image String?         @db.Text
-  answer_image   String?         @db.Text
-  score       Int                @db.UnsignedInt
-  mark        CreditQuestionMark @default(pending)
-  marked_at   Int?               @db.UnsignedInt
+  question_image String?            @db.Text
+  answer_image   String?            @db.Text
+  score          Int                @db.UnsignedInt
+  mark           CreditQuestionMark @default(pending)
+  marked_at      Int?               @db.UnsignedInt
   // Soft ref users.id (audit only, no FK).
-  marked_by   Int?
+  marked_by      Int?
 
   session       CreditSession   @relation("CreditSessionQuestions", fields: [session_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   bank_question CreditQuestion? @relation("CreditQuestionSnapshots", fields: [question_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
