@@ -70,8 +70,10 @@ export class QuizBadgeItemsService {
         });
         if (!badge) throw new NotFoundException('quiz_badges.not_found');
 
+        // Phase 38: badges may only contain kind='test' quizzes — a trainer quiz id
+        // is rejected exactly like a non-existent one (T-06-71 posture).
         const quiz: any = await this.prisma.quizzes.findUnique({
-            where: { id: dto.quiz_id },
+            where: { id: dto.quiz_id, kind: 'test' },
             select: { id: true },
         });
         if (!quiz) throw new NotFoundException('quiz_badges.quiz_not_found');

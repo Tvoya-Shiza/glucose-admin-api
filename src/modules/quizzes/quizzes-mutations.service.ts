@@ -227,8 +227,9 @@ export class QuizzesMutationsService {
     }
 
     private async assertScope(actor: ScopeActor, id: number): Promise<{ id: number }> {
+        // Phase 38: legacy quiz mutations must never touch trainer rows (kind='trainer').
         const existing: any = await this.prisma.quizzes.findFirst({
-            where: { id },
+            where: { id, kind: 'test' },
             select: { id: true },
         });
         if (!existing) throw new NotFoundException('quizzes.not_found');
@@ -379,8 +380,9 @@ export function resolvePricingOnUpdate(
  * deep copy itself.
  */
 export async function readQuizDetail(prisma: PrismaService, id: number): Promise<QuizDetailDto> {
+    // Phase 38: this projection serves the legacy test CRUD only — trainer rows 404.
     const row: any = await prisma.quizzes.findUnique({
-        where: { id },
+        where: { id, kind: 'test' },
         select: {
             id: true,
             status: true,

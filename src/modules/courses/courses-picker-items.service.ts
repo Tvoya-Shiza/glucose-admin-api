@@ -225,7 +225,9 @@ export class CoursesPickerItemsService {
         take: number,
         page: number,
     ): Promise<PickerItemsResponseDto> {
-        const quizWhere: any = {};
+        // Phase 38: the course editor may only ever attach kind='test' quizzes —
+        // trainer rows (kind='trainer') never appear in the picker.
+        const quizWhere: any = { kind: 'test' };
 
         if (scope === 'course') {
             // Collect distinct quiz ids attached to any chapter of this course.

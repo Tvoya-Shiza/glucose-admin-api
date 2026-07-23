@@ -61,9 +61,10 @@ export class QuizzesDetailService {
     ) {}
 
     public async getDetail(actor: ScopeActor, id: number) {
-        // Step 1: Existence check WITHOUT scope spread.
+        // Step 1: Existence check WITHOUT scope spread. Phase 38: trainer rows
+        // (kind='trainer') are invisible to the legacy quiz CRUD — 404, not 200.
         const exists: any = await this.prisma.quizzes.findUnique({
-            where: { id },
+            where: { id, kind: 'test' },
             select: { id: true },
         });
         if (!exists) {

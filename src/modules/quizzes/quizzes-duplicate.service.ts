@@ -49,9 +49,10 @@ export class QuizzesDuplicateService {
         // Access governed by @Roles + @RequirePermission('quizzes.create') at the controller.
 
         // Load source with full graph BEFORE the tx so we can 404 cleanly without
-        // tx rollback.
+        // tx rollback. Phase 38: only kind='test' rows are duplicable here —
+        // trainer rows (kind='trainer') 404 like any other absent quiz.
         const source: any = await this.prisma.quizzes.findUnique({
-            where: { id: sourceId },
+            where: { id: sourceId, kind: 'test' },
             select: {
                 id: true,
                 status: true,
