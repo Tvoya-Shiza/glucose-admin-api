@@ -393,6 +393,22 @@ const CATALOG: SeedGroup[] = [
             { action: 'history_view', display_order: 50, name_ru: 'Просмотр истории правок', name_kz: 'Өңдеу тарихын көру' },
         ],
     },
+    {
+        // Phase 38 — «Тренажёр» game-format trainers (admin CRUD + attempt results).
+        code: 'trainers',
+        display_order: 2800,
+        name_ru: 'Тренажёры',
+        name_kz: 'Жаттықтырғыштар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'publish', display_order: 50, name_ru: 'Публикация', name_kz: 'Жариялау' },
+            { action: 'results_view', display_order: 60, name_ru: 'Просмотр результатов', name_kz: 'Нәтижелерді көру' },
+            { action: 'export', display_order: 70, name_ru: 'Экспорт', name_kz: 'Экспорт' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
