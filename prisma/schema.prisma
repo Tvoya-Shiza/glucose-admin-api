@@ -54,6 +54,12 @@ enum TrainerQuestionOutcome {
   skipped
 }
 
+enum BookStatus {
+  draft
+  active
+  inactive
+}
+
 enum PaymentMethod {
   credit
   payment_channel
@@ -336,6 +342,10 @@ model User {
   created_rating_journals        RatingJournal[]       @relation("RatingJournalCreator")
   created_rating_journal_columns RatingJournalColumn[] @relation("RatingJournalColumnCreator")
   rating_journal_cells           RatingJournalCell[]   @relation("RatingJournalCellStudent")
+
+  book_bookmarks        BookBookmark[]        @relation("UserBookBookmarks")
+  book_reading_progress BookReadingProgress[] @relation("UserBookReadingProgress")
+  book_highlights       BookHighlight[]       @relation("UserBookHighlights")
 
   @@index([created_at], name: "idx_users_created_at")
   @@map("users")
@@ -671,6 +681,8 @@ model QuizSubject {
   categories   QuizCategory[]           @relation("QuizSubjects")
   translations QuizSubjectTranslation[] @relation("QuizSubjectTranslations")
 
+  books Book[] @relation("QuizSubjectBooks")
+
   @@map("quiz_subjects")
 }
 
@@ -857,6 +869,122 @@ model TrainerAttemptQuestion {
   @@unique([attempt_id, round_number, question_id], map: "uniq_taq_attempt_round_question")
   @@index([question_id], map: "idx_taq_question")
   @@map("trainer_attempt_questions")
+}
+
+//* Электронные книги (Phase 39/40 — ТЗ Модули 1–2)
+model Publisher {
+  id         Int    @id @default(autoincrement())
+  name       String @unique(map: "uniq_publishers_name") @db.VarChar(255)
+  created_at Int
+  updated_at Int?
+
+  books Book[] @relation("PublisherBooks")
+
+  @@map("publishers")
+}
+
+model Book {
+  id              Int        @id @default(autoincrement())
+  subject_id      Int?
+  publisher_id    Int?
+  grade           Int?       @db.UnsignedTinyInt
+  language        String     @default("kz") @db.VarChar(8)
+  year            Int?       @db.SmallInt
+  cover_image     String?    @db.VarChar(512)
+  page_count      Int        @default(0)
+  source_file_url String?    @db.VarChar(512)
+  status          BookStatus @default(draft)
+  created_at      Int
+  updated_at      Int?
+  deleted_at      Int?
+
+  subject   QuizSubject? @relation("QuizSubjectBooks", fields: [subject_id], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "books_subject_id_fkey")
+  publisher Publisher?   @relation("PublisherBooks", fields: [publisher_id], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "books_publisher_id_fkey")
+
+  translations     BookTranslation[]     @relation("BookTranslations")
+  pages            BookPage[]            @relation("BookPages")
+  bookmarks        BookBookmark[]        @relation("BookBookmarks")
+  reading_progress BookReadingProgress[] @relation("BookReadingProgress")
+  highlights       BookHighlight[]       @relation("BookHighlights")
+
+  @@index([status], map: "idx_books_status")
+  @@index([subject_id, publisher_id, grade], map: "idx_books_facets")
+  @@map("books")
+}
+
+model BookTranslation {
+  id          Int     @id @default(autoincrement())
+  book_id     Int
+  locale      String  @db.VarChar(191)
+  title       String  @db.VarChar(512)
+  description String? @db.Text
+
+  book Book @relation("BookTranslations", fields: [book_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_translations_book_id_fkey")
+
+  @@index([book_id], map: "idx_bt_book")
+  @@map("book_translations")
+}
+
+model BookPage {
+  id           BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  book_id      Int
+  page_number  Int
+  image_url    String? @db.VarChar(512)
+  text_content String? @db.MediumText
+  created_at   Int
+  updated_at   Int?
+
+  book Book @relation("BookPages", fields: [book_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_pages_book_id_fkey")
+
+  @@unique([book_id, page_number], map: "uniq_bp_book_page")
+  @@map("book_pages")
+}
+
+model BookBookmark {
+  id          BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id     Int
+  book_id     Int
+  page_number Int
+  note        String? @db.VarChar(255)
+  created_at  Int
+
+  user User @relation("UserBookBookmarks", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_bookmarks_user_id_fkey")
+  book Book @relation("BookBookmarks", fields: [book_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_bookmarks_book_id_fkey")
+
+  @@unique([user_id, book_id, page_number], map: "uniq_bb_user_book_page")
+  @@index([user_id], map: "idx_bb_user")
+  @@map("book_bookmarks")
+}
+
+model BookReadingProgress {
+  user_id    Int
+  book_id    Int
+  last_page  Int @default(1)
+  updated_at Int
+
+  user User @relation("UserBookReadingProgress", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_reading_progress_user_id_fkey")
+  book Book @relation("BookReadingProgress", fields: [book_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_reading_progress_book_id_fkey")
+
+  @@id([user_id, book_id])
+  @@map("book_reading_progress")
+}
+
+model BookHighlight {
+  id          BigInt  @id @default(autoincrement()) @db.UnsignedBigInt
+  user_id     Int
+  book_id     Int
+  page_number Int
+  shape       Json
+  color       String  @default("yellow") @db.VarChar(16)
+  created_at  Int
+  updated_at  Int?
+  deleted_at  Int?
+
+  user User @relation("UserBookHighlights", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_highlights_user_id_fkey")
+  book Book @relation("BookHighlights", fields: [book_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "book_highlights_book_id_fkey")
+
+  @@index([user_id, book_id, page_number], map: "idx_bh_user_book_page")
+  @@map("book_highlights")
 }
 
 model QuizBadge {
