@@ -41,7 +41,7 @@ export interface ReindexResult {
 }
 
 /** Columns in the parameterized INSERT, in order. */
-const INSERT_COLUMNS = 10;
+const INSERT_COLUMNS = 11;
 /** Max rows per INSERT to stay well under Postgres' 65535-parameter cap. */
 const UPSERT_CHUNK = 500;
 
@@ -128,7 +128,7 @@ export class EbooksSearchIndexService implements OnModuleDestroy {
         pages.forEach((p, i) => {
             const base = i * INSERT_COLUMNS;
             tuples.push(
-                `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10})`,
+                `($${base + 1},$${base + 2},$${base + 3},$${base + 4},$${base + 5},$${base + 6},$${base + 7},$${base + 8},$${base + 9},$${base + 10},$${base + 11})`,
             );
             const content = p.text_content ?? '';
             params.push(
@@ -140,6 +140,9 @@ export class EbooksSearchIndexService implements OnModuleDestroy {
                 meta.grade,
                 meta.language,
                 content,
+                // Phase 42 — Kazakh stems, so «кітап» matches «кітаптарында».
+                // MUST use the same stemmer as the query side (glucose-api).
+                kazakhStemText(content),
                 sha256(content),
                 1,
             );
@@ -147,7 +150,7 @@ export class EbooksSearchIndexService implements OnModuleDestroy {
 
         const sql = `
             INSERT INTO book_page_index
-                (book_id, page_number, book_title, subject_id, publisher_id, grade, language, content, content_hash, source_version)
+                (book_id, page_number, book_title, subject_id, publisher_id, grade, language, content, content_kk, content_hash, source_version)
             VALUES ${tuples.join(',')}
             ON CONFLICT (book_id, page_number) DO UPDATE SET
                 book_title     = EXCLUDED.book_title,
@@ -156,6 +159,7 @@ export class EbooksSearchIndexService implements OnModuleDestroy {
                 grade          = EXCLUDED.grade,
                 language       = EXCLUDED.language,
                 content        = EXCLUDED.content,
+                content_kk     = EXCLUDED.content_kk,
                 content_hash   = EXCLUDED.content_hash,
                 source_version = book_page_index.source_version + 1,
                 indexed_at     = now()
