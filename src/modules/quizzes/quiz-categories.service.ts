@@ -86,6 +86,7 @@ export class QuizCategoriesService {
                     id: Number(r.id),
                     parent_id: r.parent_id == null ? null : Number(r.parent_id),
                     subject_id: r.subject_id == null ? null : Number(r.subject_id),
+                    background_image: r.background_image ?? null,
                     translations: ((r.translations ?? []) as any[])
                         .filter((t) => t.locale === 'kz')
                         .map((t) => ({ locale: t.locale, title: t.title })),
@@ -125,6 +126,8 @@ export class QuizCategoriesService {
                 data: {
                     parent_id: parentId,
                     subject_id: subjectId,
+                    // Phase 38 — catalogue artwork for trainer category cards.
+                    background_image: typeof dto.background_image === 'string' ? dto.background_image : null,
                     created_at: now,
                 },
                 select: { id: true },
@@ -180,6 +183,10 @@ export class QuizCategoriesService {
         if (newParentProvided) data.parent_id = newParentId;
         if (subjectProvided) {
             data.subject_id = typeof dto.subject_id === 'number' ? dto.subject_id : null;
+        }
+        // Phase 38 — background_image: undefined = untouched, null = cleared.
+        if (Object.prototype.hasOwnProperty.call(dto, 'background_image')) {
+            data.background_image = typeof dto.background_image === 'string' ? dto.background_image : null;
         }
 
         await this.prisma.$transaction(async (tx) => {
@@ -322,6 +329,7 @@ export class QuizCategoriesService {
             id: Number(r.id),
             parent_id: r.parent_id == null ? null : Number(r.parent_id),
             subject_id: r.subject_id == null ? null : Number(r.subject_id),
+            background_image: r.background_image ?? null,
             translations: ((r.translations ?? []) as any[])
                 .filter((t) => t.locale === 'kz')
                 .map((t) => ({ locale: t.locale, title: t.title })),
