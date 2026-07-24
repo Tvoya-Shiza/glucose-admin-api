@@ -409,6 +409,21 @@ const CATALOG: SeedGroup[] = [
             { action: 'export', display_order: 70, name_ru: 'Экспорт', name_kz: 'Экспорт' },
         ],
     },
+    {
+        // Phase 39/40 — «Электронные книги» content library (publishers + ebooks + pages).
+        code: 'ebooks',
+        display_order: 2900,
+        name_ru: 'Электронные книги',
+        name_kz: 'Электронды кітаптар',
+        permissions: [
+            { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
+            { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
+            { action: 'edit', display_order: 30, name_ru: 'Редактирование', name_kz: 'Өңдеу' },
+            { action: 'delete', display_order: 40, name_ru: 'Удаление', name_kz: 'Жою' },
+            { action: 'publish', display_order: 50, name_ru: 'Публикация', name_kz: 'Жариялау' },
+            { action: 'pages_manage', display_order: 60, name_ru: 'Управление страницами', name_kz: 'Беттерді басқару' },
+        ],
+    },
 ];
 
 // -- Core roles + default grants --------------------------------------------
