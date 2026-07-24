@@ -859,6 +859,8 @@ model TrainerAttemptQuestion {
   points_awarded    Int                    @default(0) @db.UnsignedInt
   answered_at       Int?                   @db.UnsignedInt
   time_spent_sec    Int?                   @db.UnsignedInt
+  /// Phase 41 — server-owned per-question deadline (unix sec); NULL when the trainer has no timer.
+  deadline_at       Int?                   @db.UnsignedInt
   created_at        Int                    @db.UnsignedInt
   updated_at        Int?                   @db.UnsignedInt
 
