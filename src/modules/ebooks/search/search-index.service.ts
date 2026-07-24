@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import { Pool } from 'pg';
 import type { PoolClient } from 'pg';
+import { kazakhStemText } from '@shared/kazakh-stem';
 import { PrismaService } from '../../../prisma/prisma.service';
 
 /**
