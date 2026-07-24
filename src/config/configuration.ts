@@ -7,6 +7,11 @@ export const configuration = () => ({
     database: {
         url: process.env.DATABASE_URL ?? '',
     },
+    // Phase 39/40 — Postgres search read model (book_page_index). OPTIONAL:
+    // when unset, EbooksSearchIndexService no-ops (MySQL stays the source of truth,
+    // indexing is best-effort). Provisioned out-of-band on the server; see
+    // glucose-infrastructure/search-migrations/001-book-page-index.sql.
+    searchDatabaseUrl: process.env.SEARCH_DATABASE_URL ?? '',
     jwt: {
         adminSecret: process.env.JWT_ADMIN_SECRET ?? '',
         accessTtl: process.env.JWT_ADMIN_ACCESS_TTL ?? '15m',
