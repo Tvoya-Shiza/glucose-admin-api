@@ -7,7 +7,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-va
  * Same field → storage mapping as CreateBookDto. Every field optional:
  *   - undefined → leave unchanged
  *   - null      → clear (nullable columns: description, subject_id, publisher_id,
- *                 grade, year, cover_image)
+ *                 grade, year, cover_image, authors)
  *
  * @IsOptional() allows null through validation (it short-circuits on null|undefined),
  * so the service can distinguish "clear" (null) from "unchanged" (undefined) — same
@@ -50,6 +50,12 @@ export class UpdateBookDto {
     @IsString()
     @MaxLength(8)
     language?: string;
+
+    /** Free-form credit line, e.g. «Н.С. Бакина, Н.Т. Жанақова». Display only. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(512)
+    authors?: string | null;
 
     @IsOptional()
     @Type(() => Number)

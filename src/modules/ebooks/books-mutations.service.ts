@@ -14,7 +14,7 @@ import { EbooksSearchIndexService } from './search/search-index.service';
  * Phase 39/40 — ebook create / update / soft-delete / publish.
  *
  * Storage:
- *   - Book row holds facets (subject_id, publisher_id, grade, language, year,
+ *   - Book row holds facets (subject_id, publisher_id, grade, language, authors, year,
  *     cover_image, page_count, status) + timestamps + deleted_at.
  *   - kz title/description live in book_translations (locale='kz').
  *
@@ -64,6 +64,7 @@ export class BooksMutationsService {
                     publisher_id: dto.publisher_id ?? null,
                     grade: dto.grade ?? null,
                     language: dto.language ?? 'kz',
+                    authors: dto.authors ?? null,
                     year: dto.year ?? null,
                     cover_image: dto.cover_image ?? null,
                     page_count: 0,
@@ -104,6 +105,8 @@ export class BooksMutationsService {
         if (dto.year !== undefined) bookData.year = dto.year;
         if (dto.cover_image !== undefined) bookData.cover_image = dto.cover_image;
         if (typeof dto.language === 'string') bookData.language = dto.language;
+        // undefined = unchanged, null = clear, string = set (see UpdateBookDto).
+        if (dto.authors !== undefined) bookData.authors = dto.authors;
 
         // ---- book_translations (kz) diff ----
         const translationData: Record<string, unknown> = {};

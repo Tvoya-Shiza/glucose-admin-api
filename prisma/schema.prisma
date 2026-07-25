@@ -891,6 +891,8 @@ model Book {
   publisher_id    Int?
   grade           Int?       @db.UnsignedTinyInt
   language        String     @default("kz") @db.VarChar(8)
+  /// Phase 42 — author credit line as printed on the cover; display only.
+  authors                String?               @db.VarChar(512)
   year            Int?       @db.SmallInt
   cover_image     String?    @db.VarChar(512)
   page_count      Int        @default(0)

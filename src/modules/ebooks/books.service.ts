@@ -41,6 +41,7 @@ export interface BookRowDto {
     publisher: BookPublisherRefDto | null;
     grade: number | null;
     language: string;
+    authors: string | null;
     year: number | null;
     cover_image: string | null;
     page_count: number;
@@ -104,6 +105,7 @@ export class BooksService {
                     id: true,
                     grade: true,
                     language: true,
+                    authors: true,
                     year: true,
                     cover_image: true,
                     page_count: true,
@@ -128,6 +130,7 @@ export class BooksService {
             publisher: r.publisher ? { id: Number(r.publisher.id), name: r.publisher.name } : null,
             grade: r.grade == null ? null : Number(r.grade),
             language: r.language,
+            authors: r.authors,
             year: r.year == null ? null : Number(r.year),
             cover_image: r.cover_image ?? null,
             page_count: Number(r.page_count ?? 0),
@@ -180,6 +183,7 @@ export class BooksService {
             publisher: r.publisher ? { id: Number(r.publisher.id), name: r.publisher.name } : null,
             grade: r.grade == null ? null : Number(r.grade),
             language: r.language,
+            authors: r.authors,
             year: r.year == null ? null : Number(r.year),
             cover_image: r.cover_image ?? null,
             source_file_url: r.source_file_url ?? null,

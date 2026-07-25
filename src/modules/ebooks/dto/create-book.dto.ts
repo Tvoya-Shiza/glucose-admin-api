@@ -11,6 +11,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-va
  *   - publisher_id → Book.publisher_id (FK Publisher, SET NULL)
  *   - grade        → Book.grade (UnsignedTinyInt, 1..11)
  *   - language     → Book.language (VarChar(8), default 'kz')
+ *   - authors      → Book.authors (VarChar(512), nullable) — credit line as printed
  *   - year         → Book.year (SmallInt)
  *   - cover_image  → Book.cover_image (VarChar(512)) — a URL from the existing upload flow
  *   - status       → Book.status (draft | active | inactive; default 'draft')
@@ -52,6 +53,12 @@ export class CreateBookDto {
     @IsString()
     @MaxLength(8)
     language?: string;
+
+    /** Free-form credit line, e.g. «Н.С. Бакина, Н.Т. Жанақова». Display only. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(512)
+    authors?: string;
 
     @IsOptional()
     @Type(() => Number)
