@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { AccessModule } from '../access/access.module';
 import { PublishersController } from './publishers.controller';
 import { PublishersService } from './publishers.service';
+import { QuizSubjectsController } from './quiz-subjects.controller';
+import { QuizSubjectsService } from './quiz-subjects.service';
 import { BooksController } from './books.controller';
 import { BooksService } from './books.service';
 import { BooksMutationsService } from './books-mutations.service';
@@ -15,6 +17,7 @@ import { EbooksCacheService } from './utils/ebooks-cache.service';
  * EbooksModule — Phase 39/40 «Электронные книги» admin surface (ТЗ §6.0 + Модули 1–2).
  *
  * Publishers CRUD  → /admin-api/v1/admin/publishers
+ * Subjects         → /admin-api/v1/admin/quiz-subjects (list/create/rename; ТЗ 3.2.2)
  * Books CRUD       → /admin-api/v1/admin/ebooks (list/detail/create/update/soft-delete/publish)
  * Page management  → /admin-api/v1/admin/ebooks/:bookId/pages (list/batch-upsert/delete)
  * Search reindex   → POST /admin-api/v1/admin/ebooks/:id/reindex
@@ -26,9 +29,10 @@ import { EbooksCacheService } from './utils/ebooks-cache.service';
  */
 @Module({
     imports: [AccessModule],
-    controllers: [PublishersController, BooksController, BookPagesController, EbooksReindexController],
+    controllers: [PublishersController, QuizSubjectsController, BooksController, BookPagesController, EbooksReindexController],
     providers: [
         PublishersService,
+        QuizSubjectsService,
         BooksService,
         BooksMutationsService,
         BookPagesService,
