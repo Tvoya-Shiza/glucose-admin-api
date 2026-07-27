@@ -125,6 +125,13 @@ class EnvironmentVariables {
     @IsOptional()
     @IsString()
     SMTP_SECURE?: string;
+
+    // Phase 39/40 — Postgres search read model connection string (book_page_index).
+    // OPTIONAL: missing → EbooksSearchIndexService no-ops (indexing is best-effort;
+    // MySQL is the source of truth). e.g. postgres://glucose_search_writer:pass@host:5432/glucose_search
+    @IsOptional()
+    @IsString()
+    SEARCH_DATABASE_URL?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

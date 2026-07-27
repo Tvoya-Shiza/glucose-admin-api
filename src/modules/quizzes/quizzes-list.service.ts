@@ -84,7 +84,9 @@ export class QuizzesListService {
         const order: 'asc' | 'desc' = query.order ?? 'desc';
 
         // ---- Filter where ----
-        const filterWhere: any = {};
+        // Phase 38: trainers share the quizzes table (kind='trainer'); the legacy
+        // admin list surfaces ONLY kind='test' rows (trainers get their own surface).
+        const filterWhere: any = { kind: 'test' };
 
         if (query.status) filterWhere.status = query.status;
         if (typeof query.is_listed === 'boolean') filterWhere.is_listed = query.is_listed;

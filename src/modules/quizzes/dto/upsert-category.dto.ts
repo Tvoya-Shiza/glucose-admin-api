@@ -5,6 +5,8 @@ import {
     IsArray,
     IsInt,
     IsOptional,
+    IsString,
+    MaxLength,
     Min,
     ValidateNested,
 } from 'class-validator';
@@ -49,6 +51,16 @@ export class UpsertCategoryDto {
     @IsInt()
     @Min(1)
     subject_id?: number | null;
+
+    /**
+     * Phase 38 — catalogue artwork (quiz_categories.background_image VARCHAR(512),
+     * added by the phase-38 migration). Surfaced on trainer category cards in the
+     * student app. null clears the image.
+     */
+    @IsOptional()
+    @IsString()
+    @MaxLength(512)
+    background_image?: string | null;
 
     @IsArray()
     @ArrayMinSize(1)

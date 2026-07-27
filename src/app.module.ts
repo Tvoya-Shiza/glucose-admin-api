@@ -38,6 +38,8 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { SchedulesModule } from './modules/schedules/schedules.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
+import { TrainersModule } from './modules/trainers/trainers.module';
+import { EbooksModule } from './modules/ebooks/ebooks.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { StoriesModule } from './modules/stories/stories.module';
@@ -76,6 +78,14 @@ import { PrismaModule } from './prisma/prisma.module';
         // POST /file, GET /uploads, DELETE /uploads/:id.
         UploadsModule,
         QuizzesModule,
+        // Phase 38 — «Тренажёр» game-format trainers: admin CRUD + publish gate +
+        // attempt results/stats/export. Trainers share the quizzes table
+        // (kind='trainer'); questions reuse the QuizzesModule question routes.
+        TrainersModule,
+        // Phase 39/40 — «Электронные книги»: publishers + ebooks CRUD, page management,
+        // and a best-effort Postgres search read model (book_page_index). Books share the
+        // MySQL content tables; search indexing no-ops when SEARCH_DATABASE_URL is unset.
+        EbooksModule,
         AssignmentsModule,
         // Phase 15 — Lesson schedules (calendar of curator+group events).
         SchedulesModule,

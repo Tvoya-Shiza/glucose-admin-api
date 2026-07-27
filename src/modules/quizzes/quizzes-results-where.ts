@@ -52,7 +52,11 @@ export async function buildResultsWhere(
     filters: ResultsCommonFilters,
     prisma: PrismaService,
 ): Promise<BuiltResultsWhere> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = {
+        // Phase 38: trainer runs (quiz.kind='trainer') never surface in the legacy
+        // results list/stats — only kind='test' attempts are in scope here.
+        quiz: { kind: 'test' },
+    };
 
     if (typeof filters.quiz_id === 'number') where.quiz_id = filters.quiz_id;
     if (typeof filters.user_id === 'number') where.user_id = filters.user_id;

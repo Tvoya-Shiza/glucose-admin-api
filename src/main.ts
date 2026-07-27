@@ -21,6 +21,16 @@ async function bootstrap() {
         logger: WinstonModule.createLogger(winstonConfig),
     });
 
+    /*
+     * Тело запроса до 10 МБ вместо дефолтных 100 КБ. Загрузка книги — это
+     * единый PUT со всеми страницами (ReplacePagesDto допускает до 2000), и
+     * учебник на 149 страниц с текстовым слоем весит ~340 КБ: со стандартным
+     * лимитом любая реальная книга отбивалась 413 ещё до валидации.
+     * Поверхность закрыта админской авторизацией, поэтому запас безопасен.
+     */
+    app.useBodyParser('json', { limit: '10mb' });
+    app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
+
     app.useGlobalPipes(new ValidationPipe(validationPipeOptions));
     app.useGlobalInterceptors(new BigIntStringInterceptor());
 
