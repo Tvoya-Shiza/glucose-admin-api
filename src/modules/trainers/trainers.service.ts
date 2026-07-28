@@ -206,13 +206,17 @@ export class TrainersService {
                 attempt: true,
                 category_id: true,
                 display_questions_randomly: true,
+                subject_id: true,
                 created_at: true,
                 updated_at: true,
                 translations: { select: { locale: true, title: true } },
                 quiz_category: {
                     select: { id: true, translations: { select: { locale: true, title: true } } },
                 },
-                trainer_settings: true,
+                subject: {
+                    select: { id: true, translations: { select: { locale: true, title: true } } },
+                },
+                trainer_settings: { include: { theme: { select: { id: true, title: true, image: true, palette: true } } } },
                 trainer_courses: {
                     orderBy: { id: 'asc' },
                     select: {
@@ -238,6 +242,15 @@ export class TrainersService {
                 .filter((t) => t.locale === 'kz')
                 .map((t) => ({ locale: 'kz' as const, title: t.title })),
             category: r.quiz_category ? { id: Number(r.quiz_category.id), title_kz: pickKzTitle(r.quiz_category.translations) } : null,
+            subject: r.subject ? { id: Number(r.subject.id), title_kz: pickKzTitle(r.subject.translations) } : null,
+            theme: settings?.theme
+                ? {
+                      id: Number(settings.theme.id),
+                      title: settings.theme.title,
+                      image: settings.theme.image ?? null,
+                      palette: settings.theme.palette,
+                  }
+                : null,
             publish_status: derivePublishStatus(r.status),
             timer_enabled: !!settings?.timer_enabled,
             seconds_per_question: settings?.seconds_per_question == null ? null : Number(settings.seconds_per_question),

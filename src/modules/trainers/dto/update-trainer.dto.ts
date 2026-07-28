@@ -28,6 +28,20 @@ export class UpdateTrainerDto {
     @Min(1)
     category_id?: number | null;
 
+    /** Предмет (Quizzes.subject_id); null — снять привязку. */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    subject_id?: number | null;
+
+    /** Тема оформления по умолчанию (trainer_settings.theme_id); null — снять. */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    theme_id?: number | null;
+
     @IsOptional()
     @IsBoolean()
     timer_enabled?: boolean;
