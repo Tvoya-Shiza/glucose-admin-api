@@ -792,12 +792,31 @@ model TrainerSettings {
   available_to         Int?    @db.UnsignedInt
   flashcards_enabled   Boolean @default(true)
   background_image     String? @db.VarChar(512)
+  theme_id             Int?
   created_at           Int     @db.UnsignedInt
   updated_at           Int?    @db.UnsignedInt
 
-  quiz Quizzes @relation("TrainerSettings", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_settings_quiz_id_fkey")
+  quiz  Quizzes       @relation("TrainerSettings", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict, map: "trainer_settings_quiz_id_fkey")
+  theme TrainerTheme? @relation("TrainerThemeSettings", fields: [theme_id], references: [id], onDelete: SetNull, onUpdate: Restrict, map: "trainer_settings_theme_id_fkey")
 
   @@map("trainer_settings")
+}
+
+/// Справочник оформления игры (phase-43): фон и КЛЮЧ палитры плиток.
+model TrainerTheme {
+  id         Int     @id @default(autoincrement())
+  title      String  @db.VarChar(255)
+  image      String? @db.VarChar(512)
+  palette    String  @default("classic") @db.VarChar(32)
+  sort_order Int     @default(0)
+  is_active  Boolean @default(true)
+  created_at Int     @db.UnsignedInt
+  updated_at Int?    @db.UnsignedInt
+
+  trainer_settings TrainerSettings[] @relation("TrainerThemeSettings")
+
+  @@index([is_active, sort_order], map: "idx_trainer_themes_active_order")
+  @@map("trainer_themes")
 }
 
 model TrainerCourse {

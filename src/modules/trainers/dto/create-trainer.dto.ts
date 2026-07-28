@@ -30,6 +30,20 @@ export class CreateTrainerDto {
     @Min(1)
     category_id?: number;
 
+    /** Предмет (Quizzes.subject_id) — по нему ученик фильтрует список тренажёров. */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    subject_id?: number;
+
+    /** Тема оформления по умолчанию (trainer_settings.theme_id). */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    theme_id?: number;
+
     @IsOptional()
     @IsBoolean()
     timer_enabled?: boolean;

@@ -61,6 +61,8 @@ export class TrainersMutationsService {
     public async create(actor: ScopeActor, dto: CreateTrainerDto) {
         // Access governed by @Roles + @RequirePermission('trainers.create') at the controller.
         await this.assertCategoryExists(dto.category_id ?? undefined);
+        await this.assertSubjectExists(dto.subject_id ?? undefined);
+        await this.assertThemeExists(dto.theme_id ?? undefined);
         this.assertTimerRule(dto.timer_enabled ?? false, dto.seconds_per_question ?? null);
         this.assertAvailabilityWindow(dto.available_from ?? null, dto.available_to ?? null);
         const courseIds = await this.resolveCourseIds(dto.course_ids);
@@ -77,6 +79,7 @@ export class TrainersMutationsService {
                     pass_mark: 0,
                     certificate: false,
                     category_id: typeof dto.category_id === 'number' ? dto.category_id : null,
+                    subject_id: typeof dto.subject_id === 'number' ? dto.subject_id : null,
                     attempt: normalizeAttemptsLimit(dto.attempts_limit),
                     display_questions_randomly: dto.shuffle_questions ?? false,
                     version: 1,
@@ -97,6 +100,7 @@ export class TrainersMutationsService {
                     shuffle_answers: dto.shuffle_answers ?? false,
                     flashcards_enabled: dto.flashcards_enabled ?? true,
                     background_image: dto.background_image ?? null,
+                    theme_id: dto.theme_id ?? null,
                     available_from: dto.available_from ?? null,
                     available_to: dto.available_to ?? null,
                     created_at: now,
@@ -124,6 +128,12 @@ export class TrainersMutationsService {
         if (dto.category_id !== undefined && dto.category_id !== null) {
             await this.assertCategoryExists(dto.category_id);
         }
+        if (dto.subject_id !== undefined && dto.subject_id !== null) {
+            await this.assertSubjectExists(dto.subject_id);
+        }
+        if (dto.theme_id !== undefined && dto.theme_id !== null) {
+            await this.assertThemeExists(dto.theme_id);
+        }
 
         // Cross-field rules validated against the MERGED (dto over existing) state.
         const nextTimer = dto.timer_enabled !== undefined ? dto.timer_enabled : !!settings?.timer_enabled;
@@ -142,6 +152,8 @@ export class TrainersMutationsService {
         const quizData: Record<string, unknown> = {};
         if (dto.category_id === null) quizData.category_id = null;
         else if (typeof dto.category_id === 'number') quizData.category_id = dto.category_id;
+        if (dto.subject_id === null) quizData.subject_id = null;
+        else if (typeof dto.subject_id === 'number') quizData.subject_id = dto.subject_id;
         if (dto.attempts_limit !== undefined) quizData.attempt = normalizeAttemptsLimit(dto.attempts_limit);
         if (typeof dto.shuffle_questions === 'boolean') quizData.display_questions_randomly = dto.shuffle_questions;
 
@@ -152,6 +164,7 @@ export class TrainersMutationsService {
         if (typeof dto.shuffle_answers === 'boolean') settingsData.shuffle_answers = dto.shuffle_answers;
         if (typeof dto.flashcards_enabled === 'boolean') settingsData.flashcards_enabled = dto.flashcards_enabled;
         if (dto.background_image !== undefined) settingsData.background_image = dto.background_image;
+        if (dto.theme_id !== undefined) settingsData.theme_id = dto.theme_id;
         if (dto.available_from !== undefined) settingsData.available_from = dto.available_from;
         if (dto.available_to !== undefined) settingsData.available_to = dto.available_to;
 
@@ -170,6 +183,7 @@ export class TrainersMutationsService {
                         shuffle_answers: (settingsData.shuffle_answers as boolean | undefined) ?? false,
                         flashcards_enabled: (settingsData.flashcards_enabled as boolean | undefined) ?? true,
                         background_image: (settingsData.background_image as string | null | undefined) ?? null,
+                        theme_id: (settingsData.theme_id as number | null | undefined) ?? null,
                         available_from: (settingsData.available_from as number | null | undefined) ?? null,
                         available_to: (settingsData.available_to as number | null | undefined) ?? null,
                         created_at: now,
@@ -283,6 +297,18 @@ export class TrainersMutationsService {
         if (typeof categoryId !== 'number') return;
         const cat: any = await this.prisma.quizCategory.findUnique({ where: { id: categoryId }, select: { id: true } });
         if (!cat) throw new BadRequestException('trainers.category_not_found');
+    }
+
+    private async assertSubjectExists(subjectId: number | undefined): Promise<void> {
+        if (typeof subjectId !== 'number') return;
+        const subject: any = await this.prisma.quizSubject.findUnique({ where: { id: subjectId }, select: { id: true } });
+        if (!subject) throw new BadRequestException('trainers.subject_not_found');
+    }
+
+    private async assertThemeExists(themeId: number | undefined): Promise<void> {
+        if (typeof themeId !== 'number') return;
+        const theme: any = await this.prisma.trainerTheme.findUnique({ where: { id: themeId }, select: { id: true } });
+        if (!theme) throw new BadRequestException('trainers.theme_not_found');
     }
 
     private assertTimerRule(timerEnabled: boolean, secondsPerQuestion: number | null): void {
