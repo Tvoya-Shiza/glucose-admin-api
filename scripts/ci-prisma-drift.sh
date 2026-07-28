@@ -11,12 +11,9 @@ fi
 echo "Running Prisma drift check (admin-api subset vs shared MySQL)..."
 
 # --exit-code: 0 = no diff; 2 = diff found
-# --to-url, а не --to-schema-datasource: последний ожидает ПУТЬ к schema.prisma,
-# поэтому с DATABASE_URL падал на «Could not load ... from provided path» и
-# выдавал это за расхождение схем.
 if npx prisma migrate diff \
      --from-schema-datamodel prisma/schema.prisma \
-     --to-url "$DATABASE_URL" \
+     --to-schema-datasource "$DATABASE_URL" \
      --exit-code; then
   echo "OK: admin-api schema matches the live DB."
   exit 0
