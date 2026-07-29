@@ -114,6 +114,9 @@ const CATALOG: SeedGroup[] = [
             { action: 'badges_manage', display_order: 70, name_ru: 'Управление бейджами', name_kz: 'Белгілерді басқару' },
             { action: 'categories_manage', display_order: 80, name_ru: 'Управление категориями', name_kz: 'Санаттарды басқару' },
             { action: 'results_view', display_order: 90, name_ru: 'Просмотр результатов', name_kz: 'Нәтижелерді көру' },
+            // Phase 45 — ручная проверка развёрнутых ответов: автопроверка засчитывает только
+            // точное совпадение с эталоном, остальное решает преподаватель.
+            { action: 'results_grade', display_order: 95, name_ru: 'Проверка ответов', name_kz: 'Жауаптарды тексеру' },
         ],
     },
     {
@@ -366,7 +369,9 @@ const CATALOG: SeedGroup[] = [
         code: 'credits',
         display_order: 2600,
         name_ru: 'Зачёты',
-        name_kz: 'Сынақтар',
+        // «Зачёттар», а не «Сынақтар»: в меню раздел называется именно так, и строка в
+        // матрице прав должна совпадать с пунктом, к которому она открывает доступ.
+        name_kz: 'Зачёттар',
         permissions: [
             { action: 'view', display_order: 10, name_ru: 'Просмотр', name_kz: 'Көру' },
             { action: 'create', display_order: 20, name_ru: 'Создание', name_kz: 'Құру' },
@@ -464,6 +469,7 @@ const CORE_ROLES: SeedRole[] = [
             'courses.edit',
             'quizzes.view',
             'quizzes.results_view',
+            'quizzes.results_grade',
             'assignments.view',
             'assignments.submissions_view',
             'assignments.grade',
@@ -513,6 +519,7 @@ const CORE_ROLES: SeedRole[] = [
             'quizzes.edit',
             'quizzes.publish',
             'quizzes.results_view',
+            'quizzes.results_grade',
             'assignments.view',
             'assignments.create',
             'assignments.edit',

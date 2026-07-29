@@ -82,6 +82,8 @@ export interface QuizResultRowDto {
     status: 'waiting' | 'passed' | 'failed';
     /** Computed: row.quiz_version_at_start != null && != row.quiz.version. */
     is_stale_version: boolean;
+    /** В попытке остался неоценённый развёрнутый ответ (phase-45). */
+    needs_grading: boolean;
     /** Unix seconds. */
     created_at: number;
 }
@@ -158,6 +160,7 @@ export class QuizzesResultsService {
                     quiz_version_at_start: true,
                     user_grade: true,
                     status: true,
+                    needs_grading: true,
                     created_at: true,
                     user: {
                         select: { id: true, full_name: true, email: true },
@@ -215,6 +218,7 @@ export class QuizzesResultsService {
             user_grade: r.user_grade == null ? null : Number(r.user_grade),
             status: r.status,
             is_stale_version,
+            needs_grading: Boolean(r.needs_grading),
             created_at: Number(r.created_at),
         };
     }

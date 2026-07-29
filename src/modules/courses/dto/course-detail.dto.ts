@@ -98,6 +98,13 @@ export interface ChapterItemAssignmentRef {
 
 export type ChapterItemType = 'file' | 'quiz' | 'assignment';
 
+/** Phase 44 — ученик с персональным доступом к узлу. */
+export interface AllowedUserRefDto {
+    id: number;
+    full_name: string | null;
+    email: string | null;
+}
+
 export interface ChapterItemDto {
     id: number;
     type: ChapterItemType;
@@ -131,6 +138,8 @@ export interface ChapterItemDto {
      * control and the schedule-grid "no access" indicator.
      */
     allowed_group_ids: number[];
+    /** Phase 44 — ученики, которым урок виден лично, вдобавок к группам. */
+    allowed_users: AllowedUserRefDto[];
 }
 
 export type ChapterStatus = 'active' | 'inactive';
@@ -147,6 +156,8 @@ export interface ChapterDto {
      * its lessons regardless of per-lesson whitelists).
      */
     allowed_group_ids: number[];
+    /** Phase 44 — ученики с персональным доступом к разделу. */
+    allowed_users: AllowedUserRefDto[];
 }
 
 export interface CourseCounts {
