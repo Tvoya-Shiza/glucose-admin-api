@@ -5,7 +5,7 @@ import type { CourseDetailDto, ChapterDto, ChapterItemDto, TranslationRowDto } f
 import { deriveTranslationCompleteness } from './utils/translation-completeness';
 import { CoursesCacheService } from './utils/courses-cache.service';
 import { buildCourseDetailCacheKey } from './utils/course-cache';
-import { itemTypeToRestrictionKind, loadAllowedGroupsByNode, nodeKey, type NodeKey } from './utils/access-restrictions';
+import { itemTypeToRestrictionKind, loadAllowedTargetsByNode, nodeKey, type NodeKey } from './utils/access-restrictions';
 
 /**
  * CRS-01 + CRS-07 — course detail (Plan 03).
@@ -327,7 +327,7 @@ export class CoursesDetailService {
                 restrictionKeys.push({ kind: itemTypeToRestrictionKind(it.type), ref_id: Number(it.item_id) });
             }
         }
-        const allowedByNode = await loadAllowedGroupsByNode(this.prisma, restrictionKeys);
+        const { groups: allowedByNode, users: allowedUsersByNode } = await loadAllowedTargetsByNode(this.prisma, restrictionKeys);
 
         // Chapters + items.
         const chapters: ChapterDto[] = (row.chapters as any[]).map((c: any) => {
@@ -394,6 +394,7 @@ export class CoursesDetailService {
                     translations: itTranslations,
                     allowed_group_ids:
                         allowedByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), refId)) ?? [],
+                    allowed_users: allowedUsersByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), refId)) ?? [],
                 };
             });
 
@@ -404,6 +405,7 @@ export class CoursesDetailService {
                 translations: cTranslations,
                 items,
                 allowed_group_ids: allowedByNode.get(nodeKey('lesson', Number(c.id))) ?? [],
+                allowed_users: allowedUsersByNode.get(nodeKey('lesson', Number(c.id))) ?? [],
             };
         });
 

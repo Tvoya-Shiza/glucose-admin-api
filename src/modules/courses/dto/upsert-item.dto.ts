@@ -98,6 +98,18 @@ export class UpsertChapterDto {
     @IsInt({ each: true })
     @Type(() => Number)
     allowed_group_ids?: number[];
+
+    /**
+     * Phase 44 — персональный доступ: список учеников, которым узел виден
+     * вдобавок к разрешённым группам (объединение, не пересечение).
+     * Тристейт такой же, как у `allowed_group_ids`.
+     */
+    @IsOptional()
+    @IsArray()
+    @ArrayMaxSize(500)
+    @IsInt({ each: true })
+    @Type(() => Number)
+    allowed_user_ids?: number[];
 }
 
 export type UpsertItemType = 'file' | 'quiz' | 'assignment';
@@ -309,4 +321,16 @@ export class UpsertItemDto {
     @IsInt({ each: true })
     @Type(() => Number)
     allowed_group_ids?: number[];
+
+    /**
+     * Phase 44 — персональный доступ: список учеников, которым узел виден
+     * вдобавок к разрешённым группам (объединение, не пересечение).
+     * Тристейт такой же, как у `allowed_group_ids`.
+     */
+    @IsOptional()
+    @IsArray()
+    @ArrayMaxSize(500)
+    @IsInt({ each: true })
+    @Type(() => Number)
+    allowed_user_ids?: number[];
 }

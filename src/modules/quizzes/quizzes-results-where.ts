@@ -29,6 +29,8 @@ export interface ResultsCommonFilters {
     group_id?: number;
     user_id?: number;
     status?: 'waiting' | 'passed' | 'failed';
+    /** 'true' — только ожидающие ручной проверки развёрнутого ответа. */
+    needs_grading?: 'true' | 'false';
     /** Unix seconds. */
     date_from?: number;
     /** Unix seconds. */
@@ -61,6 +63,7 @@ export async function buildResultsWhere(
     if (typeof filters.quiz_id === 'number') where.quiz_id = filters.quiz_id;
     if (typeof filters.user_id === 'number') where.user_id = filters.user_id;
     if (filters.status) where.status = filters.status;
+    if (filters.needs_grading) where.needs_grading = filters.needs_grading === 'true';
 
     if (typeof filters.date_from === 'number' || typeof filters.date_to === 'number') {
         const createdAt: Record<string, number> = {};

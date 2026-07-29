@@ -1,4 +1,5 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import { Audit } from '../../common/audit/audit.decorator';
 import { RequirePermission } from '../access/decorators/require-permission.decorator';
 import { PermissionGuard } from '../access/guards/permission.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -6,8 +7,10 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
+import { GradeAnswerDto } from './dto/grade-answer.dto';
 import { ListResultsDto } from './dto/list-results.dto';
 import { ResultsStatsDto } from './dto/results-stats.dto';
+import { QuizzesGradingService } from './quizzes-grading.service';
 import { QuizzesResultsService } from './quizzes-results.service';
 import { QuizzesResultsStatsService } from './quizzes-results-stats.service';
 
@@ -36,6 +39,7 @@ export class QuizzesResultsController {
     constructor(
         private readonly svc: QuizzesResultsService,
         private readonly statsSvc: QuizzesResultsStatsService,
+        private readonly gradingSvc: QuizzesGradingService,
     ) {}
 
     @Get()
@@ -61,5 +65,36 @@ export class QuizzesResultsController {
         @Query() filters: ResultsStatsDto,
     ) {
         return this.statsSvc.compute({ id: actor.id, role_name: actor.role_name }, filters);
+    }
+
+    /**
+     * Phase 45 — разбор попытки для ручной проверки: ответ ученика рядом с
+     * эталоном по каждому вопросу.
+     */
+    @Get(':resultId/answers')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.results_grade')
+    public async resultAnswers(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('resultId', ParseIntPipe) resultId: number,
+    ) {
+        return this.gradingSvc.getResultDetail({ id: actor.id, role_name: actor.role_name }, resultId);
+    }
+
+    /**
+     * Оценка развёрнутого ответа вручную. Пересчитывает итоговый балл, статус
+     * попытки и признак «ещё ждёт проверки».
+     */
+    @Patch(':resultId/answers/:questionId')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('quizzes.results_grade')
+    @Audit('quizzes.result.grade_answer', 'quiz_result')
+    public async gradeAnswer(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('resultId', ParseIntPipe) resultId: number,
+        @Param('questionId', ParseIntPipe) questionId: number,
+        @Body() dto: GradeAnswerDto,
+    ) {
+        return this.gradingSvc.gradeAnswer({ id: actor.id, role_name: actor.role_name }, resultId, questionId, dto);
     }
 }

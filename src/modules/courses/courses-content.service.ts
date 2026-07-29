@@ -16,7 +16,7 @@ import { COURSES_INVALIDATE_PATTERN } from './utils/course-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
 import {
     itemTypeToRestrictionKind,
-    loadAllowedGroupsByNode,
+    loadAllowedTargetsByNode,
     nodeKey,
     type NodeKey,
     type RestrictionKind,
@@ -254,9 +254,17 @@ export class CoursesContentService {
                 }
             }
 
-            // Phase 33 — module-level group whitelist (kind='lesson', ref_id=chapter id).
-            if (dto.allowed_group_ids !== undefined) {
-                await this.syncNodeRestrictions(tx as any, courseId, 'lesson', chapId, dto.allowed_group_ids, actor.id);
+            // Phase 33/44 — whitelist раздела: группы и поимённо указанные ученики.
+            if (dto.allowed_group_ids !== undefined || dto.allowed_user_ids !== undefined) {
+                await this.syncNodeRestrictions(
+                    tx as any,
+                    courseId,
+                    'lesson',
+                    chapId,
+                    dto.allowed_group_ids,
+                    actor.id,
+                    dto.allowed_user_ids,
+                );
             }
 
             return this.readChapterDto(tx as any, chapId);
@@ -601,7 +609,7 @@ export class CoursesContentService {
             // Phase 33 — lesson-level group whitelist. ref_id = the resolved
             // resource id (fileId); kind derived from the item type (file covers
             // file/session/text_lesson). Matches the student-side item-level key.
-            if (dto.allowed_group_ids !== undefined) {
+            if (dto.allowed_group_ids !== undefined || dto.allowed_user_ids !== undefined) {
                 await this.syncNodeRestrictions(
                     tx as any,
                     courseId,
@@ -609,6 +617,7 @@ export class CoursesContentService {
                     fileId,
                     dto.allowed_group_ids,
                     actor.id,
+                    dto.allowed_user_ids,
                 );
             }
 
@@ -664,7 +673,7 @@ export class CoursesContentService {
         for (const it of row.items ?? []) {
             keys.push({ kind: itemTypeToRestrictionKind(it.type), ref_id: Number(it.item_id) });
         }
-        const allowedByNode = await loadAllowedGroupsByNode(tx as any, keys);
+        const { groups: allowedByNode, users: allowedUsersByNode } = await loadAllowedTargetsByNode(tx as any, keys);
 
         return {
             id: Number(row.id),
@@ -692,8 +701,11 @@ export class CoursesContentService {
                 translations: [],
                 allowed_group_ids:
                     allowedByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), Number(it.item_id))) ?? [],
+                allowed_users:
+                    allowedUsersByNode.get(nodeKey(itemTypeToRestrictionKind(it.type), Number(it.item_id))) ?? [],
             })),
             allowed_group_ids: allowedByNode.get(nodeKey('lesson', Number(row.id))) ?? [],
+            allowed_users: allowedUsersByNode.get(nodeKey('lesson', Number(row.id))) ?? [],
         };
     }
 
@@ -839,7 +851,9 @@ export class CoursesContentService {
 
         // Phase 33 — resolve the lesson's group whitelist.
         const kind = itemTypeToRestrictionKind(row.type);
-        const allowedByNode = await loadAllowedGroupsByNode(tx as any, [{ kind, ref_id: Number(row.item_id) }]);
+        const { groups: allowedByNode, users: allowedUsersByNode } = await loadAllowedTargetsByNode(tx as any, [
+            { kind, ref_id: Number(row.item_id) },
+        ]);
 
         return {
             id: Number(row.id),
@@ -855,6 +869,7 @@ export class CoursesContentService {
             attachments,
             translations,
             allowed_group_ids: allowedByNode.get(nodeKey(kind, Number(row.item_id))) ?? [],
+            allowed_users: allowedUsersByNode.get(nodeKey(kind, Number(row.item_id))) ?? [],
         };
     }
 
@@ -865,44 +880,84 @@ export class CoursesContentService {
      * (node visible to all). Validates the group ids exist. Runs inside the
      * caller's `$transaction` (pass the tx client as `db`).
      */
+    /**
+     * Синхронизирует whitelist узла: группы и, с phase-44, поимённо указанных
+     * учеников. Оба списка тристейтные — `undefined` означает «не трогать эту
+     * сторону», поэтому правку групп можно слать без списка учеников и наоборот.
+     *
+     * В строке заполнен ровно один адресат: `group_id` ИЛИ `user_id`. Правило
+     * доступа — объединение (см. lesson-access-restriction.ts).
+     */
     private async syncNodeRestrictions(
         db: PrismaService,
         courseId: number,
         kind: RestrictionKind,
         refId: number,
-        desiredGroupIds: number[],
+        desiredGroupIds: number[] | undefined,
         actorId: number,
+        desiredUserIds?: number[] | undefined,
     ): Promise<void> {
+        const touchGroups = desiredGroupIds !== undefined;
+        const touchUsers = desiredUserIds !== undefined;
+        if (!touchGroups && !touchUsers) return;
+
         const desired = new Set((desiredGroupIds ?? []).filter((g) => Number.isInteger(g) && g > 0));
-        if (desired.size > 0) {
+        const desiredUsers = new Set((desiredUserIds ?? []).filter((u) => Number.isInteger(u) && u > 0));
+
+        if (touchGroups && desired.size > 0) {
             const found = await db.group.count({ where: { id: { in: Array.from(desired) } } });
             if (found !== desired.size) {
                 throw new BadRequestException('access_restrictions.group_not_found');
             }
         }
-        const existing: Array<{ id: bigint; group_id: number }> = await db.lessonAccessRestriction.findMany({
-            where: { kind: kind as any, ref_id: refId },
-            select: { id: true, group_id: true },
-        });
-        const existingGroups = new Set(existing.map((r) => r.group_id));
-        const toDelete = existing.filter((r) => !desired.has(r.group_id)).map((r) => r.id);
-        const toCreate = Array.from(desired).filter((g) => !existingGroups.has(g));
+        if (touchUsers && desiredUsers.size > 0) {
+            // Только ученики: выдавать персональный доступ преподавателю или
+            // куратору бессмысленно — они и так видят содержимое курса.
+            const found = await db.user.count({
+                where: { id: { in: Array.from(desiredUsers) }, role_name: 'student' },
+            });
+            if (found !== desiredUsers.size) {
+                throw new BadRequestException('access_restrictions.user_not_found');
+            }
+        }
+
+        const existing: Array<{ id: bigint; group_id: number | null; user_id: number | null }> =
+            await db.lessonAccessRestriction.findMany({
+                where: { kind: kind as any, ref_id: refId },
+                select: { id: true, group_id: true, user_id: true },
+            });
+
+        const existingGroups = new Set(existing.filter((r) => r.group_id != null).map((r) => r.group_id as number));
+        const existingUsers = new Set(existing.filter((r) => r.user_id != null).map((r) => r.user_id as number));
+
+        const toDelete: bigint[] = [];
+        if (touchGroups) {
+            toDelete.push(...existing.filter((r) => r.group_id != null && !desired.has(r.group_id)).map((r) => r.id));
+        }
+        if (touchUsers) {
+            toDelete.push(...existing.filter((r) => r.user_id != null && !desiredUsers.has(r.user_id)).map((r) => r.id));
+        }
+
+        const now = nowSeconds();
+        const toCreate: Array<Record<string, unknown>> = [];
+        if (touchGroups) {
+            for (const g of desired) {
+                if (existingGroups.has(g)) continue;
+                toCreate.push({ course_id: courseId, kind: kind as any, ref_id: refId, group_id: g, created_by: actorId, created_at: now });
+            }
+        }
+        if (touchUsers) {
+            for (const u of desiredUsers) {
+                if (existingUsers.has(u)) continue;
+                toCreate.push({ course_id: courseId, kind: kind as any, ref_id: refId, user_id: u, created_by: actorId, created_at: now });
+            }
+        }
+
         if (toDelete.length > 0) {
             await db.lessonAccessRestriction.deleteMany({ where: { id: { in: toDelete } } });
         }
         if (toCreate.length > 0) {
-            const now = nowSeconds();
-            await db.lessonAccessRestriction.createMany({
-                data: toCreate.map((g) => ({
-                    course_id: courseId,
-                    kind: kind as any,
-                    ref_id: refId,
-                    group_id: g,
-                    created_by: actorId,
-                    created_at: now,
-                })),
-                skipDuplicates: true,
-            });
+            await db.lessonAccessRestriction.createMany({ data: toCreate as any, skipDuplicates: true });
         }
     }
 }

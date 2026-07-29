@@ -58,6 +58,14 @@ export class ListResultsDto {
     @IsIn(['waiting', 'passed', 'failed'])
     status?: QuizResultStatusFilter;
 
+    /**
+     * Только попытки с неоценённым развёрнутым ответом (phase-45).
+     * Строкой, а не boolean: значение приходит из query-строки.
+     */
+    @IsOptional()
+    @IsIn(['true', 'false'])
+    needs_grading?: 'true' | 'false';
+
     /** Unix seconds. */
     @IsOptional()
     @Type(() => Number)
