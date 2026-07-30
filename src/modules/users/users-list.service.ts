@@ -46,7 +46,14 @@ export class UsersListService {
         // Filter where (role / status / region / search) — kept separate so we can compose
         // it with the scope fragment + cursor clause below without losing precedence.
         const filterWhere: any = {};
-        if (query.role_name) filterWhere.role_name = query.role_name;
+        // `role_names` перекрывает `role_name`: у «ученика» в базе два имени
+        // (`user` из регистрации, `student` из импорта), и вызывающему нужно
+        // уметь запросить оба разом.
+        if (query.role_names && query.role_names.length > 0) {
+            filterWhere.role_name = { in: query.role_names };
+        } else if (query.role_name) {
+            filterWhere.role_name = query.role_name;
+        }
         if (query.status) filterWhere.status = query.status;
         if (typeof query.region_id === 'number') {
             filterWhere.OR = [

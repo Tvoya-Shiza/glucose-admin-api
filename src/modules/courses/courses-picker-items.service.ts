@@ -61,6 +61,10 @@ export class CoursesPickerItemsService {
                 return this.listAssignments(courseId, q, scope, skip, page_size, page);
             case 'quiz':
                 return this.listQuizzes(courseId, q, scope, skip, page_size, page);
+            case 'trainer':
+                return this.listTrainers(courseId, q, scope, skip, page_size, page);
+            case 'credit':
+                return this.listCredits(courseId, q, skip, page_size, page);
         }
     }
 
@@ -272,6 +276,95 @@ export class CoursesPickerItemsService {
         ]);
 
         return this.shape(rows, total, page, take);
+    }
+
+    /**
+     * Phase 46 — тренажёры для конструктора расписания.
+     *
+     * Отдельный kind, а не расширение `listQuizzes`: курсовый пикер тестов как
+     * прятал тренажёры (`kind='test'`), так и продолжает — смешивать их в одном
+     * списке нельзя, это разные сущности для куратора.
+     *
+     * Принадлежность курсу у тренажёра выражается связью `trainer_courses`, а не
+     * элементами главы: элементом дерева тренажёр не является.
+     */
+    private async listTrainers(
+        courseId: number,
+        q: string,
+        scope: PickerItemScope,
+        skip: number,
+        take: number,
+        page: number,
+    ): Promise<PickerItemsResponseDto> {
+        const where: any = { kind: 'trainer' };
+
+        if (scope === 'course') {
+            where.trainer_courses = { some: { webinar_id: courseId } };
+        }
+        if (q.length > 0) {
+            where.OR = this.searchOr(q);
+        }
+
+        const [total, rows] = await this.prisma.$transaction([
+            this.prisma.quizzes.count({ where }),
+            this.prisma.quizzes.findMany({
+                where,
+                select: {
+                    id: true,
+                    translations: {
+                        where: { locale: { in: ['kz', 'ru'] } },
+                        select: { locale: true, title: true },
+                    },
+                },
+                orderBy: [{ id: 'asc' }],
+                skip,
+                take,
+            }),
+        ]);
+
+        return this.shape(rows, total, page, take);
+    }
+
+    /**
+     * Phase 47 — зачёты для конструктора контента курса.
+     *
+     * Зачёт всегда принадлежит одному курсу (`credits.course_id`), поэтому scope
+     * здесь не применим — список и так сужен курсом.
+     *
+     * `searchOr` и `shape` не подходят: у Credit заголовок плоский (колонка
+     * `title`), таблицы переводов нет, — поэтому свой маленький маппер.
+     */
+    private async listCredits(
+        courseId: number,
+        q: string,
+        skip: number,
+        take: number,
+        page: number,
+    ): Promise<PickerItemsResponseDto> {
+        const where: any = { course_id: courseId, deleted_at: null };
+        if (q.length > 0) {
+            const ors: any[] = [{ title: { contains: q } }];
+            if (/^\d+$/.test(q)) ors.push({ id: BigInt(q) });
+            where.OR = ors;
+        }
+
+        const [total, rows] = await this.prisma.$transaction([
+            this.prisma.credit.count({ where }),
+            this.prisma.credit.findMany({
+                where,
+                select: { id: true, title: true },
+                orderBy: [{ id: 'asc' }],
+                skip,
+                take,
+            }),
+        ]);
+
+        const out: PickerItemRow[] = rows.map((r: any) => ({
+            id: Number(r.id),
+            title_kz: r.title ?? '',
+            title_ru: r.title ?? '',
+        }));
+        return { rows: out, total, page, page_size: take };
     }
 
     private shape(

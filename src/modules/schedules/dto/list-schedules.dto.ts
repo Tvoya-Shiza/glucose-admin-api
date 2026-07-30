@@ -4,7 +4,7 @@ import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-va
 export const SCHEDULE_STATUSES = ['draft', 'scheduled', 'in_progress', 'completed', 'cancelled'] as const;
 export type ScheduleStatusFilter = (typeof SCHEDULE_STATUSES)[number];
 
-export const SCHEDULE_KINDS = ['lesson', 'quiz', 'assignment', 'file'] as const;
+export const SCHEDULE_KINDS = ['lesson', 'quiz', 'assignment', 'file', 'trainer'] as const;
 export type ScheduleKindFilter = (typeof SCHEDULE_KINDS)[number];
 
 export type ScheduleSortField = 'start_at' | 'created_at';

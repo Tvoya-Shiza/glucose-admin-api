@@ -6,6 +6,7 @@ import { TrainersMutationsService } from './trainers-mutations.service';
 import { TrainerResultsController } from './trainer-results.controller';
 import { TrainerResultsService } from './trainer-results.service';
 import { TrainerResultsExportService } from './trainer-results-export.service';
+import { TrainerAttemptAnswersService } from './trainer-attempt-answers.service';
 import { TrainerThemesController } from './trainer-themes.controller';
 import { TrainerThemesService } from './trainer-themes.service';
 import { TrainersCacheService } from './utils/trainers-cache.service';
@@ -31,6 +32,7 @@ import { TrainersCacheService } from './utils/trainers-cache.service';
         TrainersMutationsService,
         TrainerResultsService,
         TrainerResultsExportService,
+        TrainerAttemptAnswersService,
         TrainerThemesService,
         TrainersCacheService,
     ],

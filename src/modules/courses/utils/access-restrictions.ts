@@ -9,12 +9,16 @@
  *   - kind ∈ quiz | assignment | file → ref_id = the resource id (lesson)
  */
 
-export type RestrictionKind = 'lesson' | 'quiz' | 'assignment' | 'file';
+export type RestrictionKind = 'lesson' | 'quiz' | 'assignment' | 'file' | 'trainer' | 'credit';
 
 /** WebinarChapterItem.type → item-level restriction kind (file covers session/text_lesson). */
 export function itemTypeToRestrictionKind(type: string): Exclude<RestrictionKind, 'lesson'> {
     if (type === 'quiz') return 'quiz';
     if (type === 'assignment') return 'assignment';
+    // Phase 47 — свои ветки обязательны: общий запасной вариант 'file' адресовал
+    // бы ограничение постороннему файлу с тем же id.
+    if (type === 'trainer') return 'trainer';
+    if (type === 'credit') return 'credit';
     return 'file';
 }
 

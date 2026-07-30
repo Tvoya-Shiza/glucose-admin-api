@@ -168,7 +168,7 @@ export class SchedulesListService {
             if (k in by_status) by_status[k] += 1;
         }
 
-        const by_kind: Record<ScheduleItemKind, number> = { lesson: 0, quiz: 0, assignment: 0, file: 0 };
+        const by_kind: Record<ScheduleItemKind, number> = { lesson: 0, quiz: 0, assignment: 0, file: 0, trainer: 0 };
         for (const s of schedules as any[]) {
             for (const it of s.items ?? []) {
                 const k = it.kind as ScheduleItemKind;
@@ -256,16 +256,18 @@ export class SchedulesListService {
         const quizIds = new Set<number>();
         const assignmentIds = new Set<number>();
         const fileIds = new Set<number>();
+        const trainerIds = new Set<number>();
         for (const r of raw) {
             for (const it of r.items ?? []) {
                 if (it.kind === 'lesson') lessonIds.add(it.ref_id);
                 else if (it.kind === 'quiz') quizIds.add(it.ref_id);
                 else if (it.kind === 'assignment') assignmentIds.add(it.ref_id);
                 else if (it.kind === 'file') fileIds.add(it.ref_id);
+                else if (it.kind === 'trainer') trainerIds.add(it.ref_id);
             }
         }
 
-        const [lessons, quizzes, assignments, files] = await Promise.all([
+        const [lessons, quizzes, assignments, files, trainers] = await Promise.all([
             lessonIds.size === 0
                 ? Promise.resolve([] as any[])
                 : this.prisma.webinarChapter.findMany({
@@ -290,12 +292,21 @@ export class SchedulesListService {
                       where: { id: { in: Array.from(fileIds) } },
                       select: { id: true, translations: { select: { locale: true, title: true } } },
                   }),
+            // Фильтр по kind обязателен: id тестов и тренажёров из общего
+            // пространства, без него тест зарезолвился бы как тренажёр.
+            trainerIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.quizzes.findMany({
+                      where: { id: { in: Array.from(trainerIds) }, kind: 'trainer' },
+                      select: { id: true, translations: { select: { locale: true, title: true } } },
+                  }),
         ]);
 
         const lessonMap = byId(lessons);
         const quizMap = byId(quizzes);
         const assignmentMap = byId(assignments);
         const fileMap = byId(files);
+        const trainerMap = byId(trainers);
 
         return raw.map((r) => {
             const items: ScheduleItemDto[] = (r.items ?? []).map((it: any) => {
@@ -306,7 +317,9 @@ export class SchedulesListService {
                           ? quizMap.get(it.ref_id)
                           : it.kind === 'assignment'
                             ? assignmentMap.get(it.ref_id)
-                            : fileMap.get(it.ref_id);
+                            : it.kind === 'trainer'
+                              ? trainerMap.get(it.ref_id)
+                              : fileMap.get(it.ref_id);
                 const tr: Array<{ locale: string; title: string | null }> = ref?.translations ?? [];
                 const title_ru = tr.find((t) => t.locale === 'ru')?.title ?? null;
                 const title_kz = tr.find((t) => t.locale === 'kz')?.title ?? null;

@@ -112,7 +112,7 @@ export class UpsertChapterDto {
     allowed_user_ids?: number[];
 }
 
-export type UpsertItemType = 'file' | 'quiz' | 'assignment';
+export type UpsertItemType = 'file' | 'quiz' | 'assignment' | 'trainer' | 'credit';
 
 /**
  * Phase 29 — one PDF inside a multi-file PDF block. `file_url` is the uploaded
@@ -172,7 +172,7 @@ export class UpsertItemDto {
     @Min(1)
     chapter_id!: number;
 
-    @IsIn(['file', 'quiz', 'assignment'])
+    @IsIn(['file', 'quiz', 'assignment', 'trainer', 'credit'])
     type!: UpsertItemType;
 
     /**

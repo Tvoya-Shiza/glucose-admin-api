@@ -108,6 +108,12 @@ enum WebinarChapterItemType {
   file
   quiz
   assignment
+  // Phase 47 — тренажёр (quizzes с kind='trainer') и зачёт (credits) как
+  // элементы дерева курса. item_id указывает на соответствующую таблицу;
+  // у credits id типа BigInt, а item_id — Int, поэтому на границах нужны
+  // явные приведения.
+  trainer
+  credit
 }
 
 enum FileAccessbility {
@@ -2405,6 +2411,9 @@ enum LessonScheduleItemKind {
   quiz
   assignment
   file
+  // Phase 46 — тренажёр (quizzes с kind='trainer'). Пространство id общее с
+  // тестами, поэтому резолвер обязан фильтровать по quizzes.kind.
+  trainer
 }
 
 //* Phase 33 — lesson / module access restriction by group (whitelist).
@@ -2443,6 +2452,9 @@ enum LessonAccessRestrictionKind {
   quiz
   assignment
   file
+  // Phase 47 — ограничение доступа к элементу-тренажёру и элементу-зачёту.
+  trainer
+  credit
 }
 
 //* Phase 17 — Universities & Specialties

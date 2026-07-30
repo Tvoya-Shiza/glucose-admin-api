@@ -1,5 +1,5 @@
 export type ScheduleStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
-export type ScheduleItemKind = 'lesson' | 'quiz' | 'assignment' | 'file';
+export type ScheduleItemKind = 'lesson' | 'quiz' | 'assignment' | 'file' | 'trainer';
 
 export interface ScheduleItemDto {
     id: number;

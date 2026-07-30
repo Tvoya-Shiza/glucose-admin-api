@@ -5,6 +5,7 @@ import {
     Logger,
     NotFoundException,
 } from '@nestjs/common';
+import { STUDENT_ROLE_NAMES } from '@shared/roles';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import type { CourseDetailDto, ChapterDto, ChapterItemDto } from './dto/course-detail.dto';
@@ -489,6 +490,41 @@ export class CoursesContentService {
                     });
                 }
                 fileId = dto.item_id;
+            } else if (dto.type === 'trainer') {
+                // Phase 47 — тренажёр как элемент курса. Фильтр по kind обязателен:
+                // id тестов и тренажёров из общего пространства.
+                const t: any = await tx.quizzes.findFirst({
+                    where: { id: dto.item_id, kind: 'trainer' },
+                    select: { id: true },
+                });
+                if (!t) {
+                    throw new NotFoundException('items.trainer_not_found');
+                }
+                // Принадлежность тренажёра курсу выражается связью trainer_courses,
+                // и без неё он ученику недоступен: evaluateTrainerAccess вернёт
+                // not_configured, а getTrainer — 404. Поэтому связь проставляем
+                // здесь же. При откреплении элемента её НЕ удаляем: её могли
+                // завести вручную в форме тренажёра, а происхождение мы не храним.
+                await tx.trainerCourse.createMany({
+                    data: [{ quiz_id: dto.item_id, webinar_id: courseId, created_at: Math.floor(Date.now() / 1000) }],
+                    skipDuplicates: true,
+                });
+                fileId = dto.item_id;
+            } else if (dto.type === 'credit') {
+                // Phase 47 — зачёт как элемент курса.
+                const c: any = await tx.credit.findFirst({
+                    where: { id: BigInt(dto.item_id), course_id: courseId, deleted_at: null },
+                    select: { id: true, chapter_id: true },
+                });
+                if (!c) {
+                    throw new NotFoundException('items.credit_not_found');
+                }
+                // Гейтинг зачёта группируется по его собственному chapter_id: зачёт,
+                // положенный в чужую главу, молча не сработал бы.
+                if (Number(c.chapter_id) !== dto.chapter_id) {
+                    throw new BadRequestException('items.credit_chapter_mismatch');
+                }
+                fileId = dto.item_id;
             }
 
             // Phase 30 — lecture-notes attachments (up to 3). Reconciled via the
@@ -532,6 +568,12 @@ export class CoursesContentService {
             // Phase 20: `accessibility` is now an item-level column. We write it
             // for ALL types (file/quiz/assignment). For `type='file'` the value is
             // ALSO mirrored onto Files.accessibility above (legacy gate path).
+            //
+            // Phase 47 — зачёт не продаётся: платным его выставить нельзя. Значение
+            // навязываем на сервере, а не только прячем переключатель в UI, — иначе
+            // устаревший клиент мог бы прислать 'paid'.
+            const accessibility = dto.type === 'credit' ? 'free' : dto.accessibility;
+
             if (chapterItemId) {
                 const data: Record<string, unknown> = {
                     type: dto.type,
@@ -540,7 +582,7 @@ export class CoursesContentService {
                 };
                 if (typeof dto.order === 'number') data.order = dto.order;
                 if (typeof dto.is_required === 'boolean') data.is_required = dto.is_required;
-                if (dto.accessibility !== undefined) data.accessibility = dto.accessibility;
+                if (accessibility !== undefined) data.accessibility = accessibility;
                 await tx.webinarChapterItem.update({ where: { id: chapterItemId }, data });
             } else {
                 // Auto-assign order if not provided.
@@ -561,7 +603,7 @@ export class CoursesContentService {
                         item_id: fileId,
                         order: nextOrder,
                         is_required: dto.is_required !== false,
-                        accessibility: dto.accessibility ?? 'free',
+                        accessibility: accessibility ?? 'free',
                         created_at: now,
                     },
                     select: { id: true },
@@ -696,6 +738,8 @@ export class CoursesContentService {
                 file: null,
                 quiz: null,
                 assignment: null,
+                trainer: null,
+                credit: null,
                 pdfs: [],
                 attachments: [],
                 translations: [],
@@ -727,6 +771,8 @@ export class CoursesContentService {
         let file: ChapterItemDto['file'] = null;
         let quiz: ChapterItemDto['quiz'] = null;
         let assignment: ChapterItemDto['assignment'] = null;
+        let trainer: ChapterItemDto['trainer'] = null;
+        let credit: ChapterItemDto['credit'] = null;
         let pdfs: ChapterItemDto['pdfs'] = [];
         let attachments: ChapterItemDto['attachments'] = [];
         let translations: ChapterItemDto['translations'] = [];
@@ -819,6 +865,27 @@ export class CoursesContentService {
             if (a) {
                 assignment = { id: Number(a.id), title: a.translations?.[0]?.title ?? '' };
             }
+        } else if (row.type === 'trainer') {
+            // Phase 47 — фильтр по kind обязателен: id тестов и тренажёров общие.
+            const t: any = await tx.quizzes.findFirst({
+                where: { id: Number(row.item_id), kind: 'trainer' },
+                select: {
+                    id: true,
+                    translations: { where: { locale: 'kz' }, select: { title: true }, take: 1 },
+                },
+            });
+            if (t) {
+                trainer = { id: Number(t.id), title: t.translations?.[0]?.title ?? '' };
+            }
+        } else if (row.type === 'credit') {
+            // Phase 47 — у Credit заголовок плоский, отдельной таблицы переводов нет.
+            const c: any = await tx.credit.findFirst({
+                where: { id: BigInt(row.item_id), deleted_at: null },
+                select: { id: true, title: true, scheduled_at: true },
+            });
+            if (c) {
+                credit = { id: Number(c.id), title: c.title ?? '', scheduled_at: c.scheduled_at ?? null };
+            }
         }
 
         // Phase 30 — hydrate the lecture-notes attachments (up to 3, any type), ordered.
@@ -865,6 +932,8 @@ export class CoursesContentService {
             file,
             quiz,
             assignment,
+            trainer,
+            credit,
             pdfs,
             attachments,
             translations,
@@ -913,8 +982,9 @@ export class CoursesContentService {
         if (touchUsers && desiredUsers.size > 0) {
             // Только ученики: выдавать персональный доступ преподавателю или
             // куратору бессмысленно — они и так видят содержимое курса.
+            // Роль ученика в базе называется двумя способами — см. STUDENT_ROLE_NAMES.
             const found = await db.user.count({
-                where: { id: { in: Array.from(desiredUsers) }, role_name: 'student' },
+                where: { id: { in: Array.from(desiredUsers) }, role_name: { in: [...STUDENT_ROLE_NAMES] } },
             });
             if (found !== desiredUsers.size) {
                 throw new BadRequestException('access_restrictions.user_not_found');

@@ -1,5 +1,5 @@
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsArray, IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /**
  * USR-01: list-users query DTO. All fields optional; numeric fields coerced via @Type
@@ -25,6 +25,24 @@ export class ListUsersDto {
     @IsOptional()
     @IsString()
     role_name?: string;
+
+    /**
+     * Несколько ролей сразу, через запятую: `role_names=user,student`.
+     *
+     * Понадобилось, потому что «ученик» в базе живёт под двумя именами: при
+     * регистрации через приложение проставляется `user`, при импорте из
+     * админки — `student`. Фильтр по одному значению отсекал бы половину
+     * реальных учеников. Имеет приоритет над `role_name`.
+     */
+    @IsOptional()
+    @Transform(({ value }) => {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') return value.split(',').map((v) => v.trim()).filter(Boolean);
+        return value;
+    })
+    @IsArray()
+    @IsString({ each: true })
+    role_names?: string[];
 
     @IsOptional()
     @IsIn(['active', 'inactive', 'pending'])
