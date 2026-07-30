@@ -15,6 +15,7 @@ import {
     UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import { Audit } from '../../common/audit/audit.decorator';
 import { RequirePermission } from '../access/decorators/require-permission.decorator';
@@ -56,7 +57,18 @@ import { UploadsService } from './uploads.service';
 export class UploadsController {
     constructor(private readonly service: UploadsService) {}
 
+    /*
+     * Массовый импорт (книга из PDF) шлёт по два запроса на страницу — за токеном
+     * и с самим файлом, — то есть на учебник в 240 страниц приходится 480 запросов.
+     * Общий лимит 100/мин заставлял клиента искусственно тормозить импорт, растягивая
+     * его на десяток минут.
+     *
+     * Поднимаем потолок именно для загрузки: эти два маршрута и без троттлера закрыты
+     * — токен требует авторизации и права files.create, а приём файла принимает только
+     * одноразовый подписанный токен со сроком 5 минут, привязанный к размеру и типу.
+     */
     @Post('token')
+    @Throttle({ default: { limit: 600, ttl: 60_000 } })
     @UseGuards(JwtGuard, RolesGuard, PermissionGuard)
     @Roles('admin', 'curator', 'teacher')
     @RequirePermission('files.create')
@@ -67,6 +79,7 @@ export class UploadsController {
     }
 
     @Post('file')
+    @Throttle({ default: { limit: 600, ttl: 60_000 } })
     @UseGuards(UploadTokenGuard)
     @UseInterceptors(
         FileInterceptor('file', {
