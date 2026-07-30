@@ -168,16 +168,21 @@ export class CoursesDetailService {
         const fileItemIds = new Set<number>();
         const quizItemIds = new Set<number>();
         const assignmentItemIds = new Set<number>();
+        const trainerItemIds = new Set<number>();
+        const creditItemIds = new Set<number>();
         for (const c of row.chapters as any[]) {
             for (const it of c.items as any[]) {
                 const refId = Number(it.item_id);
                 if (it.type === 'file') fileItemIds.add(refId);
                 else if (it.type === 'quiz') quizItemIds.add(refId);
                 else if (it.type === 'assignment') assignmentItemIds.add(refId);
+                // Phase 47 — тренажёр и зачёт как элементы дерева.
+                else if (it.type === 'trainer') trainerItemIds.add(refId);
+                else if (it.type === 'credit') creditItemIds.add(refId);
             }
         }
 
-        const [files, quizzes, assignments] = await Promise.all([
+        const [files, quizzes, assignments, trainers, credits] = await Promise.all([
             fileItemIds.size === 0
                 ? Promise.resolve([] as any[])
                 : this.prisma.files.findMany({
@@ -222,6 +227,26 @@ export class CoursesDetailService {
                           },
                       },
                   }),
+            // Phase 47 — фильтр по kind обязателен: id тестов и тренажёров общие.
+            trainerItemIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.quizzes.findMany({
+                      where: { id: { in: Array.from(trainerItemIds) }, kind: 'trainer' },
+                      select: {
+                          id: true,
+                          translations: {
+                              where: { locale: 'kz' },
+                              select: { title: true },
+                              take: 1,
+                          },
+                      },
+                  }),
+            creditItemIds.size === 0
+                ? Promise.resolve([] as any[])
+                : this.prisma.credit.findMany({
+                      where: { id: { in: Array.from(creditItemIds).map((id) => BigInt(id)) }, deleted_at: null },
+                      select: { id: true, title: true, scheduled_at: true },
+                  }),
         ]);
 
         const fileById = new Map<number, any>((files as any[]).map((f) => [Number(f.id), f]));
@@ -229,6 +254,8 @@ export class CoursesDetailService {
         const assignmentById = new Map<number, any>(
             (assignments as any[]).map((a) => [Number(a.id), a]),
         );
+        const trainerById = new Map<number, any>((trainers as any[]).map((t) => [Number(t.id), t]));
+        const creditById = new Map<number, any>((credits as any[]).map((c) => [Number(c.id), c]));
 
         // Phase 29 — multi-file PDF blocks: one batched bridge query for all items.
         const pdfRows =
@@ -344,6 +371,8 @@ export class CoursesDetailService {
                 let file: ChapterItemDto['file'] = null;
                 let quiz: ChapterItemDto['quiz'] = null;
                 let assignment: ChapterItemDto['assignment'] = null;
+                let trainer: ChapterItemDto['trainer'] = null;
+                let credit: ChapterItemDto['credit'] = null;
                 let itTranslations: TranslationRowDto[] = [];
 
                 if (it.type === 'file') {
@@ -377,11 +406,22 @@ export class CoursesDetailService {
                             title: a.translations?.[0]?.title ?? '',
                         };
                     }
+                } else if (it.type === 'trainer') {
+                    const t = trainerById.get(refId);
+                    if (t) {
+                        trainer = { id: Number(t.id), title: t.translations?.[0]?.title ?? '' };
+                    }
+                } else if (it.type === 'credit') {
+                    const c = creditById.get(refId);
+                    if (c) {
+                        // У Credit заголовок плоский — отдельной таблицы переводов нет.
+                        credit = { id: Number(c.id), title: c.title ?? '', scheduled_at: c.scheduled_at ?? null };
+                    }
                 }
 
                 return {
                     id: Number(it.id),
-                    type: it.type as 'file' | 'quiz' | 'assignment',
+                    type: it.type as ChapterItemDto['type'],
                     order: it.order == null ? null : Number(it.order),
                     item_id: refId,
                     is_required: it.is_required !== false,
@@ -389,6 +429,8 @@ export class CoursesDetailService {
                     file,
                     quiz,
                     assignment,
+                    trainer,
+                    credit,
                     pdfs: pdfsByItem.get(Number(it.id)) ?? [],
                     attachments: attachmentsByItem.get(Number(it.id)) ?? [],
                     translations: itTranslations,

@@ -298,6 +298,14 @@ export class CoursesDuplicateService {
                     }
 
                     for (const it of ch.items as any[]) {
+                        // Phase 47 — зачёт привязан к course_id и group_id оригинала,
+                        // в копии такая ссылка заведомо битая. Копируем курс без него:
+                        // методист заведёт зачёт для новой группы отдельно.
+                        if (it.type === 'credit') {
+                            orphan_refs++;
+                            continue;
+                        }
+
                         let newItemRef = Number(it.item_id); // default: orphan passthrough.
                         let pdfBridge: Array<{ file_id: number; sort_order: number }> = [];
 
@@ -373,6 +381,16 @@ export class CoursesDuplicateService {
                             }
                         }
                         // quiz: newItemRef stays = source item_id (shared Quizzes row).
+
+                        // Phase 47 — тренажёр остаётся тем же (общая строка Quizzes), но
+                        // связь с курсом нужна своя: без trainer_courses для нового курса
+                        // тренажёр в копии будет недоступен ученику (404).
+                        if (it.type === 'trainer') {
+                            await tx.trainerCourse.createMany({
+                                data: [{ quiz_id: newItemRef, webinar_id: newWebinarId, created_at: now }],
+                                skipDuplicates: true,
+                            });
+                        }
 
                         const newItem: any = await tx.webinarChapterItem.create({
                             data: {

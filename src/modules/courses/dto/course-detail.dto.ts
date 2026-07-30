@@ -96,7 +96,22 @@ export interface ChapterItemAssignmentRef {
     title: string;
 }
 
-export type ChapterItemType = 'file' | 'quiz' | 'assignment';
+export type ChapterItemType = 'file' | 'quiz' | 'assignment' | 'trainer' | 'credit';
+
+/** Phase 47 — тренажёр, прикреплённый к главе (quizzes с kind='trainer'). */
+export interface ChapterItemTrainerRef {
+    id: number;
+    /** KZ-заголовок из QuizTranslation. Пустая строка, если перевода нет. */
+    title: string;
+}
+
+/** Phase 47 — зачёт, прикреплённый к главе. У Credit заголовок плоский, без переводов. */
+export interface ChapterItemCreditRef {
+    id: number;
+    title: string;
+    /** Unix seconds — когда зачёт назначен. */
+    scheduled_at: number | null;
+}
 
 /** Phase 44 — ученик с персональным доступом к узлу. */
 export interface AllowedUserRefDto {
@@ -121,6 +136,10 @@ export interface ChapterItemDto {
     file: ChapterItemFileRef | null;
     quiz: ChapterItemQuizRef | null;
     assignment: ChapterItemAssignmentRef | null;
+    /** Phase 47 — заполнено только при type='trainer'. */
+    trainer: ChapterItemTrainerRef | null;
+    /** Phase 47 — заполнено только при type='credit'. */
+    credit: ChapterItemCreditRef | null;
     /**
      * Phase 29 — non-empty when this file item is a multi-file PDF block. The
      * `file` ref still points at the first PDF (back-compat); `pdfs` is the full

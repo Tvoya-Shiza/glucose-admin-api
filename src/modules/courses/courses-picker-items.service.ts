@@ -63,6 +63,8 @@ export class CoursesPickerItemsService {
                 return this.listQuizzes(courseId, q, scope, skip, page_size, page);
             case 'trainer':
                 return this.listTrainers(courseId, q, scope, skip, page_size, page);
+            case 'credit':
+                return this.listCredits(courseId, q, skip, page_size, page);
         }
     }
 
@@ -321,6 +323,48 @@ export class CoursesPickerItemsService {
         ]);
 
         return this.shape(rows, total, page, take);
+    }
+
+    /**
+     * Phase 47 — зачёты для конструктора контента курса.
+     *
+     * Зачёт всегда принадлежит одному курсу (`credits.course_id`), поэтому scope
+     * здесь не применим — список и так сужен курсом.
+     *
+     * `searchOr` и `shape` не подходят: у Credit заголовок плоский (колонка
+     * `title`), таблицы переводов нет, — поэтому свой маленький маппер.
+     */
+    private async listCredits(
+        courseId: number,
+        q: string,
+        skip: number,
+        take: number,
+        page: number,
+    ): Promise<PickerItemsResponseDto> {
+        const where: any = { course_id: courseId, deleted_at: null };
+        if (q.length > 0) {
+            const ors: any[] = [{ title: { contains: q } }];
+            if (/^\d+$/.test(q)) ors.push({ id: BigInt(q) });
+            where.OR = ors;
+        }
+
+        const [total, rows] = await this.prisma.$transaction([
+            this.prisma.credit.count({ where }),
+            this.prisma.credit.findMany({
+                where,
+                select: { id: true, title: true },
+                orderBy: [{ id: 'asc' }],
+                skip,
+                take,
+            }),
+        ]);
+
+        const out: PickerItemRow[] = rows.map((r: any) => ({
+            id: Number(r.id),
+            title_kz: r.title ?? '',
+            title_ru: r.title ?? '',
+        }));
+        return { rows: out, total, page, page_size: take };
     }
 
     private shape(
