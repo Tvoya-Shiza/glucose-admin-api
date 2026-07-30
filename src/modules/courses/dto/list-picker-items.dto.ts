@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
-export const PICKER_ITEM_KINDS = ['lesson', 'quiz', 'assignment', 'file'] as const;
+export const PICKER_ITEM_KINDS = ['lesson', 'quiz', 'assignment', 'file', 'trainer'] as const;
 export type PickerItemKind = (typeof PICKER_ITEM_KINDS)[number];
 
 export const PICKER_ITEM_SCOPES = ['course', 'all'] as const;

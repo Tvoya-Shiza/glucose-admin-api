@@ -281,11 +281,13 @@ export class SchedulesMutationsService {
         const quizIds = new Set<number>();
         const assignmentIds = new Set<number>();
         const fileIds = new Set<number>();
+        const trainerIds = new Set<number>();
         for (const it of args.items) {
             if (it.kind === 'lesson') lessonIds.add(it.ref_id);
             else if (it.kind === 'quiz') quizIds.add(it.ref_id);
             else if (it.kind === 'assignment') assignmentIds.add(it.ref_id);
             else if (it.kind === 'file') fileIds.add(it.ref_id);
+            else if (it.kind === 'trainer') trainerIds.add(it.ref_id);
         }
 
         // When course_id is bound to the schedule, every ref MUST belong to that
@@ -296,7 +298,7 @@ export class SchedulesMutationsService {
         // the picker source-of-truth (CoursesPickerItemsService.listQuizzes).
         const courseFilter = typeof args.course_id === 'number' ? { webinar_id: args.course_id } : {};
 
-        const [lessons, quizzes, assignments, files] = await Promise.all([
+        const [lessons, quizzes, assignments, files, trainers] = await Promise.all([
             lessonIds.size === 0
                 ? Promise.resolve([] as Array<{ id: number }>)
                 : this.prisma.webinarChapter.findMany({
@@ -331,13 +333,29 @@ export class SchedulesMutationsService {
                       where: { id: { in: Array.from(fileIds) }, ...courseFilter },
                       select: { id: true },
                   }),
+            // Тренажёр принадлежит курсу через `trainer_courses`, а не через
+            // элементы главы: элементом дерева он не является. Фильтр по `kind`
+            // обязателен — иначе обычный тест прошёл бы как тренажёр.
+            trainerIds.size === 0
+                ? Promise.resolve([] as Array<{ id: number }>)
+                : this.prisma.quizzes.findMany({
+                      where: {
+                          id: { in: Array.from(trainerIds) },
+                          kind: 'trainer',
+                          ...(typeof args.course_id === 'number'
+                              ? { trainer_courses: { some: { webinar_id: args.course_id } } }
+                              : {}),
+                      },
+                      select: { id: true },
+                  }),
         ]);
 
         if (
             lessons.length !== lessonIds.size ||
             quizzes.length !== quizIds.size ||
             assignments.length !== assignmentIds.size ||
-            files.length !== fileIds.size
+            files.length !== fileIds.size ||
+            trainers.length !== trainerIds.size
         ) {
             throw new BadRequestException({
                 message:

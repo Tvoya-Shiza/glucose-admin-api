@@ -2405,6 +2405,9 @@ enum LessonScheduleItemKind {
   quiz
   assignment
   file
+  // Phase 46 — тренажёр (quizzes с kind='trainer'). Пространство id общее с
+  // тестами, поэтому резолвер обязан фильтровать по quizzes.kind.
+  trainer
 }
 
 //* Phase 33 — lesson / module access restriction by group (whitelist).

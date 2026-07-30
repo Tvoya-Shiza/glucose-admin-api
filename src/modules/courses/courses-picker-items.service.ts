@@ -61,6 +61,8 @@ export class CoursesPickerItemsService {
                 return this.listAssignments(courseId, q, scope, skip, page_size, page);
             case 'quiz':
                 return this.listQuizzes(courseId, q, scope, skip, page_size, page);
+            case 'trainer':
+                return this.listTrainers(courseId, q, scope, skip, page_size, page);
         }
     }
 
@@ -258,6 +260,53 @@ export class CoursesPickerItemsService {
             this.prisma.quizzes.count({ where: quizWhere }),
             this.prisma.quizzes.findMany({
                 where: quizWhere,
+                select: {
+                    id: true,
+                    translations: {
+                        where: { locale: { in: ['kz', 'ru'] } },
+                        select: { locale: true, title: true },
+                    },
+                },
+                orderBy: [{ id: 'asc' }],
+                skip,
+                take,
+            }),
+        ]);
+
+        return this.shape(rows, total, page, take);
+    }
+
+    /**
+     * Phase 46 — тренажёры для конструктора расписания.
+     *
+     * Отдельный kind, а не расширение `listQuizzes`: курсовый пикер тестов как
+     * прятал тренажёры (`kind='test'`), так и продолжает — смешивать их в одном
+     * списке нельзя, это разные сущности для куратора.
+     *
+     * Принадлежность курсу у тренажёра выражается связью `trainer_courses`, а не
+     * элементами главы: элементом дерева тренажёр не является.
+     */
+    private async listTrainers(
+        courseId: number,
+        q: string,
+        scope: PickerItemScope,
+        skip: number,
+        take: number,
+        page: number,
+    ): Promise<PickerItemsResponseDto> {
+        const where: any = { kind: 'trainer' };
+
+        if (scope === 'course') {
+            where.trainer_courses = { some: { webinar_id: courseId } };
+        }
+        if (q.length > 0) {
+            where.OR = this.searchOr(q);
+        }
+
+        const [total, rows] = await this.prisma.$transaction([
+            this.prisma.quizzes.count({ where }),
+            this.prisma.quizzes.findMany({
+                where,
                 select: {
                     id: true,
                     translations: {
