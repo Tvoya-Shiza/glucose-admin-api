@@ -5,6 +5,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
+import { sortByOperatorSeq } from './utils/import-order';
 import { nowSec } from './quizzes-mutations.service';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
 import {
@@ -36,7 +37,10 @@ const ANSWER_TITLE_MAX = 1000;
 
 export interface QuestionImportRow {
     sheet: string;
+    /** Physical spreadsheet row — what the operator scrolls to in Excel. */
     row: number;
+    /** The operator's own «№» value; null when the column was left empty. */
+    seq: number | null;
     type: ImportQuestionType;
     title: string;
     status: 'ok' | 'error';
@@ -99,7 +103,7 @@ export class QuizzesQuestionsImportService {
     public async importFromBuffer(actor: ScopeActor, quizId: number, buf: Buffer) {
         await this.questionsService.assertQuizScope(actor, quizId);
 
-        const parsed = await this.builder.parse(buf);
+        const parsed = sortByOperatorSeq(await this.builder.parse(buf));
         const rows: QuestionImportRow[] = [];
         let succeeded = 0;
         let failed = 0;
@@ -119,20 +123,20 @@ export class QuizzesQuestionsImportService {
             const validation = this.validate(pq);
             const displayTitle = validation.prepared?.title ?? pq.title ?? '';
             if (validation.reason) {
-                rows.push({ sheet: pq.sheet, row: pq.row, type: pq.type, title: displayTitle, status: 'error', reason: validation.reason, question_id: null });
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'error', reason: validation.reason, question_id: null });
                 failed++;
                 continue;
             }
 
             try {
                 const created = await this.persist(quizId, pq.type, validation.prepared!, nextOrder);
-                rows.push({ sheet: pq.sheet, row: pq.row, type: pq.type, title: displayTitle, status: 'ok', reason: null, question_id: created.questionId });
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'ok', reason: null, question_id: created.questionId });
                 succeeded++;
                 importedAnswers += created.answersCreated;
                 nextOrder++;
             } catch (e) {
                 this.logger.warn(`question import row failed sheet="${pq.sheet}" row=${pq.row} err=${(e as Error).message}`);
-                rows.push({ sheet: pq.sheet, row: pq.row, type: pq.type, title: displayTitle, status: 'error', reason: 'db_error', question_id: null });
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'error', reason: 'db_error', question_id: null });
                 failed++;
             }
         }

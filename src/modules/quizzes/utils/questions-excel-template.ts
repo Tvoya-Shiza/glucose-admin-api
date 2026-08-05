@@ -54,6 +54,13 @@ export interface ParsedQuestionRow {
     sheet: string;
     /** Real spreadsheet row number (1-based, header is row 1). */
     row: number;
+    /**
+     * The operator's own «№» value (column 1), when they filled it in. This is
+     * what a methodologist means by "question 3" — the physical `row` above is
+     * off by one from it because of the header, and differs again per sheet.
+     * null = left empty, which is allowed and documented in the template.
+     */
+    seq: number | null;
     type: ImportQuestionType;
     /** Raw grade cell text (null = empty). */
     gradeRaw: string | null;
@@ -100,6 +107,20 @@ function cellString(v: ExcelJS.CellValue): string | null {
     }
     const s = String(v).trim();
     return s.length === 0 ? null : s;
+}
+
+/**
+ * «№» column. Lenient on purpose — this is the operator's hand-written ordering
+ * hint, not data: anything that isn't a positive integer is treated as "не
+ * заполнено" and never fails the row. Note that readRow's empty-row checks
+ * deliberately ignore seq, so a pre-numbered but otherwise blank template row
+ * stays skipped instead of turning into an error line.
+ */
+function parseSeqCell(v: ExcelJS.CellValue): number | null {
+    const raw = cellString(v);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 function parseGradeCell(v: ExcelJS.CellValue): { raw: string | null; value: number | null } {
@@ -179,7 +200,10 @@ function addInstructionsSheet(wb: ExcelJS.Workbook): void {
         '',
         'Общие правила:',
         '• Каждый тип вопроса — на своём листе. Заполняйте только нужные листы; пустые листы можно не трогать.',
-        '• Колонка «№» — справочная, её можно не заполнять. При ошибке система укажет реальный номер строки в Excel.',
+        '• Колонка «№» задаёт ПОРЯДОК вопросов в тесте — сквозной по всем листам. Например, №1 на листе «Один ответ» и №2 на листе «Соотношение» встанут именно в этом порядке.',
+        '• Если «№» не заполнить, вопросы встанут в порядке листов: сначала все «Один ответ», потом «Множественный» и так далее.',
+        '• Строки без «№» добавляются после пронумерованных.',
+        '• В отчёте об ошибках показываются оба номера: ваш «№» и реальный номер строки в Excel (он на единицу больше из-за строки-шапки).',
         '• Полностью пустые строки игнорируются.',
         '• Текст вопросов и ответов вводится на казахском языке (KZ).',
         '• «Балл» — целое число ≥ 1 (обязательно).',
@@ -281,6 +305,7 @@ export class QuestionsExcelTemplateBuilder {
         row: ExcelJS.Row,
         rowNumber: number,
     ): ParsedQuestionRow | null {
+        const seq = parseSeqCell(row.getCell(1).value);
         const grade = parseGradeCell(row.getCell(2).value);
         const title = cellString(row.getCell(3).value);
         const description = cellString(row.getCell(4).value);
@@ -288,6 +313,7 @@ export class QuestionsExcelTemplateBuilder {
         const base: ParsedQuestionRow = {
             sheet,
             row: rowNumber,
+            seq,
             type,
             gradeRaw: grade.raw,
             grade: grade.value,
