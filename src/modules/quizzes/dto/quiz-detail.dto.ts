@@ -21,6 +21,7 @@
  */
 
 import type { Locale } from './translation.dto';
+import { PASS_MARK_TYPES, type PassMarkType } from '@shared/quiz-scoring';
 
 export type QuizDetailStatus = 'active' | 'inactive';
 export type QuizQuestionType = 'single' | 'multiple' | 'descriptive' | 'identificative';
@@ -113,6 +114,10 @@ export interface QuizDetailDto {
     /** Seconds. null = no time limit. */
     time: number | null;
     pass_mark: number;
+    /** Как читать pass_mark (phase-48). */
+    pass_mark_type: PassMarkType;
+    /** Максимум за тест — сумма баллов вопросов. Заполняется recalcQuizTotal. */
+    total_mark: number;
     /** null = unlimited attempts. */
     attempt: number | null;
     certificate: boolean;

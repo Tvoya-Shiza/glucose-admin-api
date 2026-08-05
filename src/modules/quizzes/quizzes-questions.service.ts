@@ -24,6 +24,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
 import { nowSec } from './quizzes-mutations.service';
+import { recalcQuizTotal } from './utils/quiz-total';
 
 /**
  * QZ-02 / QZ-03 / QZ-06 — admin/teacher question CRUD with destructive-edit
@@ -161,6 +162,7 @@ export class QuizzesQuestionsService {
                     },
                 });
             }
+            await recalcQuizTotal(tx, quizId);
             return q;
         });
 
@@ -251,6 +253,7 @@ export class QuizzesQuestionsService {
             for (const t of dto.translations ?? []) {
                 await this.upsertQuestionTranslation(tx, questionId, t, dto.type);
             }
+            await recalcQuizTotal(tx, quizId);
             if (isDestructive) {
                 const bumped: any = await tx.quizzes.update({
                     where: { id: quizId },
@@ -313,6 +316,7 @@ export class QuizzesQuestionsService {
         const toVersion = await this.prisma.$transaction(async (tx) => {
             // schema cascades translations + answers + answer translations
             await tx.quizQuestion.delete({ where: { id: questionId } });
+            await recalcQuizTotal(tx, quizId);
             const bumped: any = await tx.quizzes.update({
                 where: { id: quizId },
                 data: { version: { increment: 1 }, updated_at: nowSec() },

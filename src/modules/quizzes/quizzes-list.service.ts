@@ -13,6 +13,7 @@ import type {
 import { QUIZ_SCOPE_RULES } from './quizzes.scope';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { buildQuizListCacheKey } from './utils/quizzes-cache';
+import type { PassMarkType } from '@shared/quiz-scoring';
 
 /**
  * QZ-01 — paginated, scoped, filtered, search-able quizzes list (Plan 02).
@@ -137,6 +138,8 @@ export class QuizzesListService {
                     version: true,
                     time: true,
                     pass_mark: true,
+                    pass_mark_type: true,
+                    total_mark: true,
                     attempt: true,
                     certificate: true,
                     is_listed: true,
@@ -212,6 +215,8 @@ export class QuizzesListService {
             category,
             time: r.time == null ? null : Number(r.time),
             pass_mark: Number(r.pass_mark ?? 0),
+            pass_mark_type: (r.pass_mark_type ?? 'points') as PassMarkType,
+            total_mark: Number(r.total_mark ?? 0),
             attempt: r.attempt == null ? null : Number(r.attempt),
             certificate: !!r.certificate,
             is_listed: !!r.is_listed,

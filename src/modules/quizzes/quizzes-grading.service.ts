@@ -8,13 +8,7 @@ import { GradeAnswerDto } from './dto/grade-answer.dto';
 import { buildResultsWhere } from './quizzes-results-where';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
-
-/** Вес вопроса по типу; для развёрнутого берётся собственный `grade` вопроса. */
-const ENT_POINTS: Partial<Record<string, number>> = {
-    single: 1,
-    multiple: 2,
-    identificative: 2,
-};
+import { questionMaxPoints, resolvePassThreshold } from '@shared/quiz-scoring';
 
 interface EvaluatedAnswer {
     status: boolean | 'waiting';
@@ -74,10 +68,10 @@ export class QuizzesGradingService {
         const evaluated = this.parseResults(row.results);
         const questions = (row.quiz?.questions ?? []) as any[];
 
-        let maxGrade = 0;
+        let computedMax = 0;
         const answers: PendingAnswerDto[] = questions.map((q) => {
-            const max = ENT_POINTS[q.type] ?? (Number(q.grade) || 1);
-            maxGrade += max;
+            const max = questionMaxPoints(q.grade);
+            computedMax += max;
 
             const ev = evaluated[String(q.id)];
             const translations = (q.translations ?? []) as Array<{ locale: string; title: string | null; correct: string | null }>;
@@ -108,7 +102,8 @@ export class QuizzesGradingService {
             status: row.status,
             needs_grading: Boolean(row.needs_grading),
             user_grade: Number(row.user_grade ?? 0),
-            max_grade: maxGrade,
+            // Снимок с момента сдачи; computedMax — только для попыток старше phase-48.
+            max_grade: Number(row.max_grade ?? 0) || computedMax,
             pass_mark: Number(row.quiz?.pass_mark ?? 0),
             created_at: Number(row.created_at),
             answers,
@@ -130,14 +125,18 @@ export class QuizzesGradingService {
         const entry = evaluated[String(questionId)];
         if (!entry) throw new NotFoundException('quizzes.answer_not_found');
 
-        const max = ENT_POINTS[question.type] ?? (Number(question.grade) || 1);
+        const max = questionMaxPoints(question.grade);
         const isCorrect = dto.verdict === 'correct';
         evaluated[String(questionId)] = { ...entry, status: isCorrect, grade: isCorrect ? max : 0 };
 
         // Пересчитываем итог по всем ответам, а не правим дельтой: так результат
         // остаётся согласованным, даже если что-то правили до нас.
         const totalMark = Object.values(evaluated).reduce((sum, e) => sum + Number(e.grade ?? 0), 0);
-        const passMark = Number(row.quiz?.pass_mark ?? 0);
+        // Порог считаем тем же хелпером, что и автоматическая сдача: иначе
+        // ручная проверка выносила бы другой вердикт при том же числе баллов.
+        const maxGrade = Number(row.max_grade ?? 0) || (row.quiz?.questions ?? []).reduce(
+            (sum: number, q: any) => sum + questionMaxPoints(q.grade), 0);
+        const passThreshold = resolvePassThreshold(row.quiz?.pass_mark, row.quiz?.pass_mark_type, maxGrade);
         const stillWaiting = Object.values(evaluated).some((e) => e.status === 'waiting');
 
         await this.prisma.quizResult.update({
@@ -145,7 +144,7 @@ export class QuizzesGradingService {
             data: {
                 results: JSON.stringify(evaluated),
                 user_grade: totalMark,
-                status: totalMark >= passMark ? 'passed' : 'failed',
+                status: totalMark >= passThreshold ? 'passed' : 'failed',
                 needs_grading: stillWaiting,
             },
         });
@@ -174,6 +173,7 @@ export class QuizzesGradingService {
                 user_id: true,
                 results: true,
                 user_grade: true,
+                max_grade: true,
                 status: true,
                 needs_grading: true,
                 created_at: true,
@@ -182,6 +182,7 @@ export class QuizzesGradingService {
                     select: {
                         id: true,
                         pass_mark: true,
+                        pass_mark_type: true,
                         translations: { select: { locale: true, title: true } },
                         questions: {
                             select: {

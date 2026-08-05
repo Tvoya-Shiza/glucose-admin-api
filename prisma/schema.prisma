@@ -17,6 +17,14 @@ enum QuizStatus {
   inactive
 }
 
+/// Как трактовать `quizzes.pass_mark` (phase-48): абсолютные баллы или процент
+/// от максимума. Раньше режима не было, и введённый процент сравнивался с
+/// суммой баллов — так появлялись тесты с порогом 50 при максимуме 3.
+enum PassMarkType {
+  points
+  percent
+}
+
 enum QuizQuestionType {
   single
   multiple
@@ -603,6 +611,8 @@ model Quizzes {
   time                       Int?       @default(0)
   attempt                    Int?
   pass_mark                  Int
+  /// Как читать pass_mark (phase-48).
+  pass_mark_type             PassMarkType @default(points)
   certificate                Boolean
   status                     QuizStatus @default(active)
   kind                       QuizKind   @default(test)
@@ -781,6 +791,8 @@ model QuizResult {
   user_id               Int              @db.UnsignedInt
   results               String?          @db.Text
   user_grade            Int?             @db.UnsignedInt
+  /// Снимок максимума на момент сдачи (phase-48). null — попытка старше миграции.
+  max_grade             Int?             @db.UnsignedInt
   status                QuizResultStatus @default(waiting)
   /// Ожидает ручной проверки развёрнутого ответа (phase-45).
   needs_grading         Boolean          @default(false)

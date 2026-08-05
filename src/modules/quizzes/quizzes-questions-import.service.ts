@@ -6,6 +6,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
 import { sortByOperatorSeq } from './utils/import-order';
+import { recalcQuizTotal } from './utils/quiz-total';
 import { nowSec } from './quizzes-mutations.service';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
 import {
@@ -142,6 +143,9 @@ export class QuizzesQuestionsImportService {
         }
 
         if (succeeded > 0) {
+            // Каждый вопрос вставляется в своей транзакции, поэтому пересчёт —
+            // один раз в конце, а не внутри каждой.
+            await recalcQuizTotal(this.prisma, quizId);
             await this.cache.invalidate(QUIZZES_INVALIDATE_PATTERN);
         }
 

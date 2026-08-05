@@ -12,6 +12,7 @@ import {
     ValidateNested,
 } from 'class-validator';
 import { TranslationDto } from './translation.dto';
+import { PASS_MARK_TYPES, type PassMarkType } from '@shared/quiz-scoring';
 
 /**
  * QZ-03 create-quiz payload.
@@ -69,6 +70,16 @@ export class CreateQuizDto {
     @IsInt()
     @Min(0)
     pass_mark!: number;
+
+    /**
+     * Как читать pass_mark (phase-48). Для новых тестов форма шлёт 'percent':
+     * методисты и раньше вводили туда процент, просто сервер об этом не знал.
+     * Значение по умолчанию 'points' оставлено ради обратной совместимости со
+     * старыми клиентами, которые поле не шлют вовсе.
+     */
+    @IsOptional()
+    @IsIn([...PASS_MARK_TYPES])
+    pass_mark_type?: PassMarkType;
 
     /** null = unlimited attempts. */
     @IsOptional()
