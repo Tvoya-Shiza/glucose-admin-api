@@ -12,6 +12,10 @@ import { QuizzesDetailController } from './quizzes-detail.controller';
 import { QuizzesDetailService } from './quizzes-detail.service';
 import { QuizzesQuestionsController } from './quizzes-questions.controller';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
+import { QuizPassagesController } from './quiz-passages.controller';
+import { QuizPassagesService } from './quiz-passages.service';
+import { QuizTopicsController } from './quiz-topics.controller';
+import { QuizTopicsService } from './quiz-topics.service';
 import { QuizzesQuestionsImportService } from './quizzes-questions-import.service';
 import { QuizzesAnswersController } from './quizzes-answers.controller';
 import { QuizzesAnswersService } from './quizzes-answers.service';
@@ -46,6 +50,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
 @Module({
     imports: [AccessModule],
     controllers: [
+        QuizPassagesController,
+        QuizTopicsController,
         QuizzesListController,
         QuizzesMutationsController,
         QuizzesDuplicateController,
@@ -58,6 +64,8 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesResultsController,
     ],
     providers: [
+        QuizPassagesService,
+        QuizTopicsService,
         QuizzesListService,
         QuizzesMutationsService,
         QuizzesDuplicateService,

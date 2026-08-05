@@ -19,6 +19,7 @@
  */
 
 import type { QuizQuestionCountBucket } from './list-quizzes.dto';
+import { PASS_MARK_TYPES, type PassMarkType } from '@shared/quiz-scoring';
 
 export type QuizRowStatus = 'active' | 'inactive';
 export type RowTranslationCompleteness = 'complete' | 'incomplete';
@@ -47,6 +48,10 @@ export interface QuizRowDto {
     time: number | null;
     /** REQUIRED on schema, but surfaces as number here for direct render. */
     pass_mark: number;
+    /** Как читать pass_mark (phase-48). */
+    pass_mark_type: PassMarkType;
+    /** Максимум за тест — нужен, чтобы список показал «порог X из Y». */
+    total_mark: number;
     /** null = unlimited attempts. */
     attempt: number | null;
     certificate: boolean;

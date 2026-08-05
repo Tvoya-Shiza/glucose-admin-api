@@ -5,6 +5,7 @@ import type { ScopeActor } from '../../common/scoping/scope.types';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { nowSec, readQuizDetail } from './quizzes-mutations.service';
+import { recalcQuizTotal } from './utils/quiz-total';
 
 /**
  * QZ-07 — POST /admin-api/v1/admin/quizzes/:id/duplicate (Plan 02).
@@ -108,6 +109,7 @@ export class QuizzesDuplicateService {
                     subject_id: source.subject_id ?? null,
                     time: source.time ?? 0,
                     pass_mark: source.pass_mark,
+                    pass_mark_type: source.pass_mark_type,
                     attempt: source.attempt ?? null,
                     certificate: !!source.certificate,
                     display_questions_randomly: !!source.display_questions_randomly,
@@ -119,9 +121,13 @@ export class QuizzesDuplicateService {
             });
 
             // 2. Copy quiz translations.
-            if ((source.translations ?? []).length > 0) {
+            // Копируем только kz. Тащить legacy-строку 'ru' нельзя: у копии она
+            // перебивала бы казахское название ровно так же, как перебивала у
+            // оригинала до phase-48, и переименование копии снова «не работало бы».
+            const copiedTranslations = (source.translations ?? []).filter((t: any) => t.locale === 'kz');
+            if (copiedTranslations.length > 0) {
                 await tx.quizTranslation.createMany({
-                    data: source.translations.map((t: any) => ({
+                    data: copiedTranslations.map((t: any) => ({
                         quiz_id: newQuiz.id,
                         locale: t.locale,
                         title: t.title,
@@ -225,6 +231,10 @@ export class QuizzesDuplicateService {
                     }
                 }
             }
+
+            // Максимум копии считаем здесь же: у копии свои вопросы, и без этого
+            // она уехала бы с total_mark = null (phase-48).
+            await recalcQuizTotal(tx, Number(newQuiz.id));
 
             return Number(newQuiz.id);
         });

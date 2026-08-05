@@ -35,6 +35,11 @@ export class CreditsExpiryCronService {
     @CronLock('credits-expire-sessions', 120_000)
     public async expireOverdueSessions(): Promise<void> {
         const now = nowSec();
+        // Только 'in_progress'. Сессию на паузе подметальщик трогать НЕ должен:
+        // её таймер стоит, а `ends_at` сдвинется вперёд при возобновлении —
+        // иначе пауза длиннее остатка времени молча убила бы сессию, пока
+        // ученик отсутствует (phase-50). Раньше это выполнялось случайно,
+        // потому что другого статуса просто не было; теперь это решение.
         const overdue = await this.prisma.creditSession.findMany({
             where: { status: 'in_progress', ends_at: { lt: now - SESSION_GRACE_SEC } },
             select: { id: true },

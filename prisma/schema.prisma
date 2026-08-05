@@ -17,6 +17,14 @@ enum QuizStatus {
   inactive
 }
 
+/// Как трактовать `quizzes.pass_mark` (phase-48): абсолютные баллы или процент
+/// от максимума. Раньше режима не было, и введённый процент сравнивался с
+/// суммой баллов — так появлялись тесты с порогом 50 при максимуме 3.
+enum PassMarkType {
+  points
+  percent
+}
+
 enum QuizQuestionType {
   single
   multiple
@@ -603,6 +611,8 @@ model Quizzes {
   time                       Int?       @default(0)
   attempt                    Int?
   pass_mark                  Int
+  /// Как читать pass_mark (phase-48).
+  pass_mark_type             PassMarkType @default(points)
   certificate                Boolean
   status                     QuizStatus @default(active)
   kind                       QuizKind   @default(test)
@@ -616,6 +626,7 @@ model Quizzes {
   subject       QuizSubject?   @relation("QuizSubjects", fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   quiz_category QuizCategory?  @relation("QuizCategories", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   questions     QuizQuestion[] @relation("QuizQuestions")
+  passages      QuizPassage[]  @relation("QuizPassages")
   results       QuizResult[]   @relation("QuizResults")
   sales         Sale[]         @relation("QuizSales")
   carts         Cart[]         @relation(name: "QuizCarts")
@@ -708,6 +719,10 @@ model QuizSubjectTranslation {
 model QuizQuestion {
   id               Int              @id @default(autoincrement())
   quiz_id          Int              @db.UnsignedInt
+  /// Тема из справочника (phase-51). Nullable: старые вопросы темы не имеют.
+  topic_id         Int?             @db.UnsignedInt
+  /// Текстовый блок, общий для нескольких вопросов (phase-52).
+  passage_id       Int?             @db.UnsignedInt
   grade            Int
   answer_video_url String?          @db.VarChar(255)
   type             QuizQuestionType @default(single)
@@ -719,12 +734,81 @@ model QuizQuestion {
 
   quiz    Quizzes              @relation("QuizQuestions", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   answers QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
+  /// SetNull: удаление темы не уносит с собой вопросы.
+  topic   QuizTopic?           @relation("QuizTopicQuestions", fields: [topic_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  /// SetNull: удаление блока превращает вопросы в обычные, а не уносит их.
+  passage QuizPassage?         @relation("QuizPassageQuestions", fields: [passage_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   trainer_attempt_questions TrainerAttemptQuestion[] @relation("TrainerQuestionProvenance")
 
   translations QuizQuestionTranslation[] @relation("QuizQuestionTranslations")
 
+  @@index([topic_id], map: "idx_qq_topic")
+  @@index([passage_id], map: "idx_qq_passage")
   @@map("quizzes_questions")
+}
+
+/// Стимульный текст, общий для нескольких вопросов (phase-52) — формат ҰБТ:
+/// отрывок или условие, к которому идут 3–5 вопросов.
+///
+/// Отдельная сущность, а не поле у вопроса: текст редактируется один раз,
+/// вопрос можно переносить между блоками, а фронт получает стабильный ключ и
+/// не размонтирует панель текста между вопросами одного блока — это и есть
+/// «неподвижность текста», о которой просил заказчик.
+model QuizPassage {
+  id         Int    @id @default(autoincrement()) @db.UnsignedInt
+  quiz_id    Int    @db.UnsignedInt
+  /// Порядок блоков в тесте; вопросы блока идут подряд по своему `order`.
+  position   Int    @default(0) @db.UnsignedInt
+  image      String? @db.Text
+  created_at Int    @db.UnsignedInt
+  updated_at Int?   @db.UnsignedInt
+
+  quiz         Quizzes                  @relation("QuizPassages", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+  translations QuizPassageTranslation[] @relation("QuizPassageTranslations")
+  questions    QuizQuestion[]           @relation("QuizPassageQuestions")
+
+  @@index([quiz_id, position], map: "idx_quiz_passages_quiz")
+  @@map("quiz_passages")
+}
+
+model QuizPassageTranslation {
+  id         Int    @id @default(autoincrement()) @db.UnsignedInt
+  passage_id Int    @db.UnsignedInt
+  locale     String @db.VarChar(8)
+  title      String? @db.VarChar(255)
+  /// Стимульный текст: Tiptap HTML, как и `description` вопроса.
+  body       String @db.MediumText
+
+  passage QuizPassage @relation("QuizPassageTranslations", fields: [passage_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
+
+  /// Уникальность ставится СРАЗУ: у quiz_translations её не было, и phase-48
+  /// пришлось схлопывать накопившиеся дубликаты.
+  @@unique([passage_id, locale], map: "uq_quiz_passage_tr_locale")
+  @@map("quiz_passage_translations")
+}
+
+/// Справочник тем тестов (phase-51). Клон `CreditTopic` без привязки к курсу:
+/// та же иерархия, та же защита от циклов, тот же CRUD. Id — Int, а не BigInt:
+/// вопросы тестов живут в int-мире, третий формат идентификатора на фронте не
+/// нужен никому.
+model QuizTopic {
+  id         Int              @id @default(autoincrement()) @db.UnsignedInt
+  parent_id  Int?             @db.UnsignedInt
+  name       String           @db.VarChar(255)
+  position   Int              @default(0) @db.UnsignedInt
+  status     CreditBankStatus @default(active)
+  created_by Int              @db.UnsignedInt
+  created_at Int              @db.UnsignedInt
+  updated_at Int?             @db.UnsignedInt
+
+  parent    QuizTopic?     @relation("QuizTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children  QuizTopic[]    @relation("QuizTopicParent")
+  questions QuizQuestion[] @relation("QuizTopicQuestions")
+
+  @@index([parent_id, position], map: "idx_quiz_topics_parent")
+  @@index([status], map: "idx_quiz_topics_status")
+  @@map("quiz_topics")
 }
 
 model QuizQuestionTranslation {
@@ -781,6 +865,8 @@ model QuizResult {
   user_id               Int              @db.UnsignedInt
   results               String?          @db.Text
   user_grade            Int?             @db.UnsignedInt
+  /// Снимок максимума на момент сдачи (phase-48). null — попытка старше миграции.
+  max_grade             Int?             @db.UnsignedInt
   status                QuizResultStatus @default(waiting)
   /// Ожидает ручной проверки развёрнутого ответа (phase-45).
   needs_grading         Boolean          @default(false)
@@ -2702,6 +2788,12 @@ model CreditSession {
   started_at       Int?                @db.UnsignedInt
   // started_at + duration_sec, fixed at session start (curator opens it).
   ends_at          Int?                @db.UnsignedInt
+  /// Момент постановки на паузу (phase-50). NULL = не на паузе.
+  paused_at        Int?                @db.UnsignedInt
+  /// Накопленное время на паузе — для разбора спорных сессий.
+  paused_total_sec Int                 @default(0) @db.UnsignedInt
+  /// Сколько добавил куратор сверх исходной длительности.
+  extended_total_sec Int               @default(0) @db.UnsignedInt
   finished_at      Int?                @db.UnsignedInt
   score            Int?                @db.UnsignedInt
   max_score        Int                 @db.UnsignedInt
@@ -2788,6 +2880,8 @@ enum CreditSessionStatus {
   finished
   expired
   cancelled
+  /// phase-50 — дописано в конец списка.
+  paused
 }
 
 enum CreditQuestionMark {

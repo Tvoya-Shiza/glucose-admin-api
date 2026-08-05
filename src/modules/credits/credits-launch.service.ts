@@ -4,6 +4,7 @@ import { apiResponse } from '../../common/utils/api-response';
 import { buildScopeWhere } from '../../common/scoping/scope.helper';
 import type { ScopeActor } from '../../common/scoping/scope.types';
 import type { CreditDifficulty, CreditQuestionDeficit } from '@shared/credits';
+import { creditRemainingSec } from '@shared/credits';
 import { CREDIT_SCOPE_RULES } from './credits.scope';
 import { CreateLaunchDto } from './dto/create-launch.dto';
 import { ListLaunchesDto } from './dto/list-launches.dto';
@@ -101,7 +102,7 @@ export class CreditsLaunchService {
 
                     // 4. No pending/in_progress session for any selected student.
                     const activeSessions = await tx.creditSession.findMany({
-                        where: { credit_id: creditId, student_id: { in: studentIds }, status: { in: ['pending', 'in_progress'] } },
+                        where: { credit_id: creditId, student_id: { in: studentIds }, status: { in: ['pending', 'in_progress', 'paused'] } },
                         select: { student_id: true },
                     });
                     if (activeSessions.length > 0) {
@@ -377,7 +378,7 @@ export class CreditsLaunchService {
             created_at: l.created_at,
             session_count: l.sessions.length,
             passed_count: l.sessions.filter((s) => s.passed === true).length,
-            active_count: l.sessions.filter((s) => s.status === 'pending' || s.status === 'in_progress').length,
+            active_count: l.sessions.filter((s) => s.status === 'pending' || s.status === 'in_progress' || s.status === 'paused').length,
         }));
 
         return { rows, total, pageCount: Math.max(1, Math.ceil(total / page_size)) };
@@ -417,6 +418,7 @@ export class CreditsLaunchService {
                         max_score: true,
                         passed: true,
                         ends_at: true,
+                        paused_at: true,
                         student: { select: { id: true, full_name: true } },
                         questions: { select: { mark: true, score: true } },
                     },
@@ -446,7 +448,11 @@ export class CreditsLaunchService {
                 max_score: s.max_score,
                 passed: s.passed,
                 ends_at: s.ends_at,
-                remaining_sec: s.status === 'in_progress' && s.ends_at != null ? Math.max(0, s.ends_at - server_now) : null,
+                remaining_sec: creditRemainingSec(
+                    s.status === 'in_progress' || s.status === 'paused' ? s.ends_at : null,
+                    s.paused_at,
+                    server_now,
+                ),
             };
         });
 

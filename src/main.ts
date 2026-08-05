@@ -9,6 +9,7 @@ import * as path from 'path';
 import { AppModule } from './app.module';
 import { winstonConfig } from './config/logger.config';
 import { BigIntStringInterceptor } from './common/interceptors/bigint-string.interceptor';
+import { MediaSigningInterceptor } from './common/interceptors/media-signing.interceptor';
 
 const validationPipeOptions: ValidationPipeOptions = {
     whitelist: true,
@@ -32,7 +33,10 @@ async function bootstrap() {
     app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
 
     app.useGlobalPipes(new ValidationPipe(validationPipeOptions));
-    app.useGlobalInterceptors(new BigIntStringInterceptor());
+    // Подпись ссылок на /static/ идёт после BigInt-преобразования: те же файлы
+    // раздаются и с админских доменов, и оставить их там открытыми значило бы
+    // не закрыть дыру вовсе (phase-49).
+    app.useGlobalInterceptors(new BigIntStringInterceptor(), new MediaSigningInterceptor());
 
     // Cookie parsing — required for /admin-api/auth/logout's refresh-cookie fallback (Phase 2 Plan 04).
     // Registered before helmet so subsequent middleware can read req.cookies.

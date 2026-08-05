@@ -17,6 +17,14 @@ import type {
     MemberRowDto,
 } from './dto/group-detail.dto';
 import type { ResolveMembersDto, ResolveMembersResultDto, ResolveResultRowDto, StudentCandidateDto } from './dto/resolve-members.dto';
+import {
+    DEFAULT_CANDIDATES_LIMIT,
+    MAX_CANDIDATES_LIMIT,
+    MIN_QUERY_LENGTH,
+    type MemberCandidatesQueryDto,
+    type MemberCandidatesResultDto,
+} from './dto/member-candidates.dto';
+import { STUDENT_ROLE_NAMES } from '@shared/roles';
 
 /** A learner row selected for resolution/matching (subset of User columns). */
 type ResolveLearner = {
@@ -150,6 +158,71 @@ export class GroupsMembersService {
         if (actor.role_name === 'curator' && Number(exists.supervisor_id ?? 0) !== actor.id) {
             throw new ForbiddenException('groups.forbidden_scope');
         }
+    }
+
+    /**
+     * Поиск учеников, которых можно добавить в поток.
+     *
+     * Сознательно НЕ применяет `USER_SCOPE_RULES`: тот сужает выдачу до людей,
+     * уже состоящих в потоках куратора, и нового ученика найти не даёт в
+     * принципе. Компенсируется тем, что дверь узкая — см. комментарий в
+     * `member-candidates.dto.ts`: только ученические роли, запрос от трёх
+     * символов, урезанный набор полей и та же проверка владения потоком.
+     */
+    public async listCandidates(
+        actor: ScopeActor,
+        groupId: number,
+        query: MemberCandidatesQueryDto,
+    ): Promise<MemberCandidatesResultDto> {
+        await this.assertScope(actor, groupId);
+
+        const q = query.q.trim();
+        if (q.length < MIN_QUERY_LENGTH) {
+            // MinLength уже отсекает это на валидации; проверка повторена, потому что
+            // trim() может укоротить строку уже после неё («  ab  » проходит как 6).
+            throw new BadRequestException('groups.candidates.query_too_short');
+        }
+        const limit = Math.min(MAX_CANDIDATES_LIMIT, Math.max(1, query.limit ?? DEFAULT_CANDIDATES_LIMIT));
+
+        // Телефон ищем по тем же вариантам хранения, что и резолвер импорта, но
+        // только когда в запросе действительно есть номер: иначе поиск по имени
+        // вроде «Аян» превратился бы в лишний OR по индексу mobile.
+        const nsn = phoneNsn(q);
+        const or: any[] = [{ full_name: { contains: q } }];
+        if (nsn) or.push({ mobile: { in: phoneStorageVariants(nsn) } });
+
+        const where: any = {
+            role_name: { in: [...STUDENT_ROLE_NAMES] },
+            deleted_at: null,
+            OR: or,
+        };
+
+        const [found, total] = await Promise.all([
+            this.prisma.user.findMany({
+                where,
+                select: {
+                    id: true,
+                    full_name: true,
+                    mobile: true,
+                    status: true,
+                    group_users: { where: { group_id: groupId }, select: { group_id: true }, take: 1 },
+                },
+                orderBy: [{ full_name: 'asc' }, { id: 'asc' }],
+                take: limit,
+            }),
+            this.prisma.user.count({ where }),
+        ]);
+
+        return {
+            rows: found.map((u: any) => ({
+                user_id: Number(u.id),
+                full_name: u.full_name ?? null,
+                mobile_tail: phoneNsn(u.mobile)?.slice(-4) ?? null,
+                status: u.status,
+                in_this_group: (u.group_users?.length ?? 0) > 0,
+            })),
+            total,
+        };
     }
 
     public async listMembers(
@@ -480,7 +553,7 @@ export class GroupsMembersService {
         // `+77...` and `77...` stored forms collapse to the same lookup key.
         const phoneUsers: ResolveLearner[] = phoneVariantSet.size
             ? await this.prisma.user.findMany({
-                  where: { role_name: 'user', deleted_at: null, mobile: { in: Array.from(phoneVariantSet) } },
+                  where: { role_name: { in: [...STUDENT_ROLE_NAMES] }, deleted_at: null, mobile: { in: Array.from(phoneVariantSet) } },
                   select: { id: true, full_name: true, mobile: true, email: true, status: true },
               })
             : [];
@@ -494,7 +567,7 @@ export class GroupsMembersService {
         // the IN() comparison case-insensitive; whitespace must already be collapsed).
         const nameUsers: ResolveLearner[] = nameQuerySet.size
             ? await this.prisma.user.findMany({
-                  where: { role_name: 'user', deleted_at: null, full_name: { in: Array.from(nameQuerySet) } },
+                  where: { role_name: { in: [...STUDENT_ROLE_NAMES] }, deleted_at: null, full_name: { in: Array.from(nameQuerySet) } },
                   select: { id: true, full_name: true, mobile: true, email: true, status: true },
               })
             : [];

@@ -15,6 +15,7 @@ import type {
 import type { Locale } from './dto/translation.dto';
 import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
+import { quizMaxPoints, type PassMarkType } from '@shared/quiz-scoring';
 
 /**
  * QZ-01 — quiz create / update / soft-delete (Plan 02).
@@ -85,6 +86,9 @@ export class QuizzesMutationsService {
                     subject_id: typeof dto.subject_id === 'number' ? dto.subject_id : null,
                     time: dto.time ?? 0,
                     pass_mark: dto.pass_mark,
+                    // Форма новых тестов шлёт 'percent'; 'points' — для старых
+                    // клиентов, которые поле не знают (phase-48).
+                    pass_mark_type: dto.pass_mark_type ?? 'points',
                     attempt: typeof dto.attempt === 'number' ? dto.attempt : null,
                     certificate: dto.certificate ?? false,
                     display_questions_randomly: dto.display_questions_randomly ?? false,
@@ -146,6 +150,7 @@ export class QuizzesMutationsService {
         if (dto.time === null) data.time = null;
         else if (typeof dto.time === 'number') data.time = dto.time;
         if (typeof dto.pass_mark === 'number') data.pass_mark = dto.pass_mark;
+        if (dto.pass_mark_type) data.pass_mark_type = dto.pass_mark_type;
         if (dto.attempt === null) data.attempt = null;
         else if (typeof dto.attempt === 'number') data.attempt = dto.attempt;
         if (typeof dto.certificate === 'boolean') data.certificate = dto.certificate;
@@ -391,6 +396,7 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             subject_id: true,
             time: true,
             pass_mark: true,
+            pass_mark_type: true,
             attempt: true,
             certificate: true,
             display_questions_randomly: true,
@@ -422,6 +428,10 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
                     id: true,
                     type: true,
                     grade: true,
+                    topic_id: true,
+                    // Название темы отдаём вместе с id: иначе форма вопроса не
+                    // покажет выбранную тему, пока не подгрузит весь справочник.
+                    topic: { select: { id: true, name: true } },
                     image: true,
                     video: true,
                     answer_video_url: true,
@@ -503,6 +513,8 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             id: Number(q.id),
             type: q.type,
             grade: Number(q.grade ?? 0),
+            topic_id: q.topic_id == null ? null : Number(q.topic_id),
+            topic_name: q.topic?.name ?? null,
             image: q.image ?? null,
             video: q.video ?? null,
             answer_video_url: q.answer_video_url ?? null,
@@ -529,10 +541,10 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             is_active: !!it.quiz_badge.is_active,
         }));
 
+    // total_mark заполняет recalcQuizTotal при каждой правке вопросов (phase-48);
+    // запасной подсчёт остаётся для строк, не прошедших бэкфилл миграции.
     const total_mark =
-        row.total_mark != null
-            ? Number(row.total_mark)
-            : questions.reduce((acc, q) => acc + (q.grade ?? 0), 0);
+        row.total_mark != null ? Number(row.total_mark) : quizMaxPoints(questions);
 
     return {
         id: Number(row.id),
@@ -542,6 +554,8 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
         subject,
         time: row.time == null ? null : Number(row.time),
         pass_mark: Number(row.pass_mark ?? 0),
+        pass_mark_type: (row.pass_mark_type ?? 'points') as PassMarkType,
+        total_mark,
         attempt: row.attempt == null ? null : Number(row.attempt),
         certificate: !!row.certificate,
         display_questions_randomly: !!row.display_questions_randomly,

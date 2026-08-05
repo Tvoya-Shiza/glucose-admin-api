@@ -12,6 +12,7 @@ import {
     ValidateNested,
 } from 'class-validator';
 import { TranslationDto } from './translation.dto';
+import { PASS_MARK_TYPES, type PassMarkType } from '@shared/quiz-scoring';
 
 /**
  * QZ-03 update-quiz payload (PATCH semantics — partial update).
@@ -59,6 +60,11 @@ export class UpdateQuizDto {
     @IsInt()
     @Min(0)
     pass_mark?: number;
+
+    /** Как читать pass_mark (phase-48): абсолютные баллы или процент. */
+    @IsOptional()
+    @IsIn([...PASS_MARK_TYPES])
+    pass_mark_type?: PassMarkType;
 
     /** null = unlimited attempts. */
     @IsOptional()

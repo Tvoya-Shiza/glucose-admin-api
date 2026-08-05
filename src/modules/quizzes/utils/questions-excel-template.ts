@@ -30,6 +30,13 @@ export const SHEET_MULTIPLE = 'Множественный';
 export const SHEET_DESCRIPTIVE = 'Текстовый';
 export const SHEET_MATCHING = 'Соотношение';
 export const SHEET_INSTRUCTIONS = 'Инструкция';
+/**
+ * Лист со стимульными текстами (phase-52). Отдельным листом, а не колонкой:
+ * текст ҰБТ бывает на страницу, и дублировать его в каждой строке вопроса
+ * значило бы просить методиста скопировать одно и то же пять раз подряд —
+ * с неизбежным расхождением версий.
+ */
+export const SHEET_PASSAGES = 'Мәтіндер';
 
 /** Max variant columns for single/multiple sheets. */
 export const MAX_OPTIONS = 8;
@@ -54,11 +61,25 @@ export interface ParsedQuestionRow {
     sheet: string;
     /** Real spreadsheet row number (1-based, header is row 1). */
     row: number;
+    /**
+     * The operator's own «№» value (column 1), when they filled it in. This is
+     * what a methodologist means by "question 3" — the physical `row` above is
+     * off by one from it because of the header, and differs again per sheet.
+     * null = left empty, which is allowed and documented in the template.
+     */
+    seq: number | null;
     type: ImportQuestionType;
     /** Raw grade cell text (null = empty). */
     gradeRaw: string | null;
     /** Strict integer grade (null when empty OR not an integer). */
     grade: number | null;
+    /** Название темы из справочника (phase-51). null = не заполнено. */
+    topicName: string | null;
+    /**
+     * Идентификатор стимульного текста с листа «Мәтіндер» (phase-52).
+     * Произвольная метка оператора («Т1», «текст-А»), не id из базы.
+     */
+    passageKey: string | null;
     title: string | null;
     description: string | null;
     // single / multiple
@@ -102,6 +123,20 @@ function cellString(v: ExcelJS.CellValue): string | null {
     return s.length === 0 ? null : s;
 }
 
+/**
+ * «№» column. Lenient on purpose — this is the operator's hand-written ordering
+ * hint, not data: anything that isn't a positive integer is treated as "не
+ * заполнено" and never fails the row. Note that readRow's empty-row checks
+ * deliberately ignore seq, so a pre-numbered but otherwise blank template row
+ * stays skipped instead of turning into an error line.
+ */
+function parseSeqCell(v: ExcelJS.CellValue): number | null {
+    const raw = cellString(v);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n > 0 ? n : null;
+}
+
 function parseGradeCell(v: ExcelJS.CellValue): { raw: string | null; value: number | null } {
     const raw = cellString(v);
     if (!raw) return { raw: null, value: null };
@@ -142,7 +177,7 @@ function addNumberValidation(sheet: ExcelJS.Worksheet, columnIndex: number, list
 }
 
 function buildCommonLead(): string[] {
-    return ['№', 'Балл', 'Вопрос (KZ)', 'Описание (KZ, необязательно)'];
+    return ['№', 'Балл', 'Тема', 'Мәтін', 'Вопрос (KZ)', 'Описание (KZ, необязательно)'];
 }
 
 function singleHeaders(correctLabel: string): string[] {
@@ -169,6 +204,8 @@ function styleContentColumns(sheet: ExcelJS.Worksheet, questionColIdx: number, d
     sheet.getColumn(descColIdx).width = 50;
     sheet.getColumn(1).width = 8; // №
     sheet.getColumn(2).width = 10; // Балл
+    sheet.getColumn(3).width = 24; // Тема
+    sheet.getColumn(4).width = 12; // Мәтін
 }
 
 function addInstructionsSheet(wb: ExcelJS.Workbook): void {
@@ -179,7 +216,19 @@ function addInstructionsSheet(wb: ExcelJS.Workbook): void {
         '',
         'Общие правила:',
         '• Каждый тип вопроса — на своём листе. Заполняйте только нужные листы; пустые листы можно не трогать.',
-        '• Колонка «№» — справочная, её можно не заполнять. При ошибке система укажет реальный номер строки в Excel.',
+        '• Колонка «№» задаёт ПОРЯДОК вопросов в тесте — сквозной по всем листам. Например, №1 на листе «Один ответ» и №2 на листе «Соотношение» встанут именно в этом порядке.',
+        '• Если «№» не заполнить, вопросы встанут в порядке листов: сначала все «Один ответ», потом «Множественный» и так далее.',
+        '• Строки без «№» добавляются после пронумерованных.',
+        '• Колонка «Тема» — название темы из справочника (Тесты → Тақырыптар). Должно совпадать точно; регистр не важен.',
+        '• Если тема не найдена в справочнике, строка загрузится БЕЗ темы, а в отчёте появится предупреждение. Темы автоматически не создаются.',
+        '• Колонку «Тема» можно не заполнять — тогда вопрос просто не попадёт в разбор по темам.',
+        '',
+        'Общий текст для нескольких вопросов (формат ЕНТ):',
+        `• Сами тексты — на листе «${SHEET_PASSAGES}»: придумайте короткую метку («Т1»), впишите текст.`,
+        '• В строках вопросов укажите ту же метку в колонке «Мәтін» — эти вопросы получат общий текст.',
+        '• ВАЖНО: вопросы одного текста должны идти ПОДРЯД по колонке «№». Иначе текст будет пропадать и появляться у ученика, и загрузка не пройдёт.',
+        '• Метка живёт только внутри файла и в базу не попадает.',
+        '• В отчёте об ошибках показываются оба номера: ваш «№» и реальный номер строки в Excel (он на единицу больше из-за строки-шапки).',
         '• Полностью пустые строки игнорируются.',
         '• Текст вопросов и ответов вводится на казахском языке (KZ).',
         '• «Балл» — целое число ≥ 1 (обязательно).',
@@ -231,31 +280,67 @@ export class QuestionsExcelTemplateBuilder {
         // single
         const single = wb.addWorksheet(SHEET_SINGLE);
         applyHeader(single, singleHeaders('Номер правильного варианта'));
-        styleContentColumns(single, 3, 4);
-        addNumberValidation(single, 4 + MAX_OPTIONS + 1, '1,2,3,4,5,6,7,8');
+        styleContentColumns(single, 5, 6);
+        addNumberValidation(single, 6 + MAX_OPTIONS + 1, '1,2,3,4,5,6,7,8');
 
         // multiple
         const multiple = wb.addWorksheet(SHEET_MULTIPLE);
         applyHeader(multiple, singleHeaders('Номера правильных вариантов (1;3)'));
-        styleContentColumns(multiple, 3, 4);
+        styleContentColumns(multiple, 5, 6);
 
         // descriptive
         const descriptive = wb.addWorksheet(SHEET_DESCRIPTIVE);
         applyHeader(descriptive, [...buildCommonLead(), 'Правильный ответ (KZ)']);
-        styleContentColumns(descriptive, 3, 4);
-        descriptive.getColumn(5).width = 50;
+        styleContentColumns(descriptive, 5, 6);
+        descriptive.getColumn(7).width = 50;
 
         // matching (ENT)
         const matching = wb.addWorksheet(SHEET_MATCHING);
         applyHeader(matching, matchingHeaders());
-        styleContentColumns(matching, 3, 4);
-        addNumberValidation(matching, 11, '1,2,3,4');
-        addNumberValidation(matching, 12, '1,2,3,4');
+        styleContentColumns(matching, 5, 6);
+        addNumberValidation(matching, 13, '1,2,3,4');
+        addNumberValidation(matching, 14, '1,2,3,4');
+
+        // Лист стимульных текстов (phase-52).
+        const passages = wb.addWorksheet(SHEET_PASSAGES);
+        applyHeader(passages, ['Мәтін (белгі)', 'Тақырып (қосымша)', 'Мәтін (KZ)']);
+        passages.getColumn(1).width = 16;
+        passages.getColumn(2).width = 30;
+        passages.getColumn(3).width = 100;
 
         addInstructionsSheet(wb);
 
         const ab = await wb.xlsx.writeBuffer();
         return Buffer.from(ab);
+    }
+
+    /**
+     * Стимульные тексты с листа «Мәтіндер»: метка оператора → содержимое.
+     *
+     * Метка произвольная («Т1», «текст-А») и живёт только внутри файла: связывать
+     * строки вопросов с текстом по id из базы нельзя — при первом импорте этих
+     * id ещё не существует.
+     */
+    public async parsePassages(buf: Buffer): Promise<Map<string, { title: string | null; body: string }>> {
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.load(buf as unknown as ArrayBuffer);
+        const sheet = wb.getWorksheet(SHEET_PASSAGES);
+        const out = new Map<string, { title: string | null; body: string }>();
+        if (!sheet) return out;
+
+        sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+            if (rowNumber === 1) return; // шапка
+            const key = cellString(row.getCell(1).value);
+            const body = cellString(row.getCell(3).value);
+            if (!key || !body) return;
+            // Первое вхождение выигрывает: дубль метки — ошибка оператора, и
+            // выбирать между версиями наугад хуже, чем стабильно брать первую.
+            const normalized = key.trim().toLowerCase();
+            if (!out.has(normalized)) {
+                out.set(normalized, { title: cellString(row.getCell(2).value), body });
+            }
+        });
+        return out;
     }
 
     public async parse(buf: Buffer): Promise<ParsedQuestionRow[]> {
@@ -281,16 +366,22 @@ export class QuestionsExcelTemplateBuilder {
         row: ExcelJS.Row,
         rowNumber: number,
     ): ParsedQuestionRow | null {
+        const seq = parseSeqCell(row.getCell(1).value);
         const grade = parseGradeCell(row.getCell(2).value);
-        const title = cellString(row.getCell(3).value);
-        const description = cellString(row.getCell(4).value);
+        const topicName = cellString(row.getCell(3).value);
+        const passageKey = cellString(row.getCell(4).value);
+        const title = cellString(row.getCell(5).value);
+        const description = cellString(row.getCell(6).value);
 
         const base: ParsedQuestionRow = {
             sheet,
             row: rowNumber,
+            seq,
             type,
             gradeRaw: grade.raw,
             grade: grade.value,
+            topicName,
+            passageKey,
             title,
             description,
             options: [],
@@ -303,28 +394,28 @@ export class QuestionsExcelTemplateBuilder {
 
         if (type === 'single' || type === 'multiple') {
             const options: (string | null)[] = [];
-            for (let i = 0; i < MAX_OPTIONS; i++) options.push(cellString(row.getCell(5 + i).value));
+            for (let i = 0; i < MAX_OPTIONS; i++) options.push(cellString(row.getCell(7 + i).value));
             base.options = options;
-            base.correctRaw = cellString(row.getCell(5 + MAX_OPTIONS).value);
+            base.correctRaw = cellString(row.getCell(7 + MAX_OPTIONS).value);
             if (!title && !grade.raw && options.every((o) => o == null) && !base.correctRaw) return null;
             return base;
         }
 
         if (type === 'descriptive') {
-            base.correctText = cellString(row.getCell(5).value);
+            base.correctText = cellString(row.getCell(7).value);
             if (!title && !grade.raw && !base.correctText) return null;
             return base;
         }
 
         // identificative (ENT): cols 5,6 prompts; 7-10 options A-D; 11,12 correct
-        base.prompts = [cellString(row.getCell(5).value), cellString(row.getCell(6).value)];
+        base.prompts = [cellString(row.getCell(7).value), cellString(row.getCell(8).value)];
         base.matchOptions = [
-            cellString(row.getCell(7).value),
-            cellString(row.getCell(8).value),
             cellString(row.getCell(9).value),
             cellString(row.getCell(10).value),
+            cellString(row.getCell(11).value),
+            cellString(row.getCell(12).value),
         ];
-        base.matchCorrectRaw = [cellString(row.getCell(11).value), cellString(row.getCell(12).value)];
+        base.matchCorrectRaw = [cellString(row.getCell(13).value), cellString(row.getCell(14).value)];
         const matchEmpty =
             base.prompts.every((p) => p == null) &&
             base.matchOptions.every((o) => o == null) &&

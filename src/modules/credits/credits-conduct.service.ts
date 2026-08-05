@@ -10,9 +10,11 @@ import { CREDIT_JOURNAL_PORT, type CreditJournalPort } from './journal/credit-jo
 import { MarkQuestionDto } from './dto/mark-question.dto';
 import { NavigateSessionDto } from './dto/navigate-session.dto';
 import { ScheduleRetakeDto } from './dto/schedule-retake.dto';
+import { ExtendSessionDto } from './dto/extend-session.dto';
 import type { CreditSessionDetail } from './types/credits.types';
 import { computeFinalResult, computePercent } from './utils/finalize';
 import { nowSec, SESSION_GRACE_SEC } from './utils/time';
+import { pauseShift } from '@shared/credits';
 
 /**
  * Conduct console (contract §conduct, decisions 4 / 11 / 12).
@@ -40,16 +42,29 @@ import { nowSec, SESSION_GRACE_SEC } from './utils/time';
 
 type TerminalStatus = 'finished' | 'expired';
 
+/**
+ * Статусы, при которых сессия «ещё идёт» (phase-50).
+ *
+ * До паузы это был один `in_progress`, и перечисление разъехалось бы по коду:
+ * занятость слота у запуска, отмена, завершение запуска, подсветка в списке.
+ * Пропусти одно место — и запуск закроется под паузой, а ученик останется с
+ * замершей сессией, которую уже нельзя возобновить.
+ */
+const LIVE_SESSION_STATUSES = ['in_progress', 'paused'] as const;
+
 interface SessionRecord {
     id: bigint;
     launch_id: bigint;
     credit_id: bigint;
     student_id: number;
     attempt_number: number;
-    status: 'pending' | 'in_progress' | 'finished' | 'expired' | 'cancelled';
+    status: 'pending' | 'in_progress' | 'finished' | 'expired' | 'cancelled' | 'paused';
     current_position: number | null;
     started_at: number | null;
     ends_at: number | null;
+    paused_at: number | null;
+    paused_total_sec: number;
+    extended_total_sec: number;
     finished_at: number | null;
     score: number | null;
     max_score: number;
@@ -116,8 +131,10 @@ export class CreditsConductService {
             if (s.status !== 'pending') return { kind: 'not_pending', status: s.status };
 
             // Decision 4 — one student at a time: no OTHER in_progress session in this launch.
+            // Сессия на паузе слот не освобождает: иначе куратор запустит второго
+            // ученика, а вернуть первого будет некуда.
             const sibling = await tx.creditSession.findFirst({
-                where: { launch_id: s.launch_id, status: 'in_progress', id: { not: s.id } },
+                where: { launch_id: s.launch_id, status: { in: [...LIVE_SESSION_STATUSES] }, id: { not: s.id } },
                 select: { id: true },
             });
             if (sibling) return { kind: 'sibling_active' };
@@ -198,13 +215,121 @@ export class CreditsConductService {
         return this.respondWithDetail(actor, id, 'admin.credits.session_finished');
     }
 
+    /**
+     * Пауза (phase-50).
+     *
+     * `ends_at` не трогаем: он сдвинется при возобновлении ровно на длительность
+     * простоя. Переписывать его сейчас нельзя — мы не знаем, сколько пауза
+     * продлится, а обнулить и восстановить потом уже не из чего.
+     */
+    public async pauseSession(actor: ScopeActor, id: bigint) {
+        const scoped = await this.loadScoped(actor, id);
+        assertLaunchOwnership(actor, scoped.launch.curator_id);
+
+        const now = nowSec();
+        const paused = await this.prisma.$transaction(async (tx) => {
+            const res = await tx.creditSession.updateMany({
+                where: { id, status: 'in_progress' },
+                data: { status: 'paused', paused_at: now },
+            });
+            return res.count === 1;
+        });
+        if (!paused) {
+            throw new ConflictException({
+                code: 'credits.session_not_in_progress',
+                message: 'credits.session_not_in_progress',
+                status: scoped.status,
+            });
+        }
+
+        return this.respondWithDetail(actor, id, 'admin.credits.session_paused');
+    }
+
+    /**
+     * Возобновление: сдвигаем дедлайн вперёд ровно на время простоя, чтобы
+     * пауза не съела время ученика.
+     *
+     * Сдвиг считается ВНУТРИ транзакции от свежепрочитанного `paused_at`:
+     * возьми мы значение из `loadScoped` снаружи, два одновременных нажатия
+     * «Возобновить» сдвинули бы `ends_at` дважды.
+     */
+    public async resumeSession(actor: ScopeActor, id: bigint) {
+        const scoped = await this.loadScoped(actor, id);
+        assertLaunchOwnership(actor, scoped.launch.curator_id);
+
+        const now = nowSec();
+        const resumed = await this.prisma.$transaction(async (tx) => {
+            const s = await this.loadForUpdate(tx, id);
+            if (!s || s.status !== 'paused') return false;
+
+            const shift = pauseShift(now, s.paused_at);
+            const res = await tx.creditSession.updateMany({
+                where: { id, status: 'paused' },
+                data: {
+                    status: 'in_progress',
+                    paused_at: null,
+                    ends_at: s.ends_at == null ? null : s.ends_at + shift,
+                    paused_total_sec: { increment: shift },
+                },
+            });
+            return res.count === 1;
+        });
+        if (!resumed) {
+            throw new ConflictException({
+                code: 'credits.session_not_paused',
+                message: 'credits.session_not_paused',
+                status: scoped.status,
+            });
+        }
+
+        return this.respondWithDetail(actor, id, 'admin.credits.session_resumed');
+    }
+
+    /**
+     * Продление времени.
+     *
+     * Разрешено и на паузе: типичный случай — ученику стало плохо, куратор
+     * поставил паузу и тут же решил дать больше времени. Запрещать это значило
+     * бы заставлять его сначала возобновлять сессию, теряя те самые секунды.
+     */
+    public async extendSession(actor: ScopeActor, id: bigint, dto: ExtendSessionDto) {
+        const scoped = await this.loadScoped(actor, id);
+        assertLaunchOwnership(actor, scoped.launch.curator_id);
+
+        const extended = await this.prisma.$transaction(async (tx) => {
+            const s = await this.loadForUpdate(tx, id);
+            if (!s || !LIVE_SESSION_STATUSES.includes(s.status as any)) return false;
+            // Сессия без дедлайна (зачёт без ограничения времени) продлевать
+            // нечего — и это не ошибка куратора, а свойство запуска.
+            if (s.ends_at == null) return false;
+
+            const res = await tx.creditSession.updateMany({
+                where: { id, status: { in: [...LIVE_SESSION_STATUSES] } },
+                data: {
+                    ends_at: s.ends_at + dto.seconds,
+                    extended_total_sec: { increment: dto.seconds },
+                },
+            });
+            return res.count === 1;
+        });
+        if (!extended) {
+            throw new ConflictException({
+                code: 'credits.session_not_extendable',
+                message: 'credits.session_not_extendable',
+                status: scoped.status,
+            });
+        }
+
+        return this.respondWithDetail(actor, id, 'admin.credits.session_extended');
+    }
+
     public async cancelSession(actor: ScopeActor, id: bigint) {
         const scoped = await this.loadScoped(actor, id);
         assertLaunchOwnership(actor, scoped.launch.curator_id);
 
         const cancelled = await this.prisma.$transaction(async (tx) => {
             const res = await tx.creditSession.updateMany({
-                where: { id, status: { in: ['pending', 'in_progress'] } },
+                where: { id, status: { in: ['pending', ...LIVE_SESSION_STATUSES] } },
                 data: { status: 'cancelled', finished_at: nowSec() },
             });
             return res.count === 1;
@@ -320,7 +445,7 @@ export class CreditsConductService {
     private async maybeCompleteLaunch(launchId: bigint): Promise<void> {
         try {
             const remaining = await this.prisma.creditSession.count({
-                where: { launch_id: launchId, status: { in: ['pending', 'in_progress'] } },
+                where: { launch_id: launchId, status: { in: ['pending', ...LIVE_SESSION_STATUSES] } },
             });
             if (remaining === 0) {
                 await this.prisma.creditLaunch.updateMany({ where: { id: launchId, status: 'active' }, data: { status: 'completed' } });
