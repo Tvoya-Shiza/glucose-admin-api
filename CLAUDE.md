@@ -6,9 +6,11 @@ Glucose admin panel API. NestJS 11 + Prisma 6 (subset schema). Reads/writes the 
 
 ## Critical rule: never own migrations
 
-NEVER run `prisma migrate dev` or `prisma migrate deploy` here. Migrations live in glucose-api. Run them there, then run `npm run prisma:pull` here.
+NEVER run `prisma migrate dev` or `prisma migrate deploy` here. Migrations live in glucose-api. Run them there, then mirror the schema change **by hand** in this repo's `prisma/schema.prisma`.
 
-See PRISMA.md for the full workflow.
+Do NOT reach for `npm run prisma:pull` — it wiped 219 hand-declared `@relation`s and broke prod (commit `84e840f`). Many of these tables have no physical foreign keys, so `db pull` cannot see the relations and silently deletes them; the schema still validates and generates, and the failure only shows up as a 500 at runtime.
+
+See PRISMA.md for the full workflow and the diff check to run if you ever must pull.
 
 ## RBAC (Phase 11)
 
@@ -55,7 +57,7 @@ Wired via `BigIntStringInterceptor` (global) in `src/main.ts`.
 Admin-api never runs migrations. See PRISMA.md for the full workflow.
 
 Quick reference:
-- Need a schema change? Make it in glucose-api, run migration there, then `npm run prisma:pull` here.
+- Need a schema change? Make it in glucose-api, run the migration there, then hand-edit `prisma/schema.prisma` here and verify with `npm run ci:prisma-drift`.
 - Trying to run `npm run prisma:migrate:dev`? It will hard-fail.
 - CI: `npm run ci:prisma-drift` and `npm run ci:forbid-migrations-dir` gate every PR.
 
@@ -138,7 +140,7 @@ npm install
 npm run start:dev        # nest start --watch on PORT=4101
 npm run build
 npm run start:prod
-npm run prisma:pull      # db pull + generate (only refresh path)
+npm run prisma:pull      # DANGEROUS — eats @relation lines. See PRISMA.md before using.
 npm run ci:prisma-drift
 npm run ci:audit-required
 npm run ci:forbid-migrations-dir

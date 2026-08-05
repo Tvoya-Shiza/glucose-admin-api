@@ -4,21 +4,44 @@ Admin-api shares MySQL with glucose-api but **never owns migrations**.
 The student API's `glucose-api/prisma/schema.prisma` is the single
 source of truth for the database schema.
 
+## `prisma db pull` is forbidden here
+
+`npm run prisma:pull` has already broken production once — see commit
+`84e840f`. The admin panel started returning 500 on the trainers list with
+`Unknown field 'translations' for include on model 'QuizCategory'`.
+
+The reason it is not safe here, and will not become safe: **many of these
+tables have no physical foreign keys** (legacy schema). Prisma cannot infer a
+relation it cannot see, so `db pull` silently deletes every hand-declared
+`@relation` — 219 of them that time — and leaves a schema that still validates
+and still generates. Nothing fails until a request hits one of the dropped
+includes at runtime.
+
+So the rule is inverted from the usual Prisma advice:
+
+- **Editing `prisma/schema.prisma` by hand is the normal path.** Mirror the
+  change from glucose-api's schema manually.
+- **`npm run prisma:pull` is a last resort** that requires diffing the result
+  against `HEAD` before committing, specifically checking that no `@relation`
+  disappeared:
+  ```bash
+  git diff --stat prisma/schema.prisma
+  git diff prisma/schema.prisma | grep '^-.*@relation' | head -50
+  ```
+  If that grep prints anything, the pull ate relations — throw the result away.
+
 ## Workflow
 
 When the shared schema needs to change:
 
-1. Land the change in `glucose-api/prisma/schema.prisma` and run
-   `npx prisma migrate dev --name <description>` from `glucose-api/`.
-2. After the migration is applied to MySQL, run from `glucose-admin-api/`:
-   ```bash
-   npm run prisma:pull
-   ```
-   This runs `prisma db pull && prisma generate`, syncing
-   admin-api's curated subset schema with the live DB.
-3. If `db pull` brought in models you don't want exposed in admin-api,
-   trim them out manually. Re-run `npx prisma validate` and
-   `npm run prisma:generate`.
+1. Land the change in `glucose-api/prisma/schema.prisma` and run the migration
+   from `glucose-api/` (hand-written idempotent `phase-NN-*.sql` — see that
+   repo's migration notes).
+2. Mirror the same model/field change by hand in `glucose-admin-api/prisma/schema.prisma`,
+   keeping the curated subset curated (only the models admin-api actually uses).
+3. Run `npx prisma validate && npm run prisma:generate`.
+4. Run `npm run ci:prisma-drift` — this is what proves your hand edit matches
+   the live database.
 
 ## What is forbidden
 
@@ -30,9 +53,7 @@ When the shared schema needs to change:
       the live DB and fails on drift.
     - `scripts/ci-forbid-migrations-dir.sh` — fails if
       `prisma/migrations/` exists.
-- Editing `prisma/schema.prisma` by hand — the only legitimate edits
-  are removing models you do not need (curated subset). All structural
-  changes must come from `db pull`.
+- `npm run prisma:pull` without the relation diff described above.
 
 ## Connection-pool budget
 
