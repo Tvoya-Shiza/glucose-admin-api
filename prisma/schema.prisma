@@ -757,7 +757,9 @@ model QuizQuestion {
 /// «неподвижность текста», о которой просил заказчик.
 model QuizPassage {
   id         Int    @id @default(autoincrement()) @db.UnsignedInt
-  quiz_id    Int    @db.UnsignedInt
+  /// Знаковый Int: `quizzes.id` объявлен без UNSIGNED, внешний ключ на колонку
+  /// другой знаковости MySQL отвергает.
+  quiz_id    Int
   /// Порядок блоков в тесте; вопросы блока идут подряд по своему `order`.
   position   Int    @default(0) @db.UnsignedInt
   image      String? @db.Text
