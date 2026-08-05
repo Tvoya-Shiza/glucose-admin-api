@@ -66,6 +66,8 @@ export interface ParsedQuestionRow {
     gradeRaw: string | null;
     /** Strict integer grade (null when empty OR not an integer). */
     grade: number | null;
+    /** Название темы из справочника (phase-51). null = не заполнено. */
+    topicName: string | null;
     title: string | null;
     description: string | null;
     // single / multiple
@@ -163,7 +165,7 @@ function addNumberValidation(sheet: ExcelJS.Worksheet, columnIndex: number, list
 }
 
 function buildCommonLead(): string[] {
-    return ['№', 'Балл', 'Вопрос (KZ)', 'Описание (KZ, необязательно)'];
+    return ['№', 'Балл', 'Тема', 'Вопрос (KZ)', 'Описание (KZ, необязательно)'];
 }
 
 function singleHeaders(correctLabel: string): string[] {
@@ -190,6 +192,7 @@ function styleContentColumns(sheet: ExcelJS.Worksheet, questionColIdx: number, d
     sheet.getColumn(descColIdx).width = 50;
     sheet.getColumn(1).width = 8; // №
     sheet.getColumn(2).width = 10; // Балл
+    sheet.getColumn(3).width = 24; // Тема
 }
 
 function addInstructionsSheet(wb: ExcelJS.Workbook): void {
@@ -203,6 +206,9 @@ function addInstructionsSheet(wb: ExcelJS.Workbook): void {
         '• Колонка «№» задаёт ПОРЯДОК вопросов в тесте — сквозной по всем листам. Например, №1 на листе «Один ответ» и №2 на листе «Соотношение» встанут именно в этом порядке.',
         '• Если «№» не заполнить, вопросы встанут в порядке листов: сначала все «Один ответ», потом «Множественный» и так далее.',
         '• Строки без «№» добавляются после пронумерованных.',
+        '• Колонка «Тема» — название темы из справочника (Тесты → Тақырыптар). Должно совпадать точно; регистр не важен.',
+        '• Если тема не найдена в справочнике, строка загрузится БЕЗ темы, а в отчёте появится предупреждение. Темы автоматически не создаются.',
+        '• Колонку «Тема» можно не заполнять — тогда вопрос просто не попадёт в разбор по темам.',
         '• В отчёте об ошибках показываются оба номера: ваш «№» и реальный номер строки в Excel (он на единицу больше из-за строки-шапки).',
         '• Полностью пустые строки игнорируются.',
         '• Текст вопросов и ответов вводится на казахском языке (KZ).',
@@ -255,26 +261,26 @@ export class QuestionsExcelTemplateBuilder {
         // single
         const single = wb.addWorksheet(SHEET_SINGLE);
         applyHeader(single, singleHeaders('Номер правильного варианта'));
-        styleContentColumns(single, 3, 4);
-        addNumberValidation(single, 4 + MAX_OPTIONS + 1, '1,2,3,4,5,6,7,8');
+        styleContentColumns(single, 4, 5);
+        addNumberValidation(single, 5 + MAX_OPTIONS + 1, '1,2,3,4,5,6,7,8');
 
         // multiple
         const multiple = wb.addWorksheet(SHEET_MULTIPLE);
         applyHeader(multiple, singleHeaders('Номера правильных вариантов (1;3)'));
-        styleContentColumns(multiple, 3, 4);
+        styleContentColumns(multiple, 4, 5);
 
         // descriptive
         const descriptive = wb.addWorksheet(SHEET_DESCRIPTIVE);
         applyHeader(descriptive, [...buildCommonLead(), 'Правильный ответ (KZ)']);
-        styleContentColumns(descriptive, 3, 4);
-        descriptive.getColumn(5).width = 50;
+        styleContentColumns(descriptive, 4, 5);
+        descriptive.getColumn(6).width = 50;
 
         // matching (ENT)
         const matching = wb.addWorksheet(SHEET_MATCHING);
         applyHeader(matching, matchingHeaders());
-        styleContentColumns(matching, 3, 4);
-        addNumberValidation(matching, 11, '1,2,3,4');
+        styleContentColumns(matching, 4, 5);
         addNumberValidation(matching, 12, '1,2,3,4');
+        addNumberValidation(matching, 13, '1,2,3,4');
 
         addInstructionsSheet(wb);
 
@@ -307,8 +313,9 @@ export class QuestionsExcelTemplateBuilder {
     ): ParsedQuestionRow | null {
         const seq = parseSeqCell(row.getCell(1).value);
         const grade = parseGradeCell(row.getCell(2).value);
-        const title = cellString(row.getCell(3).value);
-        const description = cellString(row.getCell(4).value);
+        const topicName = cellString(row.getCell(3).value);
+        const title = cellString(row.getCell(4).value);
+        const description = cellString(row.getCell(5).value);
 
         const base: ParsedQuestionRow = {
             sheet,
@@ -317,6 +324,7 @@ export class QuestionsExcelTemplateBuilder {
             type,
             gradeRaw: grade.raw,
             grade: grade.value,
+            topicName,
             title,
             description,
             options: [],
@@ -329,28 +337,28 @@ export class QuestionsExcelTemplateBuilder {
 
         if (type === 'single' || type === 'multiple') {
             const options: (string | null)[] = [];
-            for (let i = 0; i < MAX_OPTIONS; i++) options.push(cellString(row.getCell(5 + i).value));
+            for (let i = 0; i < MAX_OPTIONS; i++) options.push(cellString(row.getCell(6 + i).value));
             base.options = options;
-            base.correctRaw = cellString(row.getCell(5 + MAX_OPTIONS).value);
+            base.correctRaw = cellString(row.getCell(6 + MAX_OPTIONS).value);
             if (!title && !grade.raw && options.every((o) => o == null) && !base.correctRaw) return null;
             return base;
         }
 
         if (type === 'descriptive') {
-            base.correctText = cellString(row.getCell(5).value);
+            base.correctText = cellString(row.getCell(6).value);
             if (!title && !grade.raw && !base.correctText) return null;
             return base;
         }
 
         // identificative (ENT): cols 5,6 prompts; 7-10 options A-D; 11,12 correct
-        base.prompts = [cellString(row.getCell(5).value), cellString(row.getCell(6).value)];
+        base.prompts = [cellString(row.getCell(6).value), cellString(row.getCell(7).value)];
         base.matchOptions = [
-            cellString(row.getCell(7).value),
             cellString(row.getCell(8).value),
             cellString(row.getCell(9).value),
             cellString(row.getCell(10).value),
+            cellString(row.getCell(11).value),
         ];
-        base.matchCorrectRaw = [cellString(row.getCell(11).value), cellString(row.getCell(12).value)];
+        base.matchCorrectRaw = [cellString(row.getCell(12).value), cellString(row.getCell(13).value)];
         const matchEmpty =
             base.prompts.every((p) => p == null) &&
             base.matchOptions.every((o) => o == null) &&

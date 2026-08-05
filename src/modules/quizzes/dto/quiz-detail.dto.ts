@@ -69,6 +69,10 @@ export interface QuestionDto {
     id: number;
     type: QuizQuestionType;
     grade: number;
+    /** Тема из справочника (phase-51). null — вопрос без темы. */
+    topic_id: number | null;
+    /** Название темы — чтобы форма не ждала загрузки всего справочника. */
+    topic_name: string | null;
     image: string | null;
     video: string | null;
     answer_video_url: string | null;

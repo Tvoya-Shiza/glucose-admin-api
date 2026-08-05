@@ -82,6 +82,17 @@ export class UpsertQuestionDto {
     @Min(1)
     grade!: number;
 
+    /**
+     * Тема из справочника (phase-51). null или отсутствует — вопрос без темы:
+     * так живут все 1009 существующих вопросов, и требовать тему задним числом
+     * значило бы сломать редактирование каждого из них.
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    topic_id?: number | null;
+
     @IsIn(['single', 'multiple', 'descriptive', 'identificative'])
     type!: UpsertQuestionType;
 

@@ -36,12 +36,25 @@ const DESC_MAX = 50000;
 const DESCRIPTIVE_CORRECT_MAX = 5000;
 const ANSWER_TITLE_MAX = 1000;
 
+/** Схлопывает пробелы и регистр: методист копирует название из справочника. */
+function normalizeTopicName(name: string): string {
+    return name.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
 export interface QuestionImportRow {
     sheet: string;
     /** Physical spreadsheet row — what the operator scrolls to in Excel. */
     row: number;
     /** The operator's own «№» value; null when the column was left empty. */
     seq: number | null;
+    /** Название темы, как его написал оператор (null = колонка пустая). */
+    topic_name: string | null;
+    /**
+     * true — тема указана, но в справочнике не найдена. Строка при этом
+     * ЗАГРУЖАЕТСЯ (без темы): отбрасывать готовый вопрос из-за опечатки в
+     * названии темы — несоразмерная цена, а предупреждение оператор увидит.
+     */
+    topic_unmatched: boolean;
     type: ImportQuestionType;
     title: string;
     status: 'ok' | 'error';
@@ -105,6 +118,7 @@ export class QuizzesQuestionsImportService {
         await this.questionsService.assertQuizScope(actor, quizId);
 
         const parsed = sortByOperatorSeq(await this.builder.parse(buf));
+        const topicByName = await this.loadTopicIndex(parsed);
         const rows: QuestionImportRow[] = [];
         let succeeded = 0;
         let failed = 0;
@@ -120,24 +134,31 @@ export class QuizzesQuestionsImportService {
         });
         let nextOrder = last && last.order != null ? Number(last.order) + 1 : 1;
 
+        /** Название темы → id. Не нашли — вопрос грузится без темы (см. topic_unmatched). */
+        const resolveTopic = (pq: ParsedQuestionRow): { id: number | null; unmatched: boolean } => {
+            if (!pq.topicName) return { id: null, unmatched: false };
+            const id = topicByName.get(normalizeTopicName(pq.topicName));
+            return id == null ? { id: null, unmatched: true } : { id, unmatched: false };
+        };
+
         for (const pq of parsed) {
             const validation = this.validate(pq);
             const displayTitle = validation.prepared?.title ?? pq.title ?? '';
             if (validation.reason) {
-                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'error', reason: validation.reason, question_id: null });
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, topic_name: pq.topicName, topic_unmatched: resolveTopic(pq).unmatched, type: pq.type, title: displayTitle, status: 'error', reason: validation.reason, question_id: null });
                 failed++;
                 continue;
             }
 
             try {
-                const created = await this.persist(quizId, pq.type, validation.prepared!, nextOrder);
-                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'ok', reason: null, question_id: created.questionId });
+                const created = await this.persist(quizId, pq.type, validation.prepared!, nextOrder, resolveTopic(pq).id);
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, topic_name: pq.topicName, topic_unmatched: resolveTopic(pq).unmatched, type: pq.type, title: displayTitle, status: 'ok', reason: null, question_id: created.questionId });
                 succeeded++;
                 importedAnswers += created.answersCreated;
                 nextOrder++;
             } catch (e) {
                 this.logger.warn(`question import row failed sheet="${pq.sheet}" row=${pq.row} err=${(e as Error).message}`);
-                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, type: pq.type, title: displayTitle, status: 'error', reason: 'db_error', question_id: null });
+                rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, topic_name: pq.topicName, topic_unmatched: resolveTopic(pq).unmatched, type: pq.type, title: displayTitle, status: 'error', reason: 'db_error', question_id: null });
                 failed++;
             }
         }
@@ -160,6 +181,34 @@ export class QuizzesQuestionsImportService {
             `questions import quiz=${quizId} actor=${actor.id} role=${actor.role_name} total=${result.total} ok=${succeeded} failed=${failed}`,
         );
         return apiResponse(1, 'ok', 'quizzes.question.import', result);
+    }
+
+    /**
+     * Название темы → id, одним запросом на весь импорт.
+     *
+     * Сопоставляем по нормализованному названию: методист копирует его из
+     * справочника, и лишний пробел или регистр не должны стоить ему темы у
+     * сотни вопросов. Автосоздание тем сознательно не делаем — опечатка тогда
+     * молча породила бы вторую «Ботанику», и разбор по темам развалился бы
+     * ровно там, где он нужен.
+     */
+    private async loadTopicIndex(parsed: ParsedQuestionRow[]): Promise<Map<string, number>> {
+        const wanted = new Set(parsed.map((p) => p.topicName).filter((n): n is string => !!n).map(normalizeTopicName));
+        if (wanted.size === 0) return new Map();
+
+        const topics = await this.prisma.quizTopic.findMany({
+            where: { status: 'active' },
+            select: { id: true, name: true },
+        });
+        const index = new Map<string, number>();
+        for (const t of topics) {
+            const key = normalizeTopicName(t.name);
+            // Первое совпадение выигрывает: дубликаты названий в справочнике
+            // возможны (уникального индекса на name нет), и выбирать между ними
+            // наугад на каждом импорте было бы хуже, чем стабильно брать первое.
+            if (!index.has(key)) index.set(key, Number(t.id));
+        }
+        return index;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
@@ -263,13 +312,14 @@ export class QuizzesQuestionsImportService {
         type: ImportQuestionType,
         prepared: Prepared,
         order: number,
+        topicId: number | null,
     ): Promise<{ questionId: number; answersCreated: number }> {
         return this.prisma.$transaction(async (tx) => {
             const now = nowSec();
             const correctText = type === 'descriptive' ? (prepared as PreparedDescriptive).correctText : null;
 
             const question: any = await tx.quizQuestion.create({
-                data: { quiz_id: quizId, type, grade: prepared.grade, order, created_at: now },
+                data: { quiz_id: quizId, type, grade: prepared.grade, order, topic_id: topicId, created_at: now },
                 select: { id: true },
             });
             await tx.quizQuestionTranslation.create({

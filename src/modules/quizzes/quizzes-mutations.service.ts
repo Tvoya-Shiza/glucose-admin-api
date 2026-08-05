@@ -428,6 +428,10 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
                     id: true,
                     type: true,
                     grade: true,
+                    topic_id: true,
+                    // Название темы отдаём вместе с id: иначе форма вопроса не
+                    // покажет выбранную тему, пока не подгрузит весь справочник.
+                    topic: { select: { id: true, name: true } },
                     image: true,
                     video: true,
                     answer_video_url: true,
@@ -509,6 +513,8 @@ export async function readQuizDetail(prisma: PrismaService, id: number): Promise
             id: Number(q.id),
             type: q.type,
             grade: Number(q.grade ?? 0),
+            topic_id: q.topic_id == null ? null : Number(q.topic_id),
+            topic_name: q.topic?.name ?? null,
             image: q.image ?? null,
             video: q.video ?? null,
             answer_video_url: q.answer_video_url ?? null,

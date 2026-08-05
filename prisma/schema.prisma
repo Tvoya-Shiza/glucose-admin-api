@@ -718,6 +718,8 @@ model QuizSubjectTranslation {
 model QuizQuestion {
   id               Int              @id @default(autoincrement())
   quiz_id          Int              @db.UnsignedInt
+  /// Тема из справочника (phase-51). Nullable: старые вопросы темы не имеют.
+  topic_id         Int?             @db.UnsignedInt
   grade            Int
   answer_video_url String?          @db.VarChar(255)
   type             QuizQuestionType @default(single)
@@ -729,12 +731,38 @@ model QuizQuestion {
 
   quiz    Quizzes              @relation("QuizQuestions", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   answers QuizQuestionAnswer[] @relation("QuizQuestionAnswers")
+  /// SetNull: удаление темы не уносит с собой вопросы.
+  topic   QuizTopic?           @relation("QuizTopicQuestions", fields: [topic_id], references: [id], onDelete: SetNull, onUpdate: Restrict)
 
   trainer_attempt_questions TrainerAttemptQuestion[] @relation("TrainerQuestionProvenance")
 
   translations QuizQuestionTranslation[] @relation("QuizQuestionTranslations")
 
+  @@index([topic_id], map: "idx_qq_topic")
   @@map("quizzes_questions")
+}
+
+/// Справочник тем тестов (phase-51). Клон `CreditTopic` без привязки к курсу:
+/// та же иерархия, та же защита от циклов, тот же CRUD. Id — Int, а не BigInt:
+/// вопросы тестов живут в int-мире, третий формат идентификатора на фронте не
+/// нужен никому.
+model QuizTopic {
+  id         Int              @id @default(autoincrement()) @db.UnsignedInt
+  parent_id  Int?             @db.UnsignedInt
+  name       String           @db.VarChar(255)
+  position   Int              @default(0) @db.UnsignedInt
+  status     CreditBankStatus @default(active)
+  created_by Int              @db.UnsignedInt
+  created_at Int              @db.UnsignedInt
+  updated_at Int?             @db.UnsignedInt
+
+  parent    QuizTopic?     @relation("QuizTopicParent", fields: [parent_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  children  QuizTopic[]    @relation("QuizTopicParent")
+  questions QuizQuestion[] @relation("QuizTopicQuestions")
+
+  @@index([parent_id, position], map: "idx_quiz_topics_parent")
+  @@index([status], map: "idx_quiz_topics_status")
+  @@map("quiz_topics")
 }
 
 model QuizQuestionTranslation {

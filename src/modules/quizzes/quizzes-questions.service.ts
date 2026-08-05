@@ -143,6 +143,7 @@ export class QuizzesQuestionsService {
                     quiz_id: quizId,
                     type: dto.type,
                     grade: dto.grade,
+                    topic_id: dto.topic_id ?? null,
                     image: dto.image ?? null,
                     video: dto.video ?? null,
                     answer_video_url: dto.answer_video_url ?? null,
@@ -244,6 +245,7 @@ export class QuizzesQuestionsService {
                 data: {
                     type: dto.type,
                     grade: dto.grade,
+                    topic_id: dto.topic_id ?? null,
                     image: dto.image ?? null,
                     video: dto.video ?? null,
                     answer_video_url: dto.answer_video_url ?? null,
