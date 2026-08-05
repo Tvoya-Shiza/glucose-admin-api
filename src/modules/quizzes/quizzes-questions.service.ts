@@ -25,6 +25,7 @@ import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
 import { nowSec } from './quizzes-mutations.service';
 import { recalcQuizTotal } from './utils/quiz-total';
+import { findContiguityViolations } from './utils/passage-contiguity';
 
 /**
  * QZ-02 / QZ-03 / QZ-06 — admin/teacher question CRUD with destructive-edit
@@ -361,6 +362,23 @@ export class QuizzesQuestionsService {
                 await tx.quizQuestion.update({
                     where: { id: it.id },
                     data: { order: it.order, updated_at: nowSec() },
+                });
+            }
+
+            // Перетаскивание не должно разрывать текстовый блок (phase-52):
+            // вклиненный посреди блока чужой вопрос заставит панель со
+            // стимульным текстом исчезнуть и появиться снова. Проверяем итог и
+            // откатываем транзакцию, если порядок это ломает.
+            const after = await tx.quizQuestion.findMany({
+                where: { quiz_id: quizId },
+                select: { id: true, order: true, passage_id: true },
+            });
+            const violations = findContiguityViolations(after);
+            if (violations.length > 0) {
+                throw new ConflictException({
+                    code: 'quizzes.passage_not_contiguous',
+                    message: 'quizzes.passage_not_contiguous',
+                    violations,
                 });
             }
         });

@@ -6,6 +6,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
 import { QUIZZES_INVALIDATE_PATTERN } from './utils/quizzes-cache';
 import { sanitizeTiptapHtmlServer } from './utils/sanitize-html-server';
 import { sortByOperatorSeq } from './utils/import-order';
+import { findContiguityViolations } from './utils/passage-contiguity';
 import { recalcQuizTotal } from './utils/quiz-total';
 import { nowSec } from './quizzes-mutations.service';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
@@ -68,6 +69,11 @@ export interface QuestionImportResult {
     failed: number;
     imported_answers: number;
     rows: QuestionImportRow[];
+    /**
+     * Блоки, вопросы которых после импорта оказались разорваны (phase-52).
+     * Строки при этом загружены — методисту нужно поправить порядок вручную.
+     */
+    passage_contiguity_violations: Array<{ passage_id: number; positions: number[] }>;
 }
 
 interface PreparedSingleMultiple {
@@ -119,10 +125,14 @@ export class QuizzesQuestionsImportService {
 
         const parsed = sortByOperatorSeq(await this.builder.parse(buf));
         const topicByName = await this.loadTopicIndex(parsed);
+        // Стимульные тексты создаются ДО вопросов: вопросу нужен готовый
+        // passage_id, а метка из файла в базу не попадает (phase-52).
+        const passageByKey = await this.createPassages(quizId, parsed, await this.builder.parsePassages(buf));
         const rows: QuestionImportRow[] = [];
         let succeeded = 0;
         let failed = 0;
         let importedAnswers = 0;
+        let contiguityViolations: ReturnType<typeof findContiguityViolations> = [];
 
         // Compute the starting order ONCE; increment locally per inserted question.
         // Benign duplicate-order race vs a concurrent manual create is acceptable —
@@ -151,7 +161,14 @@ export class QuizzesQuestionsImportService {
             }
 
             try {
-                const created = await this.persist(quizId, pq.type, validation.prepared!, nextOrder, resolveTopic(pq).id);
+                const created = await this.persist(
+                    quizId,
+                    pq.type,
+                    validation.prepared!,
+                    nextOrder,
+                    resolveTopic(pq).id,
+                    pq.passageKey ? (passageByKey.get(pq.passageKey.trim().toLowerCase()) ?? null) : null,
+                );
                 rows.push({ sheet: pq.sheet, row: pq.row, seq: pq.seq, topic_name: pq.topicName, topic_unmatched: resolveTopic(pq).unmatched, type: pq.type, title: displayTitle, status: 'ok', reason: null, question_id: created.questionId });
                 succeeded++;
                 importedAnswers += created.answersCreated;
@@ -167,6 +184,22 @@ export class QuizzesQuestionsImportService {
             // Каждый вопрос вставляется в своей транзакции, поэтому пересчёт —
             // один раз в конце, а не внутри каждой.
             await recalcQuizTotal(this.prisma, quizId);
+
+            // Инвариант непрерывности блока (phase-52). Импорт назначает `order`
+            // подряд, поэтому нарушить его можно единственным способом: указать
+            // одну метку текста у вопросов с непоследовательными «№». Строки уже
+            // загружены — откатывать их поздно и не нужно, поэтому просто
+            // сообщаем в лог и в ответ, чтобы методист поправил порядок руками.
+            const all = await this.prisma.quizQuestion.findMany({
+                where: { quiz_id: quizId },
+                select: { id: true, order: true, passage_id: true },
+            });
+            contiguityViolations = findContiguityViolations(all);
+            if (contiguityViolations.length > 0) {
+                this.logger.warn(
+                    `quiz=${quizId} passages not contiguous after import: ${JSON.stringify(contiguityViolations)}`,
+                );
+            }
             await this.cache.invalidate(QUIZZES_INVALIDATE_PATTERN);
         }
 
@@ -176,11 +209,50 @@ export class QuizzesQuestionsImportService {
             failed,
             imported_answers: importedAnswers,
             rows,
+            passage_contiguity_violations: contiguityViolations,
         };
         this.logger.log(
             `questions import quiz=${quizId} actor=${actor.id} role=${actor.role_name} total=${result.total} ok=${succeeded} failed=${failed}`,
         );
         return apiResponse(1, 'ok', 'quizzes.question.import', result);
+    }
+
+    /**
+     * Создаёт стимульные тексты из листа «Мәтіндер» и возвращает метка → id.
+     *
+     * Создаём только те, на которые реально ссылаются строки вопросов: лист
+     * может остаться от прошлого файла, и заводить в тесте неиспользуемые
+     * тексты значило бы мусорить в чужой работе.
+     */
+    private async createPassages(
+        quizId: number,
+        parsed: ParsedQuestionRow[],
+        passages: Map<string, { title: string | null; body: string }>,
+    ): Promise<Map<string, number>> {
+        const used = new Set(
+            parsed.map((p) => p.passageKey?.trim().toLowerCase()).filter((k): k is string => !!k),
+        );
+        const out = new Map<string, number>();
+        if (used.size === 0 || passages.size === 0) return out;
+
+        let position = 0;
+        for (const [key, value] of passages) {
+            if (!used.has(key)) continue;
+            const created = await this.prisma.quizPassage.create({
+                data: { quiz_id: quizId, position: position++, created_at: nowSec() },
+                select: { id: true },
+            });
+            await this.prisma.quizPassageTranslation.create({
+                data: {
+                    passage_id: created.id,
+                    locale: 'kz',
+                    title: value.title,
+                    body: sanitizeTiptapHtmlServer(value.body) ?? '',
+                },
+            });
+            out.set(key, created.id);
+        }
+        return out;
     }
 
     /**
@@ -313,13 +385,14 @@ export class QuizzesQuestionsImportService {
         prepared: Prepared,
         order: number,
         topicId: number | null,
+        passageId: number | null,
     ): Promise<{ questionId: number; answersCreated: number }> {
         return this.prisma.$transaction(async (tx) => {
             const now = nowSec();
             const correctText = type === 'descriptive' ? (prepared as PreparedDescriptive).correctText : null;
 
             const question: any = await tx.quizQuestion.create({
-                data: { quiz_id: quizId, type, grade: prepared.grade, order, topic_id: topicId, created_at: now },
+                data: { quiz_id: quizId, type, grade: prepared.grade, order, topic_id: topicId, passage_id: passageId, created_at: now },
                 select: { id: true },
             });
             await tx.quizQuestionTranslation.create({
