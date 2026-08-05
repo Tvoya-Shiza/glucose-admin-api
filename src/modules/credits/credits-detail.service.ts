@@ -177,7 +177,11 @@ export class CreditsDetailService {
         for (const s of sessions) {
             if (s.passed === true) passedSet.add(s.student_id);
             if (s.status !== 'cancelled') attemptCount.set(s.student_id, (attemptCount.get(s.student_id) ?? 0) + 1);
-            if (s.status === 'pending' || s.status === 'in_progress') activeSession.set(s.student_id, s.id);
+            // Сессия на паузе — тоже активная: она занимает слот и её надо показать
+            // куратору, иначе он не найдёт, что возобновлять (phase-50).
+            if (s.status === 'pending' || s.status === 'in_progress' || s.status === 'paused') {
+                activeSession.set(s.student_id, s.id);
+            }
         }
 
         const students: EligibleStudent[] = members.map((m) => ({

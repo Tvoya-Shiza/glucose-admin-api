@@ -11,6 +11,7 @@ import { CreditsConductService } from './credits-conduct.service';
 import { MarkQuestionDto } from './dto/mark-question.dto';
 import { NavigateSessionDto } from './dto/navigate-session.dto';
 import { ScheduleRetakeDto } from './dto/schedule-retake.dto';
+import { ExtendSessionDto } from './dto/extend-session.dto';
 import { parseBigIntId } from './utils/ids';
 
 /**
@@ -82,6 +83,37 @@ export class CreditsConductController {
     @HttpCode(HttpStatus.OK)
     public async cancel(@CurrentUser() actor: AuthenticatedRequestUser, @Param('id') idRaw: string) {
         return this.svc.cancelSession({ id: actor.id, role_name: actor.role_name }, parseBigIntId(idRaw));
+    }
+
+    @Post(':id/pause')
+    @Roles('admin', 'curator')
+    @RequirePermission('credits.conduct')
+    @Audit('credits.session_pause', 'credit_session')
+    @HttpCode(HttpStatus.OK)
+    public async pause(@CurrentUser() actor: AuthenticatedRequestUser, @Param('id') idRaw: string) {
+        return this.svc.pauseSession({ id: actor.id, role_name: actor.role_name }, parseBigIntId(idRaw));
+    }
+
+    @Post(':id/resume')
+    @Roles('admin', 'curator')
+    @RequirePermission('credits.conduct')
+    @Audit('credits.session_resume', 'credit_session')
+    @HttpCode(HttpStatus.OK)
+    public async resume(@CurrentUser() actor: AuthenticatedRequestUser, @Param('id') idRaw: string) {
+        return this.svc.resumeSession({ id: actor.id, role_name: actor.role_name }, parseBigIntId(idRaw));
+    }
+
+    @Post(':id/extend')
+    @Roles('admin', 'curator')
+    @RequirePermission('credits.conduct')
+    @Audit('credits.session_extend', 'credit_session')
+    @HttpCode(HttpStatus.OK)
+    public async extend(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('id') idRaw: string,
+        @Body() dto: ExtendSessionDto,
+    ) {
+        return this.svc.extendSession({ id: actor.id, role_name: actor.role_name }, parseBigIntId(idRaw), dto);
     }
 
     @Post(':id/schedule-retake')

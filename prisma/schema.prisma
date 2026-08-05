@@ -2714,6 +2714,12 @@ model CreditSession {
   started_at       Int?                @db.UnsignedInt
   // started_at + duration_sec, fixed at session start (curator opens it).
   ends_at          Int?                @db.UnsignedInt
+  /// Момент постановки на паузу (phase-50). NULL = не на паузе.
+  paused_at        Int?                @db.UnsignedInt
+  /// Накопленное время на паузе — для разбора спорных сессий.
+  paused_total_sec Int                 @default(0) @db.UnsignedInt
+  /// Сколько добавил куратор сверх исходной длительности.
+  extended_total_sec Int               @default(0) @db.UnsignedInt
   finished_at      Int?                @db.UnsignedInt
   score            Int?                @db.UnsignedInt
   max_score        Int                 @db.UnsignedInt
@@ -2800,6 +2806,8 @@ enum CreditSessionStatus {
   finished
   expired
   cancelled
+  /// phase-50 — дописано в конец списка.
+  paused
 }
 
 enum CreditQuestionMark {
