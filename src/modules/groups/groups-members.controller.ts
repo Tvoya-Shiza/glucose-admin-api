@@ -20,6 +20,7 @@ import { JwtGuard } from '../auth/guards/jwt.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import type { AuthenticatedRequestUser } from '../auth/jwt/jwt.strategy';
 import { BulkMembersDto } from './dto/bulk-members.dto';
+import { MemberCandidatesQueryDto } from './dto/member-candidates.dto';
 import { ListMembersDto, MemberProgressRequestDto } from './dto/member-progress.dto';
 import { ResolveMembersDto } from './dto/resolve-members.dto';
 import { GroupsMembersService } from './groups-members.service';
@@ -97,6 +98,17 @@ export class GroupsMembersController {
         @Body() dto: MemberProgressRequestDto,
     ) {
         return this.svc.progress({ id: actor.id, role_name: actor.role_name }, id, dto);
+    }
+
+    @Get(':id/member-candidates')
+    @Roles('admin', 'curator', 'teacher')
+    @RequirePermission('groups.edit')
+    public async candidates(
+        @CurrentUser() actor: AuthenticatedRequestUser,
+        @Param('id', ParseIntPipe) id: number,
+        @Query() query: MemberCandidatesQueryDto,
+    ) {
+        return this.svc.listCandidates({ id: actor.id, role_name: actor.role_name }, id, query);
     }
 
     @Post(':id/members/resolve')
