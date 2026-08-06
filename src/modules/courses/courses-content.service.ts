@@ -587,6 +587,29 @@ export class CoursesContentService {
             } else {
                 // Auto-assign order if not provided.
                 let nextOrder = dto.order;
+                if (typeof nextOrder !== 'number' && typeof dto.after_item_id === 'number') {
+                    // Вставка сразу после выбранного элемента (кнопка «+» у строки).
+                    //
+                    // Сдвиг делаем здесь же, внутри транзакции создания: иначе
+                    // между «создать в конец» и «переупорядочить» есть окно, в
+                    // котором ученик видит урок не на своём месте.
+                    const anchor: any = await tx.webinarChapterItem.findFirst({
+                        where: { id: dto.after_item_id, chapter_id: dto.chapter_id },
+                        select: { order: true },
+                    });
+                    if (!anchor) {
+                        throw new BadRequestException({
+                            code: 'items.after_item_not_in_chapter',
+                            message: 'items.after_item_not_in_chapter',
+                        });
+                    }
+                    const anchorOrder = (anchor.order as number | null) ?? 0;
+                    await tx.webinarChapterItem.updateMany({
+                        where: { chapter_id: dto.chapter_id, order: { gt: anchorOrder } },
+                        data: { order: { increment: 1 } },
+                    });
+                    nextOrder = anchorOrder + 1;
+                }
                 if (typeof nextOrder !== 'number') {
                     const maxRow: any = await tx.webinarChapterItem.findFirst({
                         where: { chapter_id: dto.chapter_id },

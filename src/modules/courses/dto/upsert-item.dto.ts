@@ -195,6 +195,21 @@ export class UpsertItemDto {
     order?: number;
 
     /**
+     * Вставить новый элемент СРАЗУ ПОСЛЕ указанного (кнопка «+» у строки).
+     *
+     * Порядок считает сервер: `order(after) + 1`, а соседей сдвигает в той же
+     * транзакции. Клиенту не нужно знать нумерацию, и два методиста, вставляющие
+     * одновременно, не переезжают друг на друга.
+     *
+     * Игнорируется при обновлении и при явном `order`. Элемент должен лежать в
+     * той же главе, иначе `items.after_item_not_in_chapter`.
+     */
+    @IsOptional()
+    @IsInt()
+    @Min(1)
+    after_item_id?: number;
+
+    /**
      * Phase 20 — per-item content-level access toggle. Maps to
      * `WebinarChapterItem.accessibility` for ALL item types ('file', 'quiz',
      * 'assignment'). For 'file' the service ALSO mirrors the value onto the
