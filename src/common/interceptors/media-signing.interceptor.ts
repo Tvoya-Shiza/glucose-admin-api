@@ -1,7 +1,7 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
-import { isMediaSigningEnabled, signMediaUrl } from '../utils/media-signing';
+import { isMediaSigningEnabled, looksLikeHtml, signMediaUrl, signMediaUrlsInHtml } from '../utils/media-signing';
 
 /**
  * Подписывает ссылки на `/static/` в исходящем ответе (phase-49).
@@ -45,7 +45,13 @@ export class MediaSigningInterceptor implements NestInterceptor {
 
         if (typeof data === 'string') {
             // Дешёвый отсев: подавляющее большинство строк в ответе — не ссылки.
-            return data.includes('/static/') ? signMediaUrl(data, now) : data;
+            if (!data.includes('/static/')) return data;
+            // Строка со ссылкой и строка С РАЗМЕТКОЙ, внутри которой ссылки, —
+            // разные вещи. Раньше обе шли в signMediaUrl, и HTML возвращался
+            // нетронутым: `new URL('<img …')` бросает. Из-за этого все картинки
+            // в описаниях вопросов отдавали 403, а у студента — ещё и 404,
+            // потому что путь в них относительный.
+            return looksLikeHtml(data) ? signMediaUrlsInHtml(data, now) : signMediaUrl(data, now);
         }
 
         if (typeof data !== 'object') return data;

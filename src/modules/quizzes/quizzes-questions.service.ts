@@ -105,6 +105,9 @@ export class QuizzesQuestionsService {
                     where: { quiz_id: quizId },
                     include: {
                         translations: true,
+                        // Название темы нужно форме вопроса сразу: иначе она не
+                        // покажет выбранную тему, пока не догрузит весь справочник.
+                        topic: { select: { id: true, name: true } },
                         answers: {
                             include: { translations: true },
                             orderBy: [{ parent_id: 'asc' }, { id: 'asc' }],
@@ -246,7 +249,13 @@ export class QuizzesQuestionsService {
                 data: {
                     type: dto.type,
                     grade: dto.grade,
-                    topic_id: dto.topic_id ?? null,
+                    // Тему трогаем ТОЛЬКО если поле реально пришло в теле.
+                    // Раньше стояло `dto.topic_id ?? null` — безусловная
+                    // перезапись, и любое сохранение вопроса стирало тему,
+                    // даже когда админ правил один только балл. Плюс это
+                    // защищает от старого клиента, который поля не знает и
+                    // не шлёт его вовсе.
+                    ...(dto.topic_id !== undefined ? { topic_id: dto.topic_id ?? null } : {}),
                     image: dto.image ?? null,
                     video: dto.video ?? null,
                     answer_video_url: dto.answer_video_url ?? null,
@@ -573,6 +582,13 @@ export function mapQuestionRow(q: any): any {
         id: Number(q.id),
         type: q.type,
         grade: Number(q.grade ?? 0),
+        // Тема и текстовый блок обязаны быть здесь, а не только в readQuizDetail:
+        // диалог редактирования вопроса читает именно ЭТОТ список. Пока их не
+        // было, форма подставляла «нет темы» и сохранение стирало тему в базе —
+        // даже если админ правил один только балл (phase-51/52).
+        topic_id: q.topic_id == null ? null : Number(q.topic_id),
+        topic_name: q.topic?.name ?? null,
+        passage_id: q.passage_id == null ? null : Number(q.passage_id),
         image: q.image ?? null,
         video: q.video ?? null,
         answer_video_url: q.answer_video_url ?? null,

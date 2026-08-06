@@ -13,8 +13,10 @@ import { createHash } from 'crypto';
 import {
     MEDIA_TTL_SECONDS,
     isMediaSigningEnabled,
+    looksLikeHtml,
     mediaKindFromPath,
     signMediaUrl,
+    signMediaUrlsInHtml,
 } from './media-signing';
 
 const SECRET = 'test-secret';
@@ -112,11 +114,93 @@ describe('media signing', () => {
         expect(signMediaUrl('/v1/quizzes', NOW)).toBe('/v1/quizzes');
     });
 
+    it('HTML-строку целиком не трогает — это текст, а не ссылка', () => {
+        // Раньше сюда приходил весь HTML описания вопроса, `new URL` бросал,
+        // и строка возвращалась неподписанной. Теперь отсекаем явно.
+        const html = '<p>текст</p><img src="/static/courses/a.png">';
+        expect(signMediaUrl(html, NOW)).toBe(html);
+    });
+
+    it('HTML, начинающийся со слэша, не получает подпись в середину текста', () => {
+        // Коварный случай: строка выглядит относительным путём, парсится без
+        // ошибки, и подпись дописалась бы посреди разметки.
+        const html = '/static/x <p>подпись сюда попасть не должна</p>';
+        expect(signMediaUrl(html, NOW)).toBe(html);
+    });
+
     it('без секрета отдаёт ссылку как есть: разработка и незаполненный .env не должны падать', () => {
         delete process.env.MEDIA_SIGNING_SECRET;
         expect(isMediaSigningEnabled()).toBe(false);
         expect(signMediaUrl('https://api.example.kz/static/a.webp', NOW)).toBe(
             'https://api.example.kz/static/a.webp',
         );
+    });
+
+    describe('signMediaUrlsInHtml — картинки внутри описаний', () => {
+        const API = 'https://api.example.kz';
+        const originalApi = process.env.API_URL;
+
+        beforeEach(() => {
+            process.env.API_URL = API;
+        });
+
+        afterAll(() => {
+            if (originalApi === undefined) delete process.env.API_URL;
+            else process.env.API_URL = originalApi;
+        });
+
+        it('подписывает картинку и достраивает её до API-хоста', () => {
+            // Ключевой случай: Tiptap пишет относительный путь, и у студента он
+            // уходил на домен приложения, где /static/ нет вовсе — 404.
+            const out = signMediaUrlsInHtml('<img src="/static/courses/a.png" alt="Снимок.png">', NOW);
+            expect(out).toContain(`src="${API}/static/courses/a.png?`);
+            expect(out).toContain('md5=');
+            expect(out).toContain('expires=');
+            expect(out).toContain('alt="Снимок.png"');
+        });
+
+        it('подписывает несколько ссылок в одной строке', () => {
+            const out = signMediaUrlsInHtml(
+                '<img src="/static/a.png"><p>и</p><img src="/static/b.png">',
+                NOW,
+            );
+            expect(out.match(/md5=/g)).toHaveLength(2);
+        });
+
+        it('не трогает чужие ссылки и якоря', () => {
+            const html = '<a href="https://youtube.com/x">видео</a><img src="https://cdn.example/y.png">';
+            expect(signMediaUrlsInHtml(html, NOW)).toBe(html);
+        });
+
+        it('не подписывает дважды', () => {
+            const once = signMediaUrlsInHtml('<img src="/static/a.png">', NOW);
+            expect(signMediaUrlsInHtml(once, NOW + 60_000)).toBe(once);
+        });
+
+        it('подписывает href — файл по ссылке закрыт так же, как картинка', () => {
+            const out = signMediaUrlsInHtml('<a href="/static/courses/doc.pdf">файл</a>', NOW);
+            expect(out).toContain('md5=');
+        });
+
+        it('строку без /static/ возвращает мгновенно и без изменений', () => {
+            const html = '<p>обычный текст без картинок</p>';
+            expect(signMediaUrlsInHtml(html, NOW)).toBe(html);
+        });
+
+        it('работает и с одинарными кавычками', () => {
+            const out = signMediaUrlsInHtml("<img src='/static/a.png'>", NOW);
+            expect(out).toContain('md5=');
+            expect(out).toContain("src='");
+        });
+    });
+
+    describe('looksLikeHtml', () => {
+        it('отличает разметку от ссылки', () => {
+            expect(looksLikeHtml('<p>текст</p>')).toBe(true);
+            expect(looksLikeHtml('<img src="/static/a.png">')).toBe(true);
+            expect(looksLikeHtml('https://api.example.kz/static/a.png')).toBe(false);
+            expect(looksLikeHtml('/static/a.png')).toBe(false);
+            expect(looksLikeHtml('просто текст')).toBe(false);
+        });
     });
 });
