@@ -55,3 +55,21 @@ describe('findContiguityViolations', () => {
         expect(isContiguous([])).toBe(true);
     });
 });
+
+describe('область инварианта — один тест (phase-53)', () => {
+    it('один контекст в двух тестах нарушением не считается', () => {
+        // Каждый тест проверяется отдельно: блок 7 стоит подряд и там, и там.
+        const first = findContiguityViolations([
+            { id: 1, order: 1, passage_id: 7 },
+            { id: 2, order: 2, passage_id: 7 },
+            { id: 3, order: 3, passage_id: null },
+        ]);
+        const second = findContiguityViolations([
+            { id: 10, order: 1, passage_id: null },
+            { id: 11, order: 2, passage_id: 7 },
+            { id: 12, order: 3, passage_id: 7 },
+        ]);
+        expect(first).toEqual([]);
+        expect(second).toEqual([]);
+    });
+});

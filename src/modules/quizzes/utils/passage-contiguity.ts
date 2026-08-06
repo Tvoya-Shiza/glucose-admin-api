@@ -13,6 +13,16 @@
  *
  * Поэтому проверяем при каждом переупорядочивании и при привязке вопроса к
  * блоку, и отдаём понятную ошибку вместо молчаливой порчи теста.
+ *
+ * ОБЛАСТЬ ИНВАРИАНТА — ОДИН ТЕСТ. С phase-53 контекст стал общим справочником
+ * и живёт сразу в нескольких тестах, но проверка от этого не меняется: ученик
+ * проходит один тест за раз, и панель мигает внутри него. Формально —
+ * «вопросы блока В ПРЕДЕЛАХ ОДНОГО ТЕСТА идут подряд».
+ *
+ * Отсюда требование к вызывающим: передавать вопросы РОВНО ОДНОГО теста. Если
+ * сюда попадут вопросы двух тестов, один и тот же блок разойдётся по списку и
+ * функция вернёт ложное нарушение — привязка окажется заблокирована без
+ * причины. Все три вызова (привязка, reorder, импорт) выбирают по `quiz_id`.
  */
 
 export interface PassageOrderedQuestion {
@@ -37,8 +47,11 @@ export interface ContiguityViolation {
  * Вопросы без блока (`passage_id = null`) не проверяются — они самостоятельны и
  * могут стоять где угодно.
  */
-export function findContiguityViolations(questions: ReadonlyArray<PassageOrderedQuestion>): ContiguityViolation[] {
-    const sorted = [...questions].sort((a, b) => {
+export function findContiguityViolations(
+    /** Вопросы РОВНО одного теста — см. область инварианта в шапке файла. */
+    questionsOfSingleQuiz: ReadonlyArray<PassageOrderedQuestion>,
+): ContiguityViolation[] {
+    const sorted = [...questionsOfSingleQuiz].sort((a, b) => {
         const ao = a.order ?? Number.MAX_SAFE_INTEGER;
         const bo = b.order ?? Number.MAX_SAFE_INTEGER;
         return ao !== bo ? ao - bo : a.id - b.id;

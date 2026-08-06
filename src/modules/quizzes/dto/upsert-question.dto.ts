@@ -93,6 +93,20 @@ export class UpsertQuestionDto {
     @Min(1)
     topic_id?: number | null;
 
+    /**
+     * Контекст из справочника (phase-53) — стимульный текст над вопросом.
+     * null или отсутствует — самостоятельный вопрос.
+     *
+     * Как и у темы: `null` означает «очистить», отсутствие поля — «не трогать».
+     * Иначе клиент, который про контексты ещё не знает, стирал бы привязку при
+     * каждом сохранении вопроса.
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    passage_id?: number | null;
+
     @IsIn(['single', 'multiple', 'descriptive', 'identificative'])
     type!: UpsertQuestionType;
 

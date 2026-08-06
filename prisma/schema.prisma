@@ -626,7 +626,6 @@ model Quizzes {
   subject       QuizSubject?   @relation("QuizSubjects", fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   quiz_category QuizCategory?  @relation("QuizCategories", fields: [category_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   questions     QuizQuestion[] @relation("QuizQuestions")
-  passages      QuizPassage[]  @relation("QuizPassages")
   results       QuizResult[]   @relation("QuizResults")
   sales         Sale[]         @relation("QuizSales")
   carts         Cart[]         @relation(name: "QuizCarts")
@@ -757,19 +756,25 @@ model QuizQuestion {
 /// «неподвижность текста», о которой просил заказчик.
 model QuizPassage {
   id         Int    @id @default(autoincrement()) @db.UnsignedInt
-  /// Знаковый Int: `quizzes.id` объявлен без UNSIGNED, внешний ключ на колонку
-  /// другой знаковости MySQL отвергает.
-  quiz_id    Int
-  /// Порядок блоков в тесте; вопросы блока идут подряд по своему `order`.
+  /// След «где блок создан» — БОЛЬШЕ НЕ СВЯЗЬ (phase-53).
+  ///
+  /// Блок стал общим справочником и переиспользуется между тестами, поэтому
+  /// внешний ключ снят, а колонка оставлена только ради возможности отката.
+  /// Код её не читает: в каких тестах используется блок, видно по вопросам.
+  quiz_id    Int?
+  /// Устарело вместе с привязкой к тесту: порядок блоков в глобальном
+  /// справочнике не определён, панель у ученика идёт по порядку вопросов.
+  /// Колонка оставлена, но больше не выставляется.
   position   Int    @default(0) @db.UnsignedInt
   image      String? @db.Text
   created_at Int    @db.UnsignedInt
   updated_at Int?   @db.UnsignedInt
 
-  quiz         Quizzes                  @relation("QuizPassages", fields: [quiz_id], references: [id], onDelete: Cascade, onUpdate: Restrict)
   translations QuizPassageTranslation[] @relation("QuizPassageTranslations")
   questions    QuizQuestion[]           @relation("QuizPassageQuestions")
 
+  /// Индекс физически остался (expand-фаза, ради отката) — объявляем, чтобы
+  /// `ci:prisma-drift` не считал его лишним.
   @@index([quiz_id, position], map: "idx_quiz_passages_quiz")
   @@map("quiz_passages")
 }

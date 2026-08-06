@@ -72,6 +72,8 @@ export class QuizzesDuplicateService {
                         id: true,
                         type: true,
                         grade: true,
+                        topic_id: true,
+                        passage_id: true,
                         image: true,
                         video: true,
                         answer_video_url: true,
@@ -142,14 +144,11 @@ export class QuizzesDuplicateService {
                         quiz_id: newQuiz.id,
                         type: sq.type,
                         grade: sq.grade,
-                        // Тема переезжает в копию: она общая для всей платформы,
-                        // и терять её при дублировании теста незачем.
-                        //
-                        // passage_id намеренно НЕ копируем: пока текстовый блок
-                        // принадлежит конкретному тесту, копия ссылалась бы на
-                        // чужой блок. Вернуть сюда, когда контексты станут
-                        // общим справочником.
+                        // Тема и контекст переезжают в копию: оба — общие
+                        // справочники платформы, и копия ссылается на те же
+                        // строки, а не заводит свои.
                         topic_id: sq.topic_id ?? null,
+                        passage_id: sq.passage_id ?? null,
                         image: sq.image ?? null,
                         video: sq.video ?? null,
                         answer_video_url: sq.answer_video_url ?? null,

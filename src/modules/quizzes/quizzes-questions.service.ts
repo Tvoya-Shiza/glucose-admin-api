@@ -148,6 +148,7 @@ export class QuizzesQuestionsService {
                     type: dto.type,
                     grade: dto.grade,
                     topic_id: dto.topic_id ?? null,
+                    passage_id: dto.passage_id ?? null,
                     image: dto.image ?? null,
                     video: dto.video ?? null,
                     answer_video_url: dto.answer_video_url ?? null,
@@ -256,6 +257,9 @@ export class QuizzesQuestionsService {
                     // защищает от старого клиента, который поля не знает и
                     // не шлёт его вовсе.
                     ...(dto.topic_id !== undefined ? { topic_id: dto.topic_id ?? null } : {}),
+                    // Контекст — по тому же правилу: пришло поле — меняем,
+                    // не пришло — не трогаем.
+                    ...(dto.passage_id !== undefined ? { passage_id: dto.passage_id ?? null } : {}),
                     image: dto.image ?? null,
                     video: dto.video ?? null,
                     answer_video_url: dto.answer_video_url ?? null,

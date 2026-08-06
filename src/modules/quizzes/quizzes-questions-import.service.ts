@@ -235,11 +235,13 @@ export class QuizzesQuestionsImportService {
         const out = new Map<string, number>();
         if (used.size === 0 || passages.size === 0) return out;
 
-        let position = 0;
         for (const [key, value] of passages) {
             if (!used.has(key)) continue;
+            // Без quiz_id и position: контексты стали общим справочником
+            // (phase-53), и созданный импортом блок ничем от заведённого руками
+            // не отличается — его можно переиспользовать в других тестах.
             const created = await this.prisma.quizPassage.create({
-                data: { quiz_id: quizId, position: position++, created_at: nowSec() },
+                data: { created_at: nowSec() },
                 select: { id: true },
             });
             await this.prisma.quizPassageTranslation.create({

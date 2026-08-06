@@ -2,8 +2,8 @@ import { Type } from 'class-transformer';
 import { IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 /**
- * Текстовый блок теста (phase-52) — стимульный текст формата ҰБТ, общий для
- * нескольких вопросов.
+ * Контекст — стимульный текст формата ҰБТ, общий для нескольких вопросов
+ * (phase-52; в phase-53 стал общим справочником, а не частью теста).
  */
 
 /** Потолок текста. Тот же, что у `description` вопроса — это тот же Tiptap HTML. */
@@ -23,12 +23,6 @@ export class CreateQuizPassageDto {
     @IsOptional()
     @IsString()
     image?: string | null;
-
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(0)
-    position?: number;
 }
 
 export class UpdateQuizPassageDto {
@@ -46,21 +40,36 @@ export class UpdateQuizPassageDto {
     @IsOptional()
     @IsString()
     image?: string | null;
+}
+
+/** Запрос списка справочника: поиск по названию + страница. */
+export class ListQuizPassagesDto {
+    @IsOptional()
+    @IsString()
+    @MaxLength(255)
+    q?: string;
 
     @IsOptional()
     @Type(() => Number)
     @IsInt()
-    @Min(0)
-    position?: number;
+    @Min(1)
+    page?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    per_page?: number;
 }
 
 export interface QuizPassageDto {
     id: number;
-    quiz_id: number;
-    position: number;
+    /** Название — только для админки: заказчик просил его ради поиска. */
     title: string | null;
     body: string;
     image: string | null;
     /** Сколько вопросов привязано — виден вес блока перед удалением. */
     question_count: number;
+    /** В скольких тестах блок используется. */
+    quiz_count: number;
 }
