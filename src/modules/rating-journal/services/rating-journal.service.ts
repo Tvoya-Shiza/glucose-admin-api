@@ -184,12 +184,14 @@ export class RatingJournalService {
         // per the append-only edit log (changed_at). Null = no filter → all cells.
         const inRange = await this.cellsGradedInRange(columnIds, dateRange);
 
-        // When a date range is active, drop columns that received no grade within
-        // it, so the grid shows ONLY the columns touched in that range (item 4 fix
-        // — previously every column stayed and just rendered empty cells). Headers,
-        // totals and exports all derive from `columns`, so filtering here is enough.
-        const inRangeColumnIds = inRange ? new Set(Array.from(inRange, (k) => k.slice(0, k.lastIndexOf(':')))) : null;
-        const effectiveColumns = inRangeColumnIds ? columns.filter((c) => inRangeColumnIds.has(c.id)) : columns;
+        // Колонки при фильтре по датам НЕ прячем — решение заказчика.
+        //
+        // Раньше грид оставлял только колонки, где в диапазон попала хоть одна
+        // оценка. Это давало пустой экран в начале недели и, что хуже, менявшийся
+        // знаменатель: одна и та же успеваемость показывала разный процент в
+        // зависимости от выбранного периода. Теперь диапазон режет ТОЛЬКО ячейки,
+        // а состав колонок и максимум курса от него не зависят.
+        const effectiveColumns = columns;
 
         const visibleColumnIds = new Set(effectiveColumns.filter((c) => !c.is_hidden).map((c) => c.id));
         const maxTotal = effectiveColumns.filter((c) => !c.is_hidden).reduce((s, c) => s + c.max_score, 0);
