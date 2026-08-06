@@ -117,7 +117,7 @@ export function signMediaUrl(url: string, now = Date.now()): string {
     if (!parsed.pathname.startsWith('/static/')) return url;
 
     const ttl = MEDIA_TTL_SECONDS[mediaKindFromPath(parsed.pathname)];
-    const expires = Math.floor(now / 1000) + ttl;
+    const expires = bucketedExpires(now, ttl);
     // Подписываем ИМЕННО pathname: nginx считает md5 от $uri, в который
     // query-строка не входит. Кодирование тоже должно совпадать — берём
     // parsed.pathname, а не исходную подстроку, чтобы URL-класс нормализовал
@@ -126,6 +126,25 @@ export function signMediaUrl(url: string, now = Date.now()): string {
     parsed.searchParams.set('md5', md5);
     parsed.searchParams.set('expires', String(expires));
     return isRelative ? `${parsed.pathname}${parsed.search}` : parsed.toString();
+}
+
+/**
+ * Срок жизни, округлённый ВВЕРХ до границы корзины.
+ *
+ * Без округления каждый ответ API давал новый `expires`, а значит новый `src` у
+ * той же самой картинки — браузер считал её другой и качал заново при каждом
+ * обновлении списка. На вкладке вопросов теста это выглядело как бесконечный
+ * поток запросов за одним и тем же файлом.
+ *
+ * С округлением ссылка побайтово одинакова в пределах корзины, и браузерный кэш
+ * (nginx отдаёт `expires 10m`) наконец срабатывает. Платим за это тем, что
+ * реальный срок жизни ссылки становится от TTL до TTL + корзина.
+ */
+const EXPIRES_BUCKET_SECONDS = 15 * 60;
+
+function bucketedExpires(now: number, ttl: number): number {
+    const raw = Math.floor(now / 1000) + ttl;
+    return Math.ceil(raw / EXPIRES_BUCKET_SECONDS) * EXPIRES_BUCKET_SECONDS;
 }
 
 /** Строка похожа на разметку, а не на ссылку: есть тег вида `<x` или `</x`. */

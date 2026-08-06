@@ -49,7 +49,16 @@ describe('media signing', () => {
         const parsed = new URL(url);
         const expires = Number(parsed.searchParams.get('expires'));
 
-        expect(expires).toBe(Math.floor(NOW / 1000) + MEDIA_TTL_SECONDS.image);
+        // Срок округляется вверх до 15-минутной границы, поэтому он не равен
+        // now + ttl ровно, а лежит в пределах одной корзины от него. Округление
+        // сделано намеренно: без него каждый ответ API давал новый url той же
+        // картинки, и браузер качал её заново.
+        const floor = Math.floor(NOW / 1000) + MEDIA_TTL_SECONDS.image;
+        expect(expires).toBeGreaterThanOrEqual(floor);
+        expect(expires).toBeLessThan(floor + 15 * 60);
+        expect(expires % (15 * 60)).toBe(0);
+
+        // Главное в этом тесте: наш md5 совпадает с тем, что посчитает nginx.
         expect(parsed.searchParams.get('md5')).toBe(
             nginxWouldCompute(expires, '/static/courses/page.webp', SECRET),
         );
@@ -201,6 +210,49 @@ describe('media signing', () => {
             expect(looksLikeHtml('https://api.example.kz/static/a.png')).toBe(false);
             expect(looksLikeHtml('/static/a.png')).toBe(false);
             expect(looksLikeHtml('просто текст')).toBe(false);
+        });
+    });
+});
+
+describe('стабильность подписи между ответами', () => {
+    const withSecret = <T>(fn: () => T): T => {
+        const prev = process.env.MEDIA_SIGNING_SECRET;
+        process.env.MEDIA_SIGNING_SECRET = 'test-secret';
+        try {
+            return fn();
+        } finally {
+            if (prev === undefined) delete process.env.MEDIA_SIGNING_SECRET;
+            else process.env.MEDIA_SIGNING_SECRET = prev;
+        }
+    };
+
+    it('две подписи подряд дают ОДИНАКОВЫЙ url', () => {
+        withSecret(() => {
+            const a = signMediaUrl('/static/courses/x.png', 1_700_000_000_000);
+            const b = signMediaUrl('/static/courses/x.png', 1_700_000_042_000);
+            // Раньше здесь были разные expires, и браузер качал картинку заново
+            // при каждом обновлении списка.
+            expect(a).toBe(b);
+        });
+    });
+
+    it('срок не короче заявленного TTL', () => {
+        withSecret(() => {
+            const now = 1_700_000_000_000;
+            const url = signMediaUrl('/static/courses/x.png', now);
+            const expires = Number(new URL(url, 'https://x.invalid').searchParams.get('expires'));
+            const ttl = MEDIA_TTL_SECONDS.image;
+            expect(expires).toBeGreaterThanOrEqual(Math.floor(now / 1000) + ttl);
+            // И не длиннее TTL плюс одна корзина (15 минут).
+            expect(expires).toBeLessThanOrEqual(Math.floor(now / 1000) + ttl + 15 * 60);
+        });
+    });
+
+    it('за границей корзины url меняется', () => {
+        withSecret(() => {
+            const a = signMediaUrl('/static/courses/x.png', 1_700_000_000_000);
+            const b = signMediaUrl('/static/courses/x.png', 1_700_000_000_000 + 20 * 60 * 1000);
+            expect(a).not.toBe(b);
         });
     });
 });
