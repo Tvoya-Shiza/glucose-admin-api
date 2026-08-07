@@ -79,6 +79,22 @@ export class UpsertStoryDto {
     @IsIn(['pending', 'publish'])
     status?: StoryStatusInput;
 
+    /**
+     * Устаревшее поле: убрано из формы админки, сервером не записывается.
+     *
+     * В DTO оставлено НАМЕРЕННО. Глобальный ValidationPipe стоит с
+     * `forbidNonWhitelisted: true` — незнакомое поле в теле даёт 400, а не
+     * молчаливый пропуск. В окне выкатки, когда новый admin-api уже поднят, а
+     * admin-client ещё старый, форма продолжала бы слать `enable_comment` и
+     * методист не смог бы сохранить ни один сторис.
+     *
+     * Принимаем и игнорируем. Удалить можно будет, когда старых клиентов
+     * заведомо не останется.
+     */
+    @IsOptional()
+    @IsBoolean()
+    enable_comment?: boolean;
+
     @IsOptional()
     @IsString()
     @MaxLength(255)
