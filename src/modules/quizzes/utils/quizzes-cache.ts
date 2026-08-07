@@ -20,6 +20,16 @@ import type { ListQuizzesDto } from '../dto/list-quizzes.dto';
 export const QUIZZES_INVALIDATE_PATTERN = 'geonline-admin:quizzes:*';
 
 /**
+ * Кэш разбора результата у УЧЕНИКА — чужой неймспейс (`geonline:`), живёт 30
+ * минут. Сбрасывается из админки после массовой простановки тем: иначе
+ * методист разметит вопросы, откроет результат теста и увидит старый разбор.
+ *
+ * Прецедент кросс-неймспейсной инвалидации в проекте уже есть — так же сделано
+ * у сторис (`STORIES_PUBLIC_INVALIDATE_PATTERN`).
+ */
+export const QUIZ_RESULT_PUBLIC_INVALIDATE_PATTERN = 'geonline:quiz_result:*';
+
+/**
  * Build a deterministic cache key for the list endpoint.
  *
  * Filters are canonicalized by sorting JSON keys before hashing so that

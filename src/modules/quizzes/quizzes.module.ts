@@ -13,6 +13,8 @@ import { QuizzesDetailService } from './quizzes-detail.service';
 import { QuizzesQuestionsController } from './quizzes-questions.controller';
 import { QuizzesQuestionsService } from './quizzes-questions.service';
 import { QuizPassageAssignmentController, QuizPassagesController } from './quiz-passages.controller';
+import { QuizzesQuestionsBulkController } from './quizzes-questions-bulk.controller';
+import { QuizzesQuestionsBulkService } from './quizzes-questions-bulk.service';
 import { QuizPassagesService } from './quiz-passages.service';
 import { QuizTopicsController } from './quiz-topics.controller';
 import { QuizTopicsService } from './quiz-topics.service';
@@ -52,6 +54,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
     controllers: [
         QuizPassagesController,
         QuizPassageAssignmentController,
+        QuizzesQuestionsBulkController,
         QuizTopicsController,
         QuizzesListController,
         QuizzesMutationsController,
@@ -74,6 +77,7 @@ import { QuizzesCacheService } from './utils/quizzes-cache.service';
         QuizzesDetailService,
         QuizzesQuestionsService,
         QuizzesQuestionsImportService,
+        QuizzesQuestionsBulkService,
         QuizzesAnswersService,
         QuizBadgesService,
         QuizBadgeItemsService,
