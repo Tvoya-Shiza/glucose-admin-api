@@ -1881,6 +1881,13 @@ model Story {
   link_type      String?    @db.VarChar(255)
   page_type      String?    @db.VarChar(255)
   link           String?    @db.VarChar(255)
+  /// Показывать ли в сторисе кнопку перехода (phase-54). Куда ведёт — `link`.
+  /// Умолчание false: у сторисов, опубликованных до этой правки, кнопки не было.
+  show_more_button Boolean  @default(false) @db.TinyInt
+  /// Длительность показа видео в секундах (phase-54). Вводится вручную: ffprobe
+  /// в образах нет. NULL — не задано, мобилка подставит своё умолчание; ноль
+  /// означал бы «свернуть мгновенно», и это другое.
+  video_duration Int?       @db.UnsignedInt
   created_at     Int        @db.UnsignedInt
   updated_at     Int        @db.UnsignedInt
 

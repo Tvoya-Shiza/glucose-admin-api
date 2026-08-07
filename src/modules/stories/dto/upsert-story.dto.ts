@@ -5,9 +5,12 @@ import {
     IsArray,
     IsBoolean,
     IsIn,
+    IsInt,
     IsOptional,
     IsString,
+    Max,
     MaxLength,
+    Min,
     ValidateNested,
 } from 'class-validator';
 
@@ -77,10 +80,6 @@ export class UpsertStoryDto {
     status?: StoryStatusInput;
 
     @IsOptional()
-    @IsBoolean()
-    enable_comment?: boolean;
-
-    @IsOptional()
     @IsString()
     @MaxLength(255)
     link_type?: string | null;
@@ -94,6 +93,27 @@ export class UpsertStoryDto {
     @IsString()
     @MaxLength(255)
     link?: string | null;
+
+    /**
+     * Показывать ли кнопку перехода в сторисе (phase-54). Куда ведёт — `link`.
+     * Проверку «включено, но ссылка пуста» делает форма админки: на сервере
+     * ссылку могли задать раньше и отдельным сохранением.
+     */
+    @IsOptional()
+    @IsBoolean()
+    show_more_button?: boolean;
+
+    /**
+     * Длительность показа видео в секундах (phase-54). null — не задано,
+     * мобилка подставит своё умолчание. Ноль запрещён: он означал бы «свернуть
+     * мгновенно», и это почти наверняка опечатка, а не намерение.
+     */
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(86400)
+    video_duration?: number | null;
 
     @IsOptional()
     @IsArray()

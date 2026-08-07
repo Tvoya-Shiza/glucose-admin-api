@@ -26,10 +26,11 @@ export interface StoryDetail {
     status: 'pending' | 'publish';
     author_id: number;
     visit_count: number;
-    enable_comment: boolean;
     link_type: string | null;
     page_type: string | null;
     link: string | null;
+    show_more_button: boolean;
+    video_duration: number | null;
     created_at: number;
     updated_at: number;
     translations: StoryTranslationDetail[];
@@ -54,10 +55,11 @@ export class StoriesDetailService {
                 status: true,
                 author_id: true,
                 visit_count: true,
-                enable_comment: true,
                 link_type: true,
                 page_type: true,
                 link: true,
+                show_more_button: true,
+                video_duration: true,
                 created_at: true,
                 updated_at: true,
                 translations: {
@@ -89,10 +91,11 @@ export class StoriesDetailService {
             status: row.status as 'pending' | 'publish',
             author_id: Number(row.author_id),
             visit_count: Number(row.visit_count ?? 0),
-            enable_comment: !!row.enable_comment,
             link_type: row.link_type ?? null,
             page_type: row.page_type ?? null,
             link: row.link ?? null,
+            show_more_button: !!row.show_more_button,
+            video_duration: row.video_duration == null ? null : Number(row.video_duration),
             created_at: Number(row.created_at),
             updated_at: Number(row.updated_at ?? row.created_at),
             translations,

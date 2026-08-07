@@ -64,10 +64,15 @@ export class StoriesMutationsService {
                     icon: dto.icon ?? null,
                     video: dto.video ?? null,
                     status: dto.status ?? 'pending',
-                    enable_comment: dto.enable_comment ?? true,
+                    // enable_comment не пишем: поле убрано из формы и DTO как
+                    // мёртвое — мобилке оно не отдаётся никогда (в ответе
+                    // захардкожены comments: [] и comment_count: 0). Колонка
+                    // осталась в БД со своим @default(true).
                     link_type: dto.link_type ?? null,
                     page_type: dto.page_type ?? null,
                     link: dto.link ?? null,
+                    show_more_button: dto.show_more_button ?? false,
+                    video_duration: dto.video_duration ?? null,
                     visit_count: 0,
                     created_at: now,
                     updated_at: now,
@@ -111,10 +116,11 @@ export class StoriesMutationsService {
         if (dto.icon !== undefined) data.icon = dto.icon;
         if (dto.video !== undefined) data.video = dto.video;
         if (typeof dto.status === 'string') data.status = dto.status;
-        if (typeof dto.enable_comment === 'boolean') data.enable_comment = dto.enable_comment;
         if (dto.link_type !== undefined) data.link_type = dto.link_type;
         if (dto.page_type !== undefined) data.page_type = dto.page_type;
         if (dto.link !== undefined) data.link = dto.link;
+        if (typeof dto.show_more_button === 'boolean') data.show_more_button = dto.show_more_button;
+        if (dto.video_duration !== undefined) data.video_duration = dto.video_duration;
 
         const kzTranslations = Array.isArray(dto.translations)
             ? dto.translations.filter((t) => t.locale === 'kz')
